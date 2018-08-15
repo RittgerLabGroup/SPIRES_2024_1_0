@@ -28,11 +28,17 @@ To create a new version of the Toolbox:
     which is tbx/ESPToolbox, make it the Current Folder. On the
     Current Folder bar, click the context menu (down triangle)
     and select Reports->Contents Report, follow prompts to
-    add/delete items according to what you have changed.
-3.  Update the version number in the ESPToolbox.prj file:
+    add/delete items according to what you have changed. The Contents.m file
+    controls what shows up when you type `help ESPToolbox`.
+3.  Update the doc/*.html files and update the helpsearch file by
+    calling `builddocsearchdb('/Users/brodzik/Documents/MATLAB/esp/tbx/doc')'
+4.  There is some way to build extra documentation by opening your .m
+    file and doing "Publish"--this shows up in the documentation, but
+    I'm not entirely sure what good it does.
+5.  Update the version number in the ESPToolbox.prj file:
     navigate to this file in the Current Folder, double-clicking and
     changing the version number.
-4.  Make sure the project sandbox is on the path and run `release()`.
+6.  Make sure the project sandbox is on the path and run `release()`.
     This will run all tests and produce a new .mltbx file in the releases
     directory. If you have updated the version number you should see a new
     .mltbx file, otherwise it will overwrite one that was already there.
