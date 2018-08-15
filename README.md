@@ -5,19 +5,40 @@ Earth Surface Properties Toolbox
 A Matlab toolbox for creating and analyzing Earth Surface Properties (ESP) products.
 
 
+## Installation Notes
+
+To install the ESPToolbox:
+
+1.  Download the file "ESPToolbox\ vX.Y.mltbx" to your ~/Documents/MATLAB
+    directory
+2.  Double-click it to add it to your matlab path.
+3.  Get help with:
+
+> >> doc ESPToolbox
+
 ## Development Notes
 
 To create a new version of the Toolbox:
 
-1.  Update the version number in the ESPToolbox.prj file:
+1.  Use unittests for automated testing, all tests in tests directory
+    will automatically be run by `release()`. To run a given test
+    manually, use run(testClassName)
+2.  Update automated documentation and Toolbox Contents.m file:
+    navigate to the directory that contains the Contents.m file,
+    which is tbx/ESPToolbox, make it the Current Folder. On the
+    Current Folder bar, click the context menu (down triangle)
+    and select Reports->Contents Report, follow prompts to
+    add/delete items according to what you have changed.
+3.  Update the version number in the ESPToolbox.prj file:
     navigate to this file in the Current Folder, double-clicking and
     changing the version number.
-2.  Open the release.m file in the project and run it in the
-    IDE. This will produce a new .mltbx file in the releases
-    directory. This runs automated tests.
+4.  Make sure the project sandbox is on the path and run `release()`.
+    This will run all tests and produce a new .mltbx file in the releases
+    directory. If you have updated the version number you should see a new
+    .mltbx file, otherwise it will overwrite one that was already there.
 
 To test a new Toolbox release:
 
-1.  Remove the sandbox directories from the matlab path with rmsandbox().
+1.  Remove the sandbox directories from the matlab path with `rmsandbox()`.
 2.  Check and remove any previous Toolbox paths from the matlab path.
 3.  Double-click the new .mltbx file to add it to the path.
