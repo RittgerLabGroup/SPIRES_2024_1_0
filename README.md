@@ -20,8 +20,7 @@ To install the ESPToolbox:
 
 To create a new version of the Toolbox:
 
-1.  Use unittests for automated testing, all tests in tests directory
-    will automatically be run by `release()`. To run a given test
+1.  Use unittests for automated testing. To run a given test
     manually, use run(testClassName)
 2.  Update automated documentation and Toolbox Contents.m file:
     navigate to the directory that contains the Contents.m file,
