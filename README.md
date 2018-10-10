@@ -47,3 +47,9 @@ To test a new Toolbox release:
 1.  Remove the sandbox directories from the matlab path with `rmsandbox()`.
 2.  Check and remove any previous Toolbox paths from the matlab path.
 3.  Double-click the new .mltbx file to add it to the path.
+
+Run Requirements:
+
+The user of this toolbox will need to have a license to run:
+
+Mapping Toolbox
