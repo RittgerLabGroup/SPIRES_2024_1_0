@@ -1,5 +1,6 @@
 classdef ESPEnv
    properties
+      extentDir
       heightmaskDir
       modscagDir
       oliDir
@@ -13,10 +14,12 @@ classdef ESPEnv
            parts = split(path, filesep);
            path = join(parts(1:end-2), filesep);
            
-           obj.oliDir = fullfile(path, 'data', 'oli');
+           obj.extentDir = fullfile('/Users', 'brodzik', ...
+               'SierraBighorn_data', 'StudyExtents');
            obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
                'SierraBighorn_data', 'landcover', 'LandFireEVH_ucsb');
            obj.modscagDir = fullfile(path, 'data', 'modscag');
+           obj.oliDir = fullfile(path, 'data', 'oli');
            obj.viirsDir = fullfile(path, 'data', 'viirscag');
            obj.watermaskDir = fullfile(path, 'data', 'masks');
 
@@ -79,5 +82,18 @@ classdef ESPEnv
            
        end
        
+       function f = studyExtentFile(obj, regionName)
+           
+           f = dir(fullfile(obj.extentDir, ...
+               sprintf('%sExtent.csv', regionName)));
+           
+       end
+       
+       function extent = studyExtent(obj, regionName)
+           
+           f = obj.studyExtentFile(regionName);
+           extent = readtable(fullfile(f.folder, f.name));
+
+       end
    end
 end
