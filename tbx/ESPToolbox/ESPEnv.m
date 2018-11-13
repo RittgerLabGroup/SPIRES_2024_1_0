@@ -1,5 +1,6 @@
 classdef ESPEnv
    properties
+      colormapDir
       extentDir
       heightmaskDir
       modscagDir
@@ -9,19 +10,25 @@ classdef ESPEnv
    end
    methods
        function obj = ESPEnv()
-           % Default path is relative to this file
+           % Default path is relative to this file, 2 levels up
            [path, ~, ~] = fileparts(mfilename('fullpath'));
            parts = split(path, filesep);
            path = join(parts(1:end-2), filesep);
            
-           obj.extentDir = fullfile('/Users', 'brodzik', ...
-               'SierraBighorn_data', 'StudyExtents');
-           obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
-               'SierraBighorn_data', 'landcover', 'LandFireEVH_ucsb');
            obj.modscagDir = fullfile(path, 'data', 'modscag');
            obj.oliDir = fullfile(path, 'data', 'oli');
            obj.viirsDir = fullfile(path, 'data', 'viirscag');
            obj.watermaskDir = fullfile(path, 'data', 'masks');
+           
+           % 1 level up
+           path = join(parts(1:end-1), filesep);
+           obj.colormapDir = fullfile(path, 'colormaps');
+
+           % elsewhere
+           obj.extentDir = fullfile('/Users', 'brodzik', ...
+               'SierraBighorn_data', 'StudyExtents');
+           obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
+               'SierraBighorn_data', 'landcover', 'LandFireEVH_ucsb');
 
            % Convert these from 1x1 cells to plain char arrays
            props = properties(obj);
@@ -49,6 +56,24 @@ classdef ESPEnv
                sprintf('L8*%s*p%03ir%03i*.mat', datestr, path, row)))
        end
        
+       function m = colormap(obj, colormapName, varargin)
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.colormapDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           f = dir(fullfile(myDir, ...
+               sprintf('%s.mat', colormapName)));
+           m = load(fullfile(f.folder, f.name));
+           
+       end
+           
        function f = watermaskFile(obj, path, row, varargin)
            
            numvarargs = length(varargin);
