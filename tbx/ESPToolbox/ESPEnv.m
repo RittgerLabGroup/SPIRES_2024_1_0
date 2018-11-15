@@ -5,6 +5,7 @@ classdef ESPEnv
       heightmaskDir
       modscagDir
       oliDir
+      tmDir
       viirsDir
       watermaskDir
    end
@@ -25,6 +26,8 @@ classdef ESPEnv
            obj.colormapDir = fullfile(path, 'colormaps');
 
            % elsewhere
+           obj.tmDir = fullfile('/Users', 'brodzik', ...
+               'SierraBighorn_data', 'Landsat');
            obj.extentDir = fullfile('/Users', 'brodzik', ...
                'SierraBighorn_data', 'StudyExtents');
            obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
@@ -54,6 +57,21 @@ classdef ESPEnv
 
            f = dir(fullfile(myDir, ...
                sprintf('L8*%s*p%03ir%03i*.mat', datestr, path, row)))
+       end
+       
+       function f = tmFile(obj, path, row, varargin)
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.tmDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           f = dir(fullfile(myDir, ...
+               sprintf('p%03ir%03i_*.mat', path, row)));
        end
        
        function m = colormap(obj, colormapName, varargin)
@@ -110,15 +128,16 @@ classdef ESPEnv
        function f = studyExtentFile(obj, regionName)
            
            f = dir(fullfile(obj.extentDir, ...
-               sprintf('%sExtent.csv', regionName)));
+               sprintf('%s.mat', regionName)));
            
        end
        
-       function extent = studyExtent(obj, regionName)
+       %function extent = studyExtent(obj, regionName)
            
-           f = obj.studyExtentFile(regionName);
-           extent = readtable(fullfile(f.folder, f.name));
+       %    f = obj.studyExtentFile(regionName);
+       %    extent = readtable(fullfile(f.folder, f.name));
 
-       end
+       %end
+       
    end
 end
