@@ -53,7 +53,7 @@ classdef ESPEnv
                    % Default path is PetaLibrary
                    path = fullfile('/pl', 'active', 'SierraBighorn');
            
-                   obj.MODISDir = fullfile(path, 'scag', 'modis', 'v0');
+                   obj.MODISDir = fullfile(path, 'scag', 'MODIS', 'v0');
                    obj.viirsDir = fullfile(path, 'viirs');
                    obj.watermaskDir = fullfile(path, 'landcover', ...
                        'NLCD_ucsb');
@@ -63,7 +63,7 @@ classdef ESPEnv
                        'UCSB_v3_processing', 'test');
                    obj.extentDir = fullfile(path, 'StudyExtents');
                    obj.heightmaskDir = fullfile(path, 'landcover', ...
-                       'LandFireEVH_ucsb_mjb');
+                       'LandFireEVH_ucsb');
                    
            end
     
@@ -105,6 +105,41 @@ classdef ESPEnv
 
            f = dir(fullfile(myDir, 'SN_WY*.mat'));
            
+       end
+       
+       function f = geotiffFile(obj, extentName, platformName, sensorName, ...
+                baseName, varName, version)
+
+            if strcmp(sensorName, '')
+                switch platformName
+                    case 'Landsat4'
+                        sensorName = 'TM';
+                    case 'Landsat5'
+                        sensorName = 'TM';
+                    case 'Landsat7'
+                        sensorName = 'ETM';
+                    case 'Landsat8'
+                        sensorName = 'OLI';
+                    otherwise
+                        error("%s: Unknown platformName=%s", ...
+                            mfilename(), platformName);
+                end
+            end
+            
+            if strcmp(platformName, '')
+                switch sensorName
+                    case 'MODIS'
+                        platformName = 'Terra';
+                    otherwise
+                        error("%s: Unknown sensorName=%s", ...
+                            mfilename(), sensorName);
+                end
+            end
+                    
+            f = sprintf('%s.%s.%s-%s.%s.v%d.tif', ...
+                extentName, baseName, platformName, sensorName, varName, ...
+                version);
+            
        end
        
        function m = colormap(obj, colormapName, varargin)
