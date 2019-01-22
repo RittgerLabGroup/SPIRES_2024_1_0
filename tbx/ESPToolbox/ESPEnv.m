@@ -32,6 +32,7 @@ classdef ESPEnv
     
                    obj.viirsDir = fullfile(path, 'data', 'viirscag');
                    obj.watermaskDir = fullfile(path, 'data', 'masks');
+                   obj.extentDir = fullfile(path, 'data', 'StudyExtents');
            
                    % 1 level up
                    path = join(parts(1:end-1), filesep);
@@ -42,15 +43,20 @@ classdef ESPEnv
                        'SierraBighorn_data', 'MODIS');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'Landsat');
-                   obj.extentDir = fullfile('/Users', 'brodzik', ...
-                       'SierraBighorn_data', 'StudyExtents');
                    obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'landcover', ...
                        'LandFireEVH_ucsb');
                    
                otherwise
     
-                   % Default path is PetaLibrary
+                   % Default path is relative to this file, 2 levels up
+                   [path, ~, ~] = fileparts(mfilename('fullpath'));
+                   parts = split(path, filesep);
+                   path = join(parts(1:end-2), filesep);
+    
+                   obj.extentDir = fullfile(path, 'data', 'StudyExtents');
+                   
+                   % For all else, default path is PetaLibrary
                    path = fullfile('/pl', 'active', 'SierraBighorn');
            
                    obj.MODISDir = fullfile(path, 'scag', 'MODIS', 'v0');
@@ -61,7 +67,6 @@ classdef ESPEnv
                    obj.colormapDir = fullfile(path, 'colormaps');
                    obj.LandsatDir = fullfile(path, 'scag', 'Landsat', ...
                        'UCSB_v3_processing', 'test');
-                   obj.extentDir = fullfile(path, 'StudyExtents');
                    obj.heightmaskDir = fullfile(path, 'landcover', ...
                        'LandFireEVH_ucsb');
                    
