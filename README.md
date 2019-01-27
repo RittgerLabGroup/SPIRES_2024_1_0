@@ -62,4 +62,7 @@ Run Requirements:
 
 The user of this toolbox will need to have a license to run:
 
+Financial Toolbox
 Mapping Toolbox
+
+A working version of wget is required to run fetch routines from JPL.
