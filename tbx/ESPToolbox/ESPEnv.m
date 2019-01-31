@@ -32,7 +32,7 @@ classdef ESPEnv
     
                    obj.viirsDir = fullfile(path, 'data', 'viirscag');
                    obj.watermaskDir = fullfile(path, 'data', 'masks');
-                   obj.extentDir = fullfile(path, 'data', 'StudyExtents');
+                   obj.extentDir = fullfile(path, 'tbx', 'StudyExtents');
            
                    % 1 level up
                    path = join(parts(1:end-1), filesep);
@@ -54,7 +54,7 @@ classdef ESPEnv
                    parts = split(path, filesep);
                    path = join(parts(1:end-2), filesep);
     
-                   obj.extentDir = fullfile(path, 'data', 'StudyExtents');
+                   obj.extentDir = fullfile(path, 'tbx', 'StudyExtents');
                    
                    % For all else, default path is PetaLibrary
                    path = fullfile('/pl', 'active', 'SierraBighorn');
