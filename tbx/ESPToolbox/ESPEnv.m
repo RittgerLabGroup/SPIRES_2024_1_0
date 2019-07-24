@@ -113,7 +113,7 @@ classdef ESPEnv
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
 
-           f = dir(fullfile(myDir, 'SN_WY*.mat'));
+           f = dir(fullfile(myDir, '*_*Y*.mat'));
            
        end
        
