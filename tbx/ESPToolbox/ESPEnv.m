@@ -1,15 +1,19 @@
 classdef ESPEnv
+    % ESPEnv - environment for ESP data directories
+    %   Directories with locations of various types of data needed for ESP
    properties
-      colormapDir
-      extentDir
-      heightmaskDir
-      MODISDir
-      LandsatDir
-      viirsDir
-      watermaskDir
+      colormapDir    % directory with color maps
+      extentDir      % directory with geographic extent definitions
+      heightmaskDir  % directory heightmask for Landsat canopy corrections
+      MODISDir       % directory with MODIS scag STC cubes (.mat)
+      LandsatDir     % directory with Landsat scag images (.mat)
+      viirsDir       % directory with TBD for VIIRS
+      watermaskDir   % directory with water mask
    end
    methods
        function obj = ESPEnv(varargin)
+           % The ESPEnv constructor initializes all directory settings
+           % based on locale
            
            p = inputParser;
            
@@ -88,6 +92,7 @@ classdef ESPEnv
        end
        
        function f = LandsatFile(obj, path, row, varargin)
+           % LandsatFile returns a list of Landsat files for given path/row
            numvarargs = length(varargin);
            if numvarargs > 1
                error(sprintf('%s:TooManyInputs, ', ...
@@ -103,6 +108,7 @@ classdef ESPEnv
        end
        
        function f = MODISFile(obj, varargin)
+           % MODISFile returns a list of MODIS STC cube files
            numvarargs = length(varargin);
            if numvarargs > 1
                error(sprintf('%s:TooManyInputs, ', ...
@@ -113,12 +119,14 @@ classdef ESPEnv
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
 
-           f = dir(fullfile(myDir, 'SN_WY*.mat'));
+           f = dir(fullfile(myDir, '*_*Y*.mat'));
            
        end
        
        function f = geotiffFile(obj, extentName, platformName, sensorName, ...
                 baseName, varName, version)
+            % geotiffFile builds a geoTiff file name based on the input
+            % values
 
             if strcmp(sensorName, '')
                 switch platformName
@@ -153,6 +161,7 @@ classdef ESPEnv
        end
        
        function m = colormap(obj, colormapName, varargin)
+           % colormap reads and returns the color map from the given file
            
            numvarargs = length(varargin);
            if numvarargs > 1
@@ -171,6 +180,8 @@ classdef ESPEnv
        end
            
        function f = watermaskFile(obj, path, row, varargin)
+           % watermaskFile returns a list of water mask file for the given
+           % path/row
            
            numvarargs = length(varargin);
            if numvarargs > 1
@@ -189,6 +200,7 @@ classdef ESPEnv
        end
        
        function f = heightmaskFile(obj)
+           % heightmaskFile returns the current height mask file name
 
            f = dir(fullfile(obj.heightmaskDir, ...
                'Sierra_utm_LandFire_EVH_gt2.5m_mask.tif'));
@@ -196,6 +208,7 @@ classdef ESPEnv
        end
        
        function s = heightmask(obj)
+           % heightmask reads and returns the height mask
            
            f = obj.heightmaskFile();
            s.mask = geotiffread(fullfile(f.folder, f.name));
@@ -204,6 +217,8 @@ classdef ESPEnv
        end
        
        function f = studyExtentFile(obj, regionName)
+           % studyExtentFile returns a list of study extent files for the
+           % given regionName
            
            f = dir(fullfile(obj.extentDir, ...
                sprintf('%s.mat', regionName)));
