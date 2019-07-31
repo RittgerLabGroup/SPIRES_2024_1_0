@@ -29,7 +29,27 @@ classdef MODISData
     end
     
     methods(Static)  % static methods can be called for the class
-    
+        
+        function dt = getMod09gaDt(fileName)
+            %getMod09gaDate parses the MOD09GA filename for datetime
+            % Input
+            %   fileName = string, MOD09GA filename, of form
+            %   MOD09GA.Ayyyyddd.*hdf
+            %
+            % Optional Input n/a
+            %   
+            % Output
+            %   dt = datetime extracted from yyyyddd field in filename
+            %
+            
+            % This uses a nice trick that converts to datetime as an
+            % offset from Jan 1
+            tokenNames = regexp(fileName, ...
+                'MOD09GA\.A(?<yyyy>\d{4})(?<doy>\d{3})\.', 'names');
+            dt = datetime(str2num(tokenNames.yyyy), 1, ...
+                str2num(tokenNames.doy));
+        end
+
         function list = tilesFor(region)
             % tilesFor returns cell array of tileIDs for the region
             switch lower(region)
