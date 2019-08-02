@@ -55,6 +55,436 @@ classdef MODISData
 
         end
 
+        function [filenames, datevals, missingSCAG, ...
+                missingDRFS] = getMODISfilenames(tile, whichSet, imtype, ...
+                scagflag, drfsflag, modisDir)
+            %getMODISfilenames returns list of scag-related filenames
+            %
+            % Input
+            %   tile - MODIS tile. Example: 'h08v05'
+            %   whichSet - 'historic' or 'nrt'
+            %   imtype - either 'tif' or 'dat'
+            %   scagflag - vector of length 7 1s and 0s for desired files
+            %      if empty, then look for all
+            %   drfsflag - vector length 3 1s and 0s for desired files
+            %      if empty, then look for all
+            %   modisDir - directory with directory hierarchy, with
+            %      mod09ga, modscag, moddrfs
+            %
+            % Output
+            %   filenames - filenames excluding root directory where 
+            %      we have all files
+            %   datevals - vector of corresponding datetimes
+            %   missingSCAG - list of strings with missing scag/tiles
+            %   missingDRFS - list of strings with missing drfs/tiles
+            % Notes
+            %   This routine uses the list of MOD09GA files for this tile 
+            %   to look for matching scag/drfs files.  It assumes that 
+            %   there is 1 MOD09GA file for a given date. 
+            %TODO: check datevals for dups and quit if they are found?
+            % 
+            % Original version from Karl Rittger
+            % NSIDC, CUB & ERI, UCSB
+            % April 27, 2016
+
+            %% MODSCAG and MODDRFS variables of interest
+            scag_variables = {'snow_fraction';'vegetation_fraction';...
+                'rock_fraction';'other_fraction';'grain_size'};
+            %'shade_fraction';
+            drfs_variables = {'forcing';'deltavis';'drfs.grnsz'};
+            % Used for field names in ouptut, can't use . in Matlab 
+            % fieldnames
+            drfs_variables2 = {'forcing';'deltavis';'drfs_grnsz'};
+
+            %% Subset the variables specified
+            if isempty(scagflag)
+                scagflag = ones(size(scag_variables));
+            end
+            scag_variables = scag_variables(logical(scagflag));
+
+            if isempty(drfsflag)
+                drfsflag = ones(size(drfs_variables));
+            end
+            drfs_variables = drfs_variables(logical(drfsflag));
+            drfs_variables2 = drfs_variables2(logical(drfsflag));
+
+            %%FIXME: move this stupid junk to a single function
+            switch lower(whichSet)
+                case 'historic'
+                    processingMode = 'historic';
+                case 'nrt'
+                    processingMode = 'NRT';
+                otherwise
+                    error('%s: unrecognized argument %s ', mfilename(), ...
+                        whichSet);
+            end
+            reflectance_version = 6;
+            versionStr = sprintf('%03d', reflectance_version);
+            
+            hdfDir = fullfile(modisDir, 'mod09ga', processingMode, ...
+                ['v' versionStr], tile);
+            scagDir = fullfile(modisDir, 'modscag', processingMode, ...
+                ['v' versionStr], tile);
+            drfsDir = fullfile(modisDir, 'moddrfs', processingMode, ...
+                ['v' versionStr], tile);
+            
+            %% List the source hdf files
+            hdffiles = dir(fullfile(hdfDir, ...
+                ['MOD09GA.A*' tile '*.hdf']));
+            fprintf(['%s: %d MOD09GA files found. ' ...
+                'Looking for matching %ss...\n'], mfilename(), ...
+                length(hdffiles), imtype);
+            dts = MODISData.getMod09gaDt(string({hdffiles.name})');
+            
+            %TODO: check for dup dates and quit now if found?
+            [~, ind] = unique(dts);
+            if length(ind) ~= length(dts)
+                fprintf(['\n\n\n%s: WARNING: duplicate ' ...
+                    '%s MOD09GA files\n\n\n\n'], ...
+                    mfilename(), tile);
+            end
+            
+            %% Start counts
+            cntgood=0;% HDF, all SCAG and all DRFS present
+            cntmscag=0;% Missing some/all SCAG
+            cntmdrfs=0;% Missing some/all DRFS
+
+            %% Allocate storage for output once
+            numFiles = length(dts);
+            datevals = NaT(numFiles, 1);
+            filenames.MOD09GA = cell(numFiles, 1);
+            for i=length(scag_variables)
+                filenames.(scag_variables{i}) = cell(numFiles, 1);
+            end
+            for i=length(drfs_variables2)
+                filenames.(drfs_variables2{i}) = cell(numFiles, 1);
+            end
+
+            %% Loop for each day
+            for i=1:numFiles
+
+                thisYYYYStr = datestr(dts(i), 'yyyy');
+                thisYYYYDDDStr = sprintf('%04d%03d', dts(i).Year, ...
+                    day(dts(i), 'dayofyear')); 
+
+                % Path for hdf, scag, drfs files for this day
+                sDir = fullfile(scagDir, thisYYYYStr);
+                fDir = fullfile(drfsDir, thisYYYYStr);
+
+                % Parse the hdf base name for this day
+                [~, hdfbase, ~] = fileparts(hdffiles(i).name);
+
+                % add SCAG filenames to structure if they exist
+                % Looks for "." first, then w/o
+                for n=1:length(scag_variables)
+                    if exist(fullfile(sDir,...
+                            [hdfbase '.' scag_variables{n} '.' imtype]),...
+                            'file')==2
+                        scagnames.(scag_variables{n}) = fullfile(sDir,...
+                            [hdfbase '.' scag_variables{n} '.' imtype]);
+                    elseif exist(fullfile(sDir,...
+                            [hdfbase scag_variables{n} '.' imtype]),...
+                            'file')==2
+                        scagnames.(scag_variables{n}) = fullfile(sDir,...
+                            [hdfbase scag_variables{n} '.' imtype]);
+                    end
+                end
+
+                % add DRFS filenames to structure if they exist
+                % Looks for "." first, then w/o
+                for n=1:length(drfs_variables)
+                    if exist(fullfile(fDir,...
+                            [hdfbase '.' drfs_variables{n} '.' imtype]),...
+                            'file')==2
+                        drfsnames.(drfs_variables2{n}) = fullfile(fDir,...
+                            [hdfbase '.' drfs_variables{n} '.' imtype]);
+                    elseif exist(fullfile(fDir,...
+                            [hdfbase drfs_variables{n} '.' imtype]),...
+                            'file')==2
+                        drfsnames.(drfs_variables2{n}) = fullfile(fDir,...
+                            [hdfbase drfs_variables{n} '.' imtype]);
+                    end
+                end
+
+                % Check to see if there are files for either scag or drfs
+                if   exist('scagnames','var')==1 && exist('drfsnames',...
+                        'var')==1
+                    % Check for all fields
+                    if length(fields(scagnames))==length(scag_variables)
+                        svars=1;
+                    else
+                        svars=0;
+                    end
+                    if length(fields(drfsnames))==length(drfs_variables2)
+                        dvars=1;
+                    else
+                        dvars=0;
+                    end
+                    % If all files, get filenames
+                    if svars==1 && dvars==1
+
+                        cntgood=cntgood+1;
+
+                        % HDF file and datevals
+                        filenames.MOD09GA{cntgood, 1} = fullfile(...
+                            hdfDir, hdffiles(i).name);
+                        datevals(cntgood, 1) = dts(i);
+
+                        % SCAG names
+                        for n=1:length(scag_variables)
+                            filenames.(scag_variables{n}){cntgood,1} = ...
+                                scagnames.(scag_variables{n});
+                        end
+
+                        % DRFS names
+                        for n=1:length(drfs_variables)
+                            filenames.(drfs_variables2{n}){cntgood,1}=...
+                                drfsnames.(drfs_variables2{n});
+                        end
+
+                        % Skip files if some or all scag files are missing
+                    elseif svars==0 && dvars==1
+                        disp(['Skipping ' thisYYYYDDDStr ', ' tile...
+                            ' because itss missing some SCAG variables'])
+                        cntmscag=cntmscag+1;
+                        missingSCAG{cntmscag,1}=[tile '_' thisYYYYDDDStr];
+                        % Skip files if some or all drfs files are missing
+                    elseif svars==1 && dvars==0
+                        disp(['Skipping ' thisYYYYDDDStr ', ' tile...
+                            ' because its missing some DRFS variables'])
+                        cntmdrfs=cntmdrfs+1;
+                        missingDRFS{cntmdrfs,1}=[tile '_' thisYYYYDDDStr];
+                    end
+                else
+                    if ~exist('scagnames','var')
+                        disp(['Skipping ' thisYYYYDDDStr ', ' tile...
+                            ' because its missing all SCAG variables'])
+                        cntmscag=cntmscag+1;
+                        missingSCAG{cntmscag,1}=[tile '_' thisYYYYDDDStr];
+                    end
+                    if ~exist('drfsnames','var')
+                        disp(['Skipping ' thisYYYYDDDStr ', ' tile...
+                            ' because its missing all DRFS variables'])
+                        cntmdrfs=cntmdrfs+1;
+                        missingDRFS{cntmdrfs,1}=[tile '_' thisYYYYDDDStr];
+                    end
+                end
+                clear scagnames drfsnames dvars svars
+            end
+
+            %% Delete any unused indices in output variables
+            if cntgood > 0
+                datevals = datevals(1:cntgood);
+                fNames = fieldnames(filenames);
+                for i=1:length(fNames)
+                    filenames.(fNames{i}) = ...
+                        filenames.(fNames{i})(1:cntgood);
+                end
+            elseif 0 == cntgood
+                datevals = {};
+                filenames = {};
+            end
+
+            %% Define any return variables if they haven't already been set
+            if ~exist('missingSCAG','var')
+                missingSCAG={};
+            end
+            if ~exist('missingDRFS','var')
+                missingDRFS={};
+            end
+
+        end
+        
+        function saveMODISfilenames(saveFile, filenames, datevals, ...
+                missingSCAG, missingDRFS)
+            %saveMODISfilenames - used in parfor loop
+            
+            save(saveFile, 'filenames', 'datevals', 'missingSCAG', ...
+                'missingDRFS');
+
+        end
+        
+        function S = inventoryMod09ga(folder, whichSet, tileID, varargin)
+            %inventoryJPLmod09ga creates an inventory of MOD09GA files for
+            %tileID
+            %
+            % Input TBD
+            %
+            % Optional Input
+            %   beginDate - datetime date to begin looking for files
+            %      default is first date in the mod09ga directory for tileID
+            %   endDate = datetime date to stop looking for files
+            %      default is last date in the mod09ga directory for tileID
+            %   
+            % Output
+            %   Cell array with row for each date in beginDate:endDate
+            %
+            %
+            % Notes
+            % 
+            % Example
+            % 
+            % This example will ...
+            %
+            %
+
+            %% Parse inputs
+            p = inputParser;
+
+            addRequired(p, 'folder', @ischar);
+
+            validWhichSet = {'historic' 'nrt'};
+            checkWhichSet = @(x) any(strmatch(x, validWhichSet, 'exact'));
+            addRequired(p, 'whichSet', checkWhichSet);
+
+            addRequired(p, 'tileID', @ischar);
+            addParameter(p, 'beginDate', NaT, @isdatetime);
+            addParameter(p, 'endDate', NaT, @isdatetime);
+
+            p.KeepUnmatched = true;
+            parse(p, folder, whichSet, tileID, varargin{:});
+
+            if isnat(p.Results.beginDate)
+                beginDateStr = 'from input';
+            else
+                beginDateStr = datestr(p.Results.beginDate);
+            end
+            if isnat(p.Results.endDate)
+                endDateStr = 'from input';
+            else
+                endDateStr = datestr(p.Results.endDate);
+            end
+
+            beginDate = p.Results.beginDate;
+            endDate = p.Results.endDate;
+            
+            fprintf("%s: inventory for: %s, %s, %s, dates: %s - %s...\n", ...
+                mfilename(), p.Results.folder, p.Results.whichSet, ...
+                p.Results.tileID, beginDateStr, endDateStr);
+
+            %% TODO version should be optional argument
+            reflectance_version = 6;
+
+            %% TODO Local folders this junk should be moved to functions with
+            % specifics of our file system
+            % note that mod09ga levels don't have the year at the end
+            switch lower(whichSet)
+                case 'historic'
+                    processingMode = 'historic';
+                case 'nrt'
+                    processingMode = 'NRT';
+                otherwise
+                    error('%s: unrecognized argument %s ', mfilename(), ...
+                        whichSet);
+            end
+            versionStr = sprintf('%03d', reflectance_version);
+            mod09Folder = fullfile(folder, 'mod09ga', processingMode, ...
+                ['v' versionStr], tileID);        
+
+            %% Handle defaults for begin/end date
+            % If using input for begin or end date, get a list of all
+            % files in the directory and pull dates from first/last filenames
+            if isnat(beginDate) || isnat(endDate)
+                list = dir(fullfile(mod09Folder, ...
+                    sprintf('MOD09GA.A*%s.%s*hdf', ...
+                    tileID, versionStr)));
+                if isnat(beginDate)
+                    beginDate = MODISData.getMod09gaDt({list(1).name});
+                end
+                if isnat(endDate)
+                    endDate = MODISData.getMod09gaDt({list(end).name});
+                end
+            end
+
+            %% Allocate space for dates
+            % Make a struct array with 1 record for each date
+            ndays = days(endDate - beginDate) + 1;
+            S = repmat(struct('dt', NaT, 'num', 0, 'files', []), ndays, 1);
+
+            %% Loop for each date
+            recNum = 1;
+            for dt = beginDate:endDate
+                S(recNum).dt = dt;
+                S(recNum).num = 0;
+
+                yyyyddd  = sprintf('%04d%03d', dt.Year, day(dt, 'dayofyear'));
+
+                % Find all MOD09GA files for this date
+                list = dir(fullfile(mod09Folder, ...
+                    sprintf('MOD09GA.A%s.%s.%s*hdf', ...
+                    yyyyddd, tileID, versionStr)));
+                if ~isempty(list)
+                    S(recNum).num = length(list);
+                    S(recNum).files = list;
+                end
+
+                recNum = recNum + 1;
+
+            end
+        end
+
+        function numDupes = removeMod09gaDuplicates(S)
+            %removeMod09gaDuplicates removes duplicate MOD09GA files
+            %
+            % Input
+            %   S = mod09ga inventory cell array returned from 
+            %       inventoryMod09ga
+            %
+            % Output
+            %   numDupes - number of duplicates found and removed
+            %
+            % Notes
+            %
+            % Example
+            %
+            numDupes = 0;
+
+            % Find duplicate MOD09GA files from input inventory
+            idx = [S.num] > 1;
+            
+            subS = S(idx);
+
+            for i=1:length(subS)
+                fprintf("\n%s: multiple files found for : %s\n", ...
+                    mfilename(), datestr(subS(i).dt, 'yyyy-mm-dd'));
+                names = vertcat(subS(i).files.name);
+                folders = vertcat(subS(i).files.folder);
+                [numFiles, ~] = size(names);
+                files = strings(numFiles, 1);
+                for j=1:numFiles
+                    files(j) = fullfile(folders(j,:), names(j,:));
+                end
+                files = sort(files, 'descend');
+                
+                % Delete all but the first one, sorting in descending order
+                for j=1:length(files)
+                    if 1 == j
+                        fprintf("%s: keeping %s\n", mfilename(), files(j));
+                    else
+                        fprintf("%s: deleting %s...\n", ...
+                            mfilename(), files(j));
+                        
+                        delete(files(j));
+                        
+                        % Delete any scag/drfs files found for this
+                        % file also
+                        list = MODISData.matchingFiles(files(j));
+                        if ~isempty(list)
+                            for k=1:length(list)
+                                modisFile = fullfile(list(k).folder, ...
+                                    list(k).name);
+                                fprintf("%s: deleting %s...\n", ...
+                                    mfilename(), modisFile);
+                                delete(modisFile);
+                            end
+                        end
+                        
+                        numDupes = numDupes + 1;
+                    end
+                end
+            end
+        end
+        
         function list = tilesFor(region)
             % tilesFor returns cell array of tileIDs for the region
             switch lower(region)
@@ -73,6 +503,38 @@ classdef MODISData
                     error("%s: Unknown region=%s", ...
                         mfilename(), region);
             end
+            
+        end
+        
+        function list = matchingFiles(mod09File)
+            % matchingFiles finds any scag/drfs files that 
+            % match this mod09ga file, including procID
+            tokenNames = regexp(mod09File, ...
+                ['MOD09GA.A(?<yyyy>\d{4})(?<doy>\d{3})\.' ...
+                '(?<tileID>h\d{2}v\d{2})\.(?<version>\d{3})\.' ...
+                '(?<procID>\d+)\.'], ...
+                'names');
+            [path, ~, ~] = fileparts(mod09File);
+            parts = split(path, filesep);
+            procMode = parts(end-2);
+            topPath = join(parts(1:end-4), filesep);
+            
+            % Look for scag files
+            versionStr = sprintf('v%s', tokenNames.version);
+            
+            list = [...
+                dir(fullfile(topPath{1}, 'modscag', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('*%s*.dat', tokenNames.procID))); ...
+                dir(fullfile(topPath{1}, 'modscag', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('*%s*.tif', tokenNames.procID))); ...
+                dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('*%s*.dat', tokenNames.procID))); ...
+                dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('*%s*.tif', tokenNames.procID)))];
             
         end
         
