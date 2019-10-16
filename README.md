@@ -23,7 +23,8 @@ To create a new version of the Toolbox:
 1.  Use unittests for automated testing. To run a given test
     manually, use runtests('testClassName/test_function').  To run all
     test functions in testClassName.m, use runtests('testClassName').
-    To run all test functions, use runtests().
+    To run all test functions, make sure tests directory is in
+    path, and do runtests().
 2.  Update automated documentation and Toolbox Contents.m file:
     navigate to the directory that contains the Contents.m file,
     which is tbx/ESPToolbox, make it the Current Folder. On the
