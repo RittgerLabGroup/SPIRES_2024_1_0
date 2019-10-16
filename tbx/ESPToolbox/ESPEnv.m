@@ -7,6 +7,7 @@ classdef ESPEnv
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       MODISDir       % directory with MODIS scag STC cubes (.mat)
       LandsatDir     % directory with Landsat scag images (.mat)
+      LandsatProbCloudDir % directory with liberal "probable" cloud masks (.tif)
       viirsDir       % directory with TBD for VIIRS
       watermaskDir   % directory with water mask
    end
@@ -17,8 +18,8 @@ classdef ESPEnv
            
            p = inputParser;
            
-           defaultHostName = 'Macice';
-           validHostNames = {'Summit', 'Macice'};
+           defaultHostName = 'Arete';
+           validHostNames = {'Summit', 'Arete'};
            checkHostName = @(x) any(validatestring(x, validHostNames));
            addOptional(p, 'hostName', defaultHostName, ...
                checkHostName);
@@ -28,7 +29,7 @@ classdef ESPEnv
            parse(p, varargin{:});
            
            switch p.Results.hostName
-               case 'Macice'
+               case 'Arete'
                    % Default path is relative to this file, 2 levels up
                    [path, ~, ~] = fileparts(mfilename('fullpath'));
                    parts = split(path, filesep);
@@ -47,6 +48,8 @@ classdef ESPEnv
                        'SierraBighorn_data', 'MODIS');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'Landsat');
+                   obj.LandsatProbCloudDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'Landsat_cloud');
                    obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'landcover', ...
                        'LandFireEVH_ucsb');
@@ -74,8 +77,9 @@ classdef ESPEnv
                    obj.watermaskDir = fullfile(path, ...
                        'landcover', 'NLCD_ucsb');
                    obj.LandsatDir = fullfile(path, ...
-					     'scag', 'Landsat', 'UCSB_v3_processing', ...
-					     'SSN_cloudy', 'v01');
+					     'scag', 'Landsat', 'UCSB_v3_processing');
+                   obj.LandsatProbCloudDir = fullfile(path, ...
+					     'scag', 'Landsat', 'UCSB_v3_processing_cloud');
                    obj.heightmaskDir = fullfile(path, ...
                        'landcover', 'LandFireEVH_ucsb');
                    
@@ -105,6 +109,20 @@ classdef ESPEnv
 
            f = dir(fullfile(myDir, ...
                sprintf('p%03ir%03i_*.mat', path, row)));
+       end
+       
+       function f = LandsatProbCloudFile(obj, matFile)
+           % landsatProbCloudMaskFile returns probable cloud file for matFile
+
+           % Parse the matFile for a date string
+           [~, basename, ~] = fileparts(matFile);
+           tokenNames = regexp(basename, ...
+               ['_(?<yyyymmdd>\d{8})'], ...
+               'names');
+           cloudBasename = sprintf('%s_cloud.tif', tokenNames.yyyymmdd);
+           
+           f = dir(fullfile(obj.LandsatProbCloudDir, cloudBasename));
+           
        end
        
        function f = MODISFile(obj, varargin)
