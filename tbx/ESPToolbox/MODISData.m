@@ -129,10 +129,10 @@ classdef MODISData
                 ['v' versionStr], tile);
             
             %% List the source hdf files
-            hdffiles = dir(fullfile(hdfDir, ...
+            hdffiles = dir(fullfile(hdfDir, '*', ...
                 ['MOD09GA.A*' tile '*.hdf']));
             fprintf(['%s: %d MOD09GA files found. ' ...
-                'Looking for matching %ss...\n'], mfilename(), ...
+                'Looking for matching %s...\n'], mfilename(), ...
                 length(hdffiles), imtype);
             dts = MODISData.getMod09gaDt(string({hdffiles.name})');
             
@@ -227,7 +227,7 @@ classdef MODISData
 
                         % HDF file and datevals
                         filenames.MOD09GA{cntgood, 1} = fullfile(...
-                            hdfDir, hdffiles(i).name);
+                            hdffiles(i).folder, hdffiles(i).name);
                         datevals(cntgood, 1) = dts(i);
 
                         % SCAG names
@@ -245,26 +245,26 @@ classdef MODISData
                         % Skip files if some or all scag files are missing
                     elseif svars==0 && dvars==1
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because itss missing some SCAG variables'])
+                            ' because it is missing some SCAG variables'])
                         cntmscag=cntmscag+1;
                         missingSCAG{cntmscag,1}=[tile '_' thisYYYYDDDStr];
                         % Skip files if some or all drfs files are missing
                     elseif svars==1 && dvars==0
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because its missing some DRFS variables'])
+                            ' because it is missing some DRFS variables'])
                         cntmdrfs=cntmdrfs+1;
                         missingDRFS{cntmdrfs,1}=[tile '_' thisYYYYDDDStr];
                     end
                 else
                     if ~exist('scagnames','var')
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because its missing all SCAG variables'])
+                            ' because it is missing all SCAG variables'])
                         cntmscag=cntmscag+1;
                         missingSCAG{cntmscag,1}=[tile '_' thisYYYYDDDStr];
                     end
                     if ~exist('drfsnames','var')
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because its missing all DRFS variables'])
+                            ' because it is missing all DRFS variables'])
                         cntmdrfs=cntmdrfs+1;
                         missingDRFS{cntmdrfs,1}=[tile '_' thisYYYYDDDStr];
                     end
@@ -297,10 +297,12 @@ classdef MODISData
         
         function saveMODISfilenames(saveFile, filenames, datevals, ...
                 missingSCAG, missingDRFS)
-            %saveMODISfilenames - used in parfor loop
+            %saveMODISfilenames - saves a MODIS file inventory to .mat file
             
-            save(saveFile, 'filenames', 'datevals', 'missingSCAG', ...
-                'missingDRFS');
+            inventoryDate = datestr(datetime('now'));
+            
+            save(saveFile, 'inventoryDate', ...
+                'filenames', 'datevals', 'missingSCAG', 'missingDRFS');
 
         end
         
@@ -385,13 +387,21 @@ classdef MODISData
             % If using input for begin or end date, get a list of all
             % files in the directory and pull dates from first/last filenames
             if isnat(beginDate) || isnat(endDate)
-                list = dir(fullfile(mod09Folder, ...
-                    sprintf('MOD09GA.A*%s.%s*hdf', ...
-                    tileID, versionStr)));
+                yrDirs = MODISData.getSubDirs(mod09Folder);
+                
+                %list = dir(fullfile(mod09Folder, ...
+                %    sprintf('MOD09GA.A*%s.%s*hdf', ...
+                %    tileID, versionStr)));
                 if isnat(beginDate)
+                    list = dir(fullfile(mod09Folder, yrDirs{1}, ...
+                        sprintf('MOD09GA.A*%s.%s*hdf', ...
+                        tileID, versionStr)));
                     beginDate = MODISData.getMod09gaDt({list(1).name});
                 end
                 if isnat(endDate)
+                    list = dir(fullfile(mod09Folder, yrDirs{end}, ...
+                        sprintf('MOD09GA.A*%s.%s*hdf', ...
+                        tileID, versionStr)));
                     endDate = MODISData.getMod09gaDt({list(end).name});
                 end
             end
@@ -410,7 +420,7 @@ classdef MODISData
                 yyyyddd  = sprintf('%04d%03d', dt.Year, day(dt, 'dayofyear'));
 
                 % Find all MOD09GA files for this date
-                list = dir(fullfile(mod09Folder, ...
+                list = dir(fullfile(mod09Folder, '*', ...
                     sprintf('MOD09GA.A%s.%s.%s*hdf', ...
                     yyyyddd, tileID, versionStr)));
                 if ~isempty(list)
@@ -516,8 +526,8 @@ classdef MODISData
                 'names');
             [path, ~, ~] = fileparts(mod09File);
             parts = split(path, filesep);
-            procMode = parts(end-2);
-            topPath = join(parts(1:end-4), filesep);
+            procMode = parts(end-3);
+            topPath = join(parts(1:end-5), filesep);
             
             % Look for scag files
             versionStr = sprintf('v%s', tokenNames.version);
@@ -535,6 +545,17 @@ classdef MODISData
                 dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
                 versionStr, tokenNames.tileID, tokenNames.yyyy,...
                 sprintf('*%s*.tif', tokenNames.procID)))];
+            
+        end
+        
+        function years = getSubDirs(folder)
+            % Returns a sorted cell array of the subdirs in folder
+            list = dir(folder);
+            
+            list = list([list(:).isdir]==1);
+            list = list(~ismember({list(:).name},{'.','..'}));
+            
+            years = sort({list.name});
             
         end
         
