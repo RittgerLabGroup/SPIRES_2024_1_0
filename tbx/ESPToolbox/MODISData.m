@@ -26,6 +26,22 @@ classdef MODISData
            
         end
         
+        function S = readInventoryStatus(obj, whichSet, ...
+                tile, imtype)
+           
+            % Load the inventory file for this set/tile/type
+            fileName = fullfile(obj.archiveDir, 'archive_status', ...
+                sprintf("%s.%s.%s-inventory.mat", whichSet, tile, imtype));
+            try
+                S = load(fileName);
+            catch e
+                fprintf("%s: Error reading inventory file %s", ...
+                    mfilename(), fileName);
+                rethrow(e);
+            end
+            
+        end
+        
     end
     
     methods(Static)  % static methods can be called for the class
@@ -558,6 +574,18 @@ classdef MODISData
             years = sort({list.name});
             
         end
+        
+        function doy = doy(Dt)
+           % Returns the day of year of the input datetime Dt
+           % TODO: Make this work on an array of Dts
+           % TODO: Move this to a date utility object
+           jan1Dt = datetime(sprintf("%04d0101", year(Dt)), ...
+               'InputFormat', 'yyyyMMdd');
+           doy = days(Dt - jan1Dt + 1);
+            
+        end
+        
+        
         
     end
 
