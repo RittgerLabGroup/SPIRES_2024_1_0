@@ -4,6 +4,7 @@ classdef MODISData
 %   data, including MOD09, modscag and moddrfs
     properties      % public properties
         archiveDir    % top-level directory with tile data
+        historicEndDt   % date of last historic data to use
     end
     methods         % public methods
         
@@ -23,6 +24,8 @@ classdef MODISData
             parse(p, varargin{:});
 
             obj.archiveDir = p.Results.archiveDir;
+            obj.historicEndDt = datetime("20181229", ...
+                'InputFormat', 'yyyyMMdd');
            
         end
         
@@ -39,6 +42,22 @@ classdef MODISData
                     mfilename(), fileName);
                 rethrow(e);
             end
+
+    	    % Only return historic/nrt data before/after cutoff Dt
+            if strcmp(whichSet, 'historic')
+                idx = S.datevals <= obj.historicEndDt;
+            else
+                idx = S.datevals > obj.historicEndDt;
+            end
+            
+            if any(idx)
+                S.datevals = S.datevals(idx);
+                nameFields = fields(S.filenames);
+                for i=1:length(nameFields)
+                    S.filenames.(nameFields{i}) = ...
+                        S.filenames.(nameFields{i})(idx);
+                end
+            end
             
         end
         
@@ -49,7 +68,7 @@ classdef MODISData
         function dt = getMod09gaDt(fileNames)
             %getMod09gaDate parses the MOD09GA filename for datetime
             % Input
-            %   fileNames = string array, MOD09GA filename, of form
+            %   fileNames = cell array with MOD09GA filenames, of form
             %   MOD09GA.Ayyyyddd.*hdf
             %
             % Optional Input n/a
@@ -61,13 +80,24 @@ classdef MODISData
             % This uses a nice trick that converts to datetime as an
             % offset from Jan 1
             
-            tokenNames = cellfun(@(x)regexp(x, ...
-                'MOD09GA\.A(?<yyyy>\d{4})(?<doy>\d{3})\.', 'names'), ...
-                fileNames, 'uniformOutput', false);
-            dt = cellfun(@(x)datetime(str2num(x.yyyy), 1, ...
-                str2num(x.doy)), ...
-                tokenNames);
-            ok = "ok";
+            try
+                
+                tokenNames = cellfun(@(x)regexp(x, ...
+                    'MOD09GA\.A(?<yyyy>\d{4})(?<doy>\d{3})\.', 'names'), ...
+                    fileNames, 'uniformOutput', false);
+                dt = cellfun(@(x)datetime(str2num(x.yyyy), 1, ...
+                    str2num(x.doy)), ...
+                    tokenNames);
+                
+            catch
+
+                errorStruct.identifier = 'MODISData:FileError';
+                errorStruct.message = sprintf(...
+                    '%s: Unable to parse dates from %s\n', ...
+                    mfilename(), strjoin(fileNames));
+                error(errorStruct);
+
+            end
 
         end
 
@@ -585,7 +615,26 @@ classdef MODISData
             
         end
         
-        
+        function idx = indexForYYYYMM(yr, mn, Dts)
+            %indexForYYYYMM finds indices to Dts array for yr, mn
+            %
+            % Input
+            %  yr: 4-digit year
+            %  mn: integer month
+            %  Dts: array of datetimes
+            %
+            % Output
+            %  idx: array of indices into Dts for requested yr, mn
+            %
+            % Notes
+            % Returns an empty array if no dates in Dts match yr, mn
+            %
+            
+            superset = datenum(Dts);
+            subset = datenum(yr, mn, 1):datenum(yr, mn, eomday(yr, mn));
+            idx = datefind(subset, superset);
+            
+        end
         
     end
 

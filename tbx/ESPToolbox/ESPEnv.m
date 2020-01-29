@@ -3,9 +3,11 @@ classdef ESPEnv
     %   Directories with locations of various types of data needed for ESP
    properties
       colormapDir    % directory with color maps
+      mappingDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
       heightmaskDir  % directory heightmask for Landsat canopy corrections
-      MODISDir       % directory with MODIS scag STC cubes (.mat)
+      MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
+      MOD09Dir       % directory with MODIS scag STC cubes (.mat)
       LandsatDir     % directory with Landsat scag images (.mat)
       LandsatProbCloudDir % directory with liberal "probable" cloud masks (.tif)
       viirsDir       % directory with TBD for VIIRS
@@ -42,10 +44,13 @@ classdef ESPEnv
                    % 1 level up
                    path = join(parts(1:end-1), filesep);
                    obj.colormapDir = fullfile(path, 'colormaps');
+                   obj.mappingDir = fullfile(path, 'mapping');
     
                    % elsewhere
                    obj.MODISDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'MODIS');
+                   obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'mod09');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'Landsat');
                    obj.LandsatProbCloudDir = fullfile('/Users', 'brodzik', ...
@@ -65,15 +70,16 @@ classdef ESPEnv
                    path = join(parts(1:end-1), filesep);
 
                    obj.colormapDir = fullfile(path, 'colormaps');
+                   obj.mappingDir = fullfile(path, 'mapping');
                    obj.extentDir = fullfile(path, 'StudyExtents');
                    
-                   % For all else, default path is PetaLibrary
+                   % For all else, default paths are on PetaLibrary
                    path = fullfile('/pl', 'active', 'SierraBighorn');
            
                    obj.MODISDir = fullfile(path, ...
                        'scag', 'MODIS', 'SSN', 'v01');
-                   obj.viirsDir = fullfile(path, ...
-                       'viirs');
+                   
+                   obj.viirsDir = fullfile(path, 'viirs');
                    obj.watermaskDir = fullfile(path, ...
                        'landcover', 'NLCD_ucsb');
                    obj.LandsatDir = fullfile(path, ...
@@ -82,6 +88,10 @@ classdef ESPEnv
 					     'scag', 'Landsat', 'UCSB_v3_processing_cloud');
                    obj.heightmaskDir = fullfile(path, ...
                        'landcover', 'LandFireEVH_ucsb');
+                   
+                   path = fullfile('/pl', 'active', 'rittger_esp', ...
+                       'modis');
+                   obj.MOD09Dir = fullfile(path, 'mod09');
                    
            end
     
@@ -138,6 +148,35 @@ classdef ESPEnv
            [myDir] = optargs{:};
 
            f = dir(fullfile(myDir, '*_*Y*.mat'));
+           
+       end
+       
+       function f = MOD09File(obj, version, batchName, regionName, ...
+			      fileType, yr, mm, varargin)
+           % MOD09File returns the name of a monthly MOD09 cubefile
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.MOD09Dir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+	   %TODO: make this an optional input
+	   platformName = 'Terra';
+	   yyyymm = sprintf('%04d%02d', yr, mm);
+
+           f = fullfile(myDir, ...
+			    sprintf('v%03d', version), ...
+			    sprintf('%s', batchName), ...
+			    sprintf('%s', regionName), ...
+			    sprintf('%04d', yr), ...
+			    sprintf('%s', fileType), ...
+			    sprintf('%sMOD09_%s_%s_%s.mat', ...
+				    fileType, platformName, ...
+				    regionName, yyyymm));
            
        end
        
@@ -240,6 +279,29 @@ classdef ESPEnv
            
            f = dir(fullfile(obj.extentDir, ...
                sprintf('%s.mat', regionName)));
+           
+       end
+       
+       function projInfo = projInfoFor(obj, tileID, varargin)
+           % projInfoFor reads and returns tileID's projection information
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.mappingDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           try
+               projInfo = load(fullfile(myDir, ...
+                   sprintf('%s_ProjInfo.mat', tileID)));
+           catch e
+               fprintf("%s: Error reading projInfo in %s for %s\n", ...
+                   mfilename(), myDir, tileID);
+               rethrow(e);
+           end
            
        end
        
