@@ -66,10 +66,10 @@ classdef MODISData
     methods(Static)  % static methods can be called for the class
         
         function dt = getMod09gaDt(fileNames)
-            %getMod09gaDate parses the MOD09GA filename for datetime
+            %getMod09gaDate parses the MOD09GA-like filename for datetime
             % Input
             %   fileNames = cell array with MOD09GA filenames, of form
-            %   MOD09GA.Ayyyyddd.*hdf
+            %   MOD09GA.Ayyyyddd.*
             %
             % Optional Input n/a
             %   

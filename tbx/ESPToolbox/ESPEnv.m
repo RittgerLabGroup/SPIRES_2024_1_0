@@ -7,11 +7,14 @@ classdef ESPEnv
       extentDir      % directory with geographic extent definitions
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
-      MOD09Dir       % directory with MODIS scag STC cubes (.mat)
+      
       LandsatDir     % directory with Landsat scag images (.mat)
       LandsatProbCloudDir % directory with liberal "probable" cloud masks (.tif)
       viirsDir       % directory with TBD for VIIRS
       watermaskDir   % directory with water mask
+      
+      MOD09Dir       % directory with MODIS scag STC cubes (.mat)
+      SCAGDRFSDir    % direcotry with MODIS SCAGDRFS STC cubes (.mat)
    end
    methods
        function obj = ESPEnv(varargin)
@@ -51,6 +54,8 @@ classdef ESPEnv
                        'SierraBighorn_data', 'MODIS');
                    obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'mod09');
+                   obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'scagdrfs');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'Landsat');
                    obj.LandsatProbCloudDir = fullfile('/Users', 'brodzik', ...
@@ -92,6 +97,7 @@ classdef ESPEnv
                    path = fullfile('/pl', 'active', 'rittger_esp', ...
                        'modis');
                    obj.MOD09Dir = fullfile(path, 'mod09');
+                   obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
                    
            end
     
@@ -173,8 +179,35 @@ classdef ESPEnv
 			    sprintf('%s', batchName), ...
 			    sprintf('%s', regionName), ...
 			    sprintf('%04d', yr), ...
-			    sprintf('%s', fileType), ...
 			    sprintf('%sMOD09_%s_%s_%s.mat', ...
+				    fileType, platformName, ...
+				    regionName, yyyymm));
+           
+       end
+       
+       function f = SCAGDRFSFile(obj, version, batchName, regionName, ...
+			      fileType, yr, mm, varargin)
+           % SCAGDRFSFile returns the name of a monthly SCAGDRFS cubefile
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.SCAGDRFSDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+	   %TODO: make this an optional input
+	   platformName = 'Terra';
+	   yyyymm = sprintf('%04d%02d', yr, mm);
+
+           f = fullfile(myDir, ...
+			    sprintf('v%03d', version), ...
+			    sprintf('%s', batchName), ...
+			    sprintf('%s', regionName), ...
+			    sprintf('%04d', yr), ...
+			    sprintf('%sSCAG_%s_%s_%s.mat', ...
 				    fileType, platformName, ...
 				    regionName, yyyymm));
            
