@@ -6,15 +6,20 @@ classdef ESPEnv
       mappingDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
       heightmaskDir  % directory heightmask for Landsat canopy corrections
+      
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
       
       LandsatDir     % directory with Landsat scag images (.mat)
       LandsatProbCloudDir % directory with liberal "probable" cloud masks (.tif)
       viirsDir       % directory with TBD for VIIRS
       watermaskDir   % directory with water mask
+      modisWatermaskDir   % directory with MODIS watermask files
+      modisForestDir      % directory with MODIS canopy corrections
+      modisElevationDir   % direcotry with MODIS DEMs
       
-      MOD09Dir       % directory with MODIS scag STC cubes (.mat)
-      SCAGDRFSDir    % direcotry with MODIS SCAGDRFS STC cubes (.mat)
+      MOD09Dir       % directory with MODIS scag cubes (.mat)
+      SCAGDRFSDir    % direcotry with MODIS SCAGDRFS cubes (.mat)
+      STCDir         % direcotyr with STC cubes (.mat)
    end
    methods
        function obj = ESPEnv(varargin)
@@ -56,6 +61,8 @@ classdef ESPEnv
                        'SierraBighorn_data', 'mod09');
                    obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'scagdrfs');
+                   obj.STCDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'smooth');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'Landsat');
                    obj.LandsatProbCloudDir = fullfile('/Users', 'brodzik', ...
@@ -63,6 +70,12 @@ classdef ESPEnv
                    obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'landcover', ...
                        'LandFireEVH_ucsb');
+                   obj.modisWatermaskDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'landcover');
+                   obj.modisForestDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'forest_height');
+                   obj.modisElevationDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'elevation');
                    
                otherwise
     
@@ -94,10 +107,17 @@ classdef ESPEnv
                    obj.heightmaskDir = fullfile(path, ...
                        'landcover', 'LandFireEVH_ucsb');
                    
+                   
+                   path = fullfile('/pl', 'active', 'rittger_esp');
+                   obj.modisWatermaskDir = fullfile(path, 'landcover');
+                   obj.modisForestDir = fullfile(path, 'forest_height');
+                   obj.modisElevationDir = fullfile(path, 'elevation');
+                   
                    path = fullfile('/pl', 'active', 'rittger_esp', ...
                        'modis');
                    obj.MOD09Dir = fullfile(path, 'mod09');
                    obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
+                   obj.STCDir = fullfile(path, 'smooth');
                    
            end
     
@@ -170,9 +190,9 @@ classdef ESPEnv
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
 
-	   %TODO: make this an optional input
-	   platformName = 'Terra';
-	   yyyymm = sprintf('%04d%02d', yr, mm);
+    	   %TODO: make this an optional input
+    	   platformName = 'Terra';
+    	   yyyymm = sprintf('%04d%02d', yr, mm);
 
            f = fullfile(myDir, ...
 			    sprintf('v%03d', version), ...
@@ -198,9 +218,9 @@ classdef ESPEnv
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
 
-	   %TODO: make this an optional input
-	   platformName = 'Terra';
-	   yyyymm = sprintf('%04d%02d', yr, mm);
+    	   %TODO: make this an optional input
+    	   platformName = 'Terra';
+    	   yyyymm = sprintf('%04d%02d', yr, mm);
 
            f = fullfile(myDir, ...
 			    sprintf('v%03d', version), ...
@@ -305,6 +325,102 @@ classdef ESPEnv
            s.info = geotiffinfo(fullfile(f.folder, f.name));
            
        end
+       
+       function f = modisForestHeightFile(obj, regionName, varargin)
+           % modisForestHeighFile returns forest height file for regionName
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           % fullfile requires char vectors, not modern Strings
+           optargs = {obj.modisForestDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           f = dir(fullfile(myDir, ...
+               sprintf('%s_CanopyHeight.mat', ...
+               regionName)));
+           
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'MODISData.modisForesstHeightFile:FileError';
+               errorStruct.message = sprintf( ...
+                   ['%s: Unexpected forest height files found ' ...
+                   'for %s at %s'], ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
+           
+       end
+       
+       function f = modisWatermaskFile(obj, regionName, varargin)
+           % modisWatermaskFile returns water mask file for the regionName
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           % fullfile requires char vectors, not modern Strings
+           optargs = {obj.modisWatermaskDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           %TODO: what does the 50 stand for in these filenames?
+           f = dir(fullfile(myDir, ...
+               sprintf('%s_MOD44_50_watermask_463m_sinusoidal.mat', ...
+               regionName)));
+           
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'MODISData.modisWatermaskFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected watermasks found for %s at %s', ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
+           
+       end
+       
+       function f = modisElevationFile(obj, regionName, varargin)
+           % modisElevationFile returns DEM for the regionName
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           % fullfile requires char vectors, not modern Strings
+           optargs = {obj.modisElevationDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+           
+           f = dir(fullfile(myDir, ...
+               sprintf('%s_dem.mat', ...
+               regionName)));
+           
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'MODISData.modisElevationFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected DEMs found for %s at %s', ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
+           
+       end
+       
        
        function f = studyExtentFile(obj, regionName)
            % studyExtentFile returns a list of study extent files for the
