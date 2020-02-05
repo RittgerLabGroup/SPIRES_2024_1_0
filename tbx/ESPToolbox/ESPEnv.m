@@ -233,6 +233,69 @@ classdef ESPEnv
            
        end
        
+       function files = rawFilesFor3months(obj, ...
+	   version, batchName, regionName, yr, mm, varargin)
+           % RawFilesFor3months returns MOD09/SCAGDRFS cubes
+	   % surrounding this month
+           numvarargs = length(varargin);
+           if numvarargs ~= 2
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires exactly 2 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.MOD09Dir, obj.SCAGDRFSDir};
+           optargs(1:numvarargs) = varargin;  
+           [myMOD09Dir, mySCAGDRFSDir] = optargs{:};
+
+	   
+    	   %TODO: make this an optional input
+    	   platformName = 'Terra';
+
+	   % Look for cubes for previous and subsequent month
+	   thisMonth = datetime(yr, mm, 1);
+	   priorMonth = thisMonth - calmonths(1:1);
+	   nextMonth = thisMonth + calmonths(1:1);
+
+	   Dts = [priorMonth, thisMonth, nextMonth];
+	   files = {};
+	   nextIndex = 1;
+	   for i=1:length(Dts)
+           
+	       thisYr = year(Dts(i));
+	       thisMonth = month(Dts(i));
+    	       yyyymm = sprintf('%04d%02d', thisYr, thisMonth);
+
+	       % Look for cubes for this month
+	       mod09file = obj.MOD09File(version, batchName, regionName, ...
+				     'Raw', thisYr, thisMonth, myMOD09Dir);
+	       scagfile = obj.SCAGDRFSFile(version, batchName, regionName, ...
+				     'Raw', thisYr, thisMonth, mySCAGDRFSDir);
+
+	       if ~isfile(mod09file) || ~isfile(scagfile)
+                    
+                   % Either prev or next cubes might be missing, but there must
+	           % be cubes for this month
+		   if thisMonth == Dts(i)
+		       errorStruct.identifier = 'rawFilesFor3months:InputError';
+		       errorStruct.message = sprintf( ...
+			   ['%s: MOD09 or SCAGDRFS cube missing for %s'],
+			   mfilename(), yyyymm);
+		       error(errorStruct);
+		   else
+		       fprintf('%s: No MOD09 or SCAGDRFS cubes for %s\n', ...
+			       mfilename(), yyyymm);
+		       continue;
+		   end
+	       end
+
+	       files.MOD09{nextIndex} = mod09file;
+	       files.SCAGDRFS{nextIndex} = scagfile;
+	       nextIndex = nextIndex + 1;
+
+	   end
+
+       end
+       
        function f = geotiffFile(obj, extentName, platformName, sensorName, ...
                 baseName, varName, version)
             % geotiffFile builds a geoTiff file name based on the input
