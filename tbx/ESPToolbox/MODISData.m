@@ -635,7 +635,137 @@ classdef MODISData
             idx = datefind(subset, superset);
             
         end
+
+        function [RefMatrix, umdays, NoValues, SensZ, SolZ, refl] = ...
+                loadMOD09(files)
+            %loadMOD09 loads the data from a list of MOD09 Raw cubes
+            %
+            % Input
+            %   files: cell array of filenames
+            %
+            % Output
+            %   concatenated data arrays read from filenames
+            %
+            % Notes: Returned RefMatrix is from final file loaded,
+            % earlier ones are loaded and then replaced.
+
+            NoValues = [];
+            SensZ = [];
+            SolZ = [];
+            refl = [];
+            umdays = [];
+            for mn=1:size(files,1)
+                [NoValuesT, SensZT, SolZT, reflT, RefMatrix, umdaysT] = ...
+                    parload(files(mn,:), ...
+                    'NoValues', 'SensZ', 'SolZ', 'refl', ...
+                    'RefMatrix', 'umdays');
+                if mn == 1
+                    NoValues = NoValuesT; %cat was making this a double
+                else
+                    NoValues = cat(3, NoValues, NoValuesT);
+                end
+                SensZ = cat(3, SensZ, SensZT);
+                SolZ = cat(3, SolZ, SolZT);
+                refl = cat(4, refl, reflT);
+                umdays = cat(2, umdays, umdaysT);
+            end
+            
+        end
         
+        function [RefMatrix, usdays, RawSnow, RawVeg, RawRock, ...
+                RawDV, RawRF, RawGS_SCAG, RawGS_DRFS] = ...
+                loadSCAGDRFS(files)
+            %loadSCAGDRFS loads the data from a list of SCAGDRFS Raw cubes
+            %
+            % Input
+            %   files: cell array of filenames
+            %
+            % Output
+            %   concatenated data arrays read from filenames
+            %
+            % Notes: Returned RefMatrix is from final file loaded,
+            % earlier ones are loaded and then replaced.
+            
+            usdays = [];
+            RawSnow = [];
+            RawVeg = [];
+            RawRock = [];
+            RawGS_SCAG = [];
+            RawDV = [];
+            RawRF = [];
+            RawGS_DRFS = [];
+            for mn=1:size(files, 1)
+                [RawSnowT, RawVegT, RawRockT, RawDVT, RawRFT, ...
+                    RawGS_SCAGT, RawGS_DRFST, RefMatrix, usdaysT] = ...
+                    parload(files(mn,:), ...
+                    'RawSnow', 'RawVeg', 'RawRock', 'RawDV', 'RawRF', ...
+                    'RawGS_SCAG', 'RawGS_DRFS', 'RefMatrix', 'usdays');
+                RawSnow = cat(3, RawSnow, RawSnowT);
+                RawVeg = cat(3, RawVeg, RawVegT);
+                RawRock = cat(3, RawRock, RawRockT);
+                RawDV = cat(3, RawDV, RawDVT);
+                RawRF = cat(3, RawRF, RawRFT);
+                RawGS_SCAG = cat(3, RawGS_SCAG, RawGS_SCAGT);
+                RawGS_DRFS = cat(3, RawGS_DRFS, RawGS_DRFST);
+                usdays = cat(2, usdays, usdaysT);
+            end
+            
+        end
+
+        function FP = loadFP(fpFile, dims)
+            %loadFP loads a false positives mask
+            %
+            % Input
+            %   fpFile: watermask filename
+            %   dims: dimensions of expected mask
+            %
+            % Output
+            %   If watermask file exists, it is read and returned,
+            %   if not, a mask of size dims with 0s is allocated and
+            %   returned.
+            %
+            
+            % Load a false positives mask
+            if isfile(fpFile)
+                load(fpFile);
+                if ~exist('FP', 'var')
+                    FP = parload(fpname, 'watermask'); 
+                    clear watermask;  %TODO: why did Karl do this?
+                end
+            else
+                FP = false(dims);
+                fprintf('%s: Using dummy false positives FP mask\n', ...
+                    mfilename());
+            end
+
+        end
+
+        function [ppl, ppt, thetad] = pixelSize(R, H, p, theta_s)
+            %pixelSize calculate pixel sizes in along-track and cross-track directions
+            % input
+            %  (first 3 inputs must be in same units)
+            %  R - Earth radius
+            %  H - orbit altitude
+            %  p - pixel size at nadir
+            %  theta_s - sensor zenith angle (degrees, can be vector of arguments)
+            %
+            % output (same size as vector theta_s)
+            %  ppl - pixel size in along-track direction
+            %  ppt - pixel size in cross-track direction
+            %  thetad - nadir sensor angle, degrees
+            %
+            
+            theta=asin(R*sind(theta_s)/(R+H));
+            ppl=(1/H)*(cos(theta)*(R+H)-R*sqrt(1-((R+H)/R)^2*(sin(theta)).^2));
+            beta=atan(p/(2*H));
+            ppt=(R/p)*(asin(((R+H)/R)*sin(theta+beta))-...
+                asin(((R+H)/R)*sin(theta-beta))-2*beta);
+            thetad=rad2deg(theta);
+            ppl=ppl*p;
+            ppt=ppt*p;
+            
+        end
+	
     end
 
 end
