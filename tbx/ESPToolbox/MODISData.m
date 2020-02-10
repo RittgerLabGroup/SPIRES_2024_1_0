@@ -654,21 +654,25 @@ classdef MODISData
             SolZ = [];
             refl = [];
             umdays = [];
-            for mn=1:size(files,1)
-                [NoValuesT, SensZT, SolZT, reflT, RefMatrix, umdaysT] = ...
-                    parload(files(mn,:), ...
+            for mn=1:size(files,2)
+                [NoValuesT, SensZT, SolZT, reflT, RefMatrix] = ...
+                    parloadMatrices(files{mn}, ...
                     'NoValues', 'SensZ', 'SolZ', 'refl', ...
-                    'RefMatrix', 'umdays');
+                    'RefMatrix');
+                [umdaysT] = parloadDts(files{mn}, 'umdays');
                 if mn == 1
                     NoValues = NoValuesT; %cat was making this a double
+                    umdays = umdaysT{1}';
                 else
                     NoValues = cat(3, NoValues, NoValuesT);
+                    umdays = [umdays umdaysT{1}'];
                 end
                 SensZ = cat(3, SensZ, SensZT);
                 SolZ = cat(3, SolZ, SolZT);
                 refl = cat(4, refl, reflT);
-                umdays = cat(2, umdays, umdaysT);
             end
+            
+            umdays = datenum(umdays);
             
         end
         
@@ -694,12 +698,20 @@ classdef MODISData
             RawDV = [];
             RawRF = [];
             RawGS_DRFS = [];
-            for mn=1:size(files, 1)
+            for mn=1:size(files, 2)
                 [RawSnowT, RawVegT, RawRockT, RawDVT, RawRFT, ...
-                    RawGS_SCAGT, RawGS_DRFST, RefMatrix, usdaysT] = ...
-                    parload(files(mn,:), ...
+                    RawGS_SCAGT, RawGS_DRFST, RefMatrix] = ...
+                    parloadMatrices(files{mn}, ...
                     'RawSnow', 'RawVeg', 'RawRock', 'RawDV', 'RawRF', ...
-                    'RawGS_SCAG', 'RawGS_DRFS', 'RefMatrix', 'usdays');
+                    'RawGS_SCAG', 'RawGS_DRFS', 'RefMatrix');
+                [usdaysT] = ...
+                    parloadDts(files{mn}, ...
+                    'usdays');
+                if mn == 1
+                    usdays = usdaysT{1}';
+                else
+                    usdays = [usdays usdaysT{1}'];
+                end
                 RawSnow = cat(3, RawSnow, RawSnowT);
                 RawVeg = cat(3, RawVeg, RawVegT);
                 RawRock = cat(3, RawRock, RawRockT);
@@ -707,8 +719,9 @@ classdef MODISData
                 RawRF = cat(3, RawRF, RawRFT);
                 RawGS_SCAG = cat(3, RawGS_SCAG, RawGS_SCAGT);
                 RawGS_DRFS = cat(3, RawGS_DRFS, RawGS_DRFST);
-                usdays = cat(2, usdays, usdaysT);
             end
+            
+            usdays = datenum(usdays);
             
         end
 
@@ -720,17 +733,24 @@ classdef MODISData
             %   dims: dimensions of expected mask
             %
             % Output
-            %   If watermask file exists, it is read and returned,
+            %   If fpFile contains an FP array, use it,
+            %   otherwise if it contains a watermask array, use that.
             %   if not, a mask of size dims with 0s is allocated and
             %   returned.
+            %FIXME: if file exists but doesnt have FP or watermask,
+            % nothing will be returned here.
             %
-            
             % Load a false positives mask
             if isfile(fpFile)
                 load(fpFile);
                 if ~exist('FP', 'var')
-                    FP = parload(fpname, 'watermask'); 
+                    FP = parloadMatrices(fpFile, 'watermask'); 
                     clear watermask;  %TODO: why did Karl do this?
+                    fprintf('%s: Using watermask for FP from %s\n', ...
+                        mfilename(), fpFile);
+                else
+                    fprintf('%s: using FP directly from %s\n', ...
+                        mfilename(), fpFile);
                 end
             else
                 FP = false(dims);
