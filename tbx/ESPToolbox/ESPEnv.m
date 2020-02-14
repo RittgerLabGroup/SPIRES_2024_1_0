@@ -206,7 +206,7 @@ classdef ESPEnv
        end
        
        function f = SCAGDRFSFile(obj, version, batchName, regionName, ...
-			      fileType, yr, mm, varargin)
+			      fileType, yr, mm, labelName, varargin)
            % SCAGDRFSFile returns the name of a monthly SCAGDRFS cubefile
            numvarargs = length(varargin);
            if numvarargs > 1
@@ -217,6 +217,11 @@ classdef ESPEnv
            optargs = {obj.SCAGDRFSDir};
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
+           
+           %if labelName is not empty, append an underscore
+           if ~isempty(labelName)
+               labelName = sprintf('_%s', labelName);
+           end
 
     	   %TODO: make this an optional input
     	   platformName = 'Terra';
@@ -227,9 +232,9 @@ classdef ESPEnv
 			    sprintf('%s', batchName), ...
 			    sprintf('%s', regionName), ...
 			    sprintf('%04d', yr), ...
-			    sprintf('%sSCAG_%s_%s_%s.mat', ...
+			    sprintf('%sSCAG_%s_%s_%s%s.mat', ...
 				    fileType, platformName, ...
-				    regionName, yyyymm));
+				    regionName, yyyymm, labelName));
            
        end
        
@@ -263,7 +268,8 @@ classdef ESPEnv
            
        end
        
-       function files = rawFilesFor3months(obj, ...
+       function [files, haveDaysPerMonth, expectedDaysPerMonth] = ...
+               rawFilesFor3months(obj, ...
                version, batchName, regionName, yr, mm, varargin)
            % RawFilesFor3months returns MOD09/SCAGDRFS cubes surrounding this month
            numvarargs = length(varargin);
@@ -276,26 +282,31 @@ classdef ESPEnv
            optargs(1:numvarargs) = varargin;
            [myMOD09Dir, mySCAGDRFSDir] = optargs{:};
 
-           
            % Look for cubes for previous and subsequent month
            thisMonthDt = datetime(yr, mm, 1);
            priorMonthDt = thisMonthDt - calmonths(1:1);
            nextMonthDt = thisMonthDt + calmonths(1:1);
            
            Dts = [priorMonthDt, thisMonthDt, nextMonthDt];
+           nMonths = length(Dts);
+           expectedDaysPerMonth = zeros(nMonths, 1);
+           haveDaysPerMonth = zeros(nMonths, 1);
            files = {};
            nextIndex = 1;
-           for i=1:length(Dts)
-               
+           for i=1:nMonths
+                
                thisYYYY = year(Dts(i));
                thisMM = month(Dts(i));
                yyyymm = sprintf('%04d%02d', thisYYYY, thisMM);
+               
+               % Save the expected number of days in this month
+               expectedDaysPerMonth(i) = eomday(thisYYYY, thisMM);
                
                % Look for cubes for this month
                mod09file = obj.MOD09File(version, batchName, regionName, ...
                    'Raw', thisYYYY, thisMM, myMOD09Dir);
                scagfile = obj.SCAGDRFSFile(version, batchName, regionName, ...
-                   'Raw', thisYYYY, thisMM, mySCAGDRFSDir);
+                   'Raw', thisYYYY, thisMM, '', mySCAGDRFSDir);
                
                if ~isfile(mod09file) || ~isfile(scagfile)
                    
@@ -315,6 +326,22 @@ classdef ESPEnv
                        continue;
                    end
                end
+
+               % Get actual number of days in this month with data
+               mdata = load(mod09file, 'umdays');
+               sdata = load(scagfile, 'usdays');
+               nMOD09days = length(mdata.umdays);
+               nSCAGdays = length(sdata.usdays);
+               if nMOD09days ~= nSCAGdays
+                   errorStruct.identifier = ...
+                       'rawFilesFor3months:ArchiveError';
+                   errorStruct.message = sprintf( ...
+                       '%s: %s umdays=%d ~= usdays=%d.', ...
+                       mfilename(), yyyymm, nMOD09days, nSCAGdays);
+                   error(errorStruct);
+               end
+               
+               haveDaysPerMonth(i) = nSCAGdays;
                
                files.MOD09{nextIndex} = mod09file;
                files.SCAGDRFS{nextIndex} = scagfile;
