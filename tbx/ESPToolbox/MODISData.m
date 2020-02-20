@@ -3,14 +3,16 @@ classdef MODISData
 %   This class contains functions to manage our copy of MODIS tile
 %   data, including MOD09, modscag and moddrfs
     properties      % public properties
-        pixSize_500m  % Actual resolution 500m tile data pixels
-        tileRows_500m 
-        tileCols_500m
-        pixSize_1000m
-        tileRows_1000m
-        tileCols_1000m
         archiveDir    % top-level directory with tile data
         historicEndDt   % date of last historic data to use
+    end
+    properties(Constant)
+        pixSize_500m = 463.31271653;
+        tileRows_500m = 2400;
+        tileCols_500m = 2400;
+        %pixSize_1000m = pixSize_500m * 2;
+        %tileRows_1000m = 1200;
+        %tileCols_1000m = 1200;
     end
     methods         % public methods
         
@@ -28,13 +30,6 @@ classdef MODISData
             p.KeepUnmatched = true;
 
             parse(p, varargin{:});
-            
-            obj.pixSize_500m = 463.31271653;
-            obj.tileRows_500m = 2400;
-            obj.tileCols_500m = 2400;
-            obj.pixSize_1000m = obj.pixSize_500m * 2;
-            obj.tileRows_1000m = 1200;
-            obj.tileCols_1000m = 1200;
 
             obj.archiveDir = p.Results.archiveDir;
             obj.historicEndDt = datetime("20181229", ...
