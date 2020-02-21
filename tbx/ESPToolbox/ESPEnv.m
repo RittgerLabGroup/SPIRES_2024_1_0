@@ -622,6 +622,31 @@ classdef ESPEnv
            end
            
        end
+
+       function s = readShapefileFor(obj, shapeName, varargin)
+           % shapefileFor - returns the request shapefile contents
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.mappingDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           try
+               s = shaperead(fullfile(myDir, ...
+		   'shapefiles', ...
+		   shapeName, ...
+                   sprintf('%s.shp', shapeName)));
+           catch e
+               fprintf("%s: Error reading shapefile in %s for %s\n", ...
+                   mfilename(), myDir, shapeName);
+               rethrow(e);
+           end
+           
+       end
        
    end
 end
