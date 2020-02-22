@@ -4,6 +4,7 @@ classdef ESPEnv
    properties
       colormapDir    % directory with color maps
       mappingDir     % directory with MODIS tiles projection information
+      shapefileDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       
@@ -76,6 +77,8 @@ classdef ESPEnv
                        'SierraBighorn_data', 'forest_height');
                    obj.modisElevationDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'elevation');
+                   obj.shapefileDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'shapefiles');
                    
                otherwise
     
@@ -112,6 +115,7 @@ classdef ESPEnv
                    obj.modisWatermaskDir = fullfile(path, 'landcover');
                    obj.modisForestDir = fullfile(path, 'forest_height');
                    obj.modisElevationDir = fullfile(path, 'elevation');
+                   obj.shapefileDir = fullfile(path, 'shapefiles');
                    
                    path = fullfile('/pl', 'active', 'rittger_esp', ...
                        'modis');
@@ -631,15 +635,17 @@ classdef ESPEnv
                    'requires at most 1 optional inputs', mfilename()));
            end
 
-           optargs = {obj.mappingDir};
+           optargs = {obj.shapefileDir};
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
 
            try
-               s = shaperead(fullfile(myDir, ...
-		   'shapefiles', ...
+               shapeFile = fullfile(myDir, ...
 		   shapeName, ...
-                   sprintf('%s.shp', shapeName)));
+                   sprintf('%s.shp', shapeName));
+               s = shaperead(shapeFile);
+	       fprintf('%s: Read shapefile from %s\n', mfilename(), ...
+		       shapeFile);    
            catch e
                fprintf("%s: Error reading shapefile in %s for %s\n", ...
                    mfilename(), myDir, shapeName);
