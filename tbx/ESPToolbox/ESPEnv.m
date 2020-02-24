@@ -3,13 +3,24 @@ classdef ESPEnv
     %   Directories with locations of various types of data needed for ESP
    properties
       colormapDir    % directory with color maps
+      mappingDir     % directory with MODIS tiles projection information
+      shapefileDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
       heightmaskDir  % directory heightmask for Landsat canopy corrections
-      MODISDir       % directory with MODIS scag STC cubes (.mat)
+      
+      MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
+      
       LandsatDir     % directory with Landsat scag images (.mat)
       LandsatProbCloudDir % directory with liberal "probable" cloud masks (.tif)
       viirsDir       % directory with TBD for VIIRS
       watermaskDir   % directory with water mask
+      modisWatermaskDir   % directory with MODIS watermask files
+      modisForestDir      % directory with MODIS canopy corrections
+      modisElevationDir   % direcotry with MODIS DEMs
+      
+      MOD09Dir       % directory with MODIS scag cubes (.mat)
+      SCAGDRFSDir    % direcotry with MODIS SCAGDRFS cubes (.mat)
+      STCDir         % direcotyr with STC cubes (.mat)
    end
    methods
        function obj = ESPEnv(varargin)
@@ -42,10 +53,17 @@ classdef ESPEnv
                    % 1 level up
                    path = join(parts(1:end-1), filesep);
                    obj.colormapDir = fullfile(path, 'colormaps');
+                   obj.mappingDir = fullfile(path, 'mapping');
     
                    % elsewhere
                    obj.MODISDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'MODIS');
+                   obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'mod09');
+                   obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'scagdrfs');
+                   obj.STCDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'smooth');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'Landsat');
                    obj.LandsatProbCloudDir = fullfile('/Users', 'brodzik', ...
@@ -53,6 +71,14 @@ classdef ESPEnv
                    obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'landcover', ...
                        'LandFireEVH_ucsb');
+                   obj.modisWatermaskDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'landcover');
+                   obj.modisForestDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'forest_height');
+                   obj.modisElevationDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'elevation');
+                   obj.shapefileDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'shapefiles');
                    
                otherwise
     
@@ -65,15 +91,16 @@ classdef ESPEnv
                    path = join(parts(1:end-1), filesep);
 
                    obj.colormapDir = fullfile(path, 'colormaps');
+                   obj.mappingDir = fullfile(path, 'mapping');
                    obj.extentDir = fullfile(path, 'StudyExtents');
                    
-                   % For all else, default path is PetaLibrary
+                   % For all else, default paths are on PetaLibrary
                    path = fullfile('/pl', 'active', 'SierraBighorn');
            
                    obj.MODISDir = fullfile(path, ...
                        'scag', 'MODIS', 'SSN', 'v01');
-                   obj.viirsDir = fullfile(path, ...
-                       'viirs');
+                   
+                   obj.viirsDir = fullfile(path, 'viirs');
                    obj.watermaskDir = fullfile(path, ...
                        'landcover', 'NLCD_ucsb');
                    obj.LandsatDir = fullfile(path, ...
@@ -82,6 +109,19 @@ classdef ESPEnv
 					     'scag', 'Landsat', 'UCSB_v3_processing_cloud');
                    obj.heightmaskDir = fullfile(path, ...
                        'landcover', 'LandFireEVH_ucsb');
+                   
+                   
+                   path = fullfile('/pl', 'active', 'rittger_esp');
+                   obj.modisWatermaskDir = fullfile(path, 'landcover');
+                   obj.modisForestDir = fullfile(path, 'forest_height');
+                   obj.modisElevationDir = fullfile(path, 'elevation');
+                   obj.shapefileDir = fullfile(path, 'shapefiles');
+                   
+                   path = fullfile('/pl', 'active', 'rittger_esp', ...
+                       'modis');
+                   obj.MOD09Dir = fullfile(path, 'mod09');
+                   obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
+                   obj.STCDir = fullfile(path, 'smooth');
                    
            end
     
@@ -139,6 +179,231 @@ classdef ESPEnv
 
            f = dir(fullfile(myDir, '*_*Y*.mat'));
            
+       end
+       
+       function f = MOD09File(obj, version, batchName, regionName, ...
+			      fileType, yr, mm, varargin)
+           % MOD09File returns the name of a monthly MOD09 cubefile
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.MOD09Dir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+    	   %TODO: make this an optional input
+    	   platformName = 'Terra';
+    	   yyyymm = sprintf('%04d%02d', yr, mm);
+
+           f = fullfile(myDir, ...
+			    sprintf('v%03d', version), ...
+			    sprintf('%s', batchName), ...
+			    sprintf('%s', regionName), ...
+			    sprintf('%04d', yr), ...
+			    sprintf('%sMOD09_%s_%s_%s.mat', ...
+				    fileType, platformName, ...
+				    regionName, yyyymm));
+           
+       end
+       
+       function f = SCAGDRFSFile(obj, version, batchName, regionName, ...
+			      fileType, yr, mm, labelName, varargin)
+           % SCAGDRFSFile returns the name of a monthly SCAGDRFS cubefile
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.SCAGDRFSDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+           
+           %if labelName is not empty, append an underscore
+           if ~isempty(labelName)
+               labelName = sprintf('_%s', labelName);
+           end
+
+    	   %TODO: make this an optional input
+    	   platformName = 'Terra';
+    	   yyyymm = sprintf('%04d%02d', yr, mm);
+
+           f = fullfile(myDir, ...
+			    sprintf('v%03d', version), ...
+			    sprintf('%s', batchName), ...
+			    sprintf('%s', regionName), ...
+			    sprintf('%04d', yr), ...
+			    sprintf('%sSCAG_%s_%s_%s%s.mat', ...
+				    fileType, platformName, ...
+				    regionName, yyyymm, labelName));
+           
+       end
+       
+       function f = MosaicFile(obj, version, batchName, regionName, ...
+			      fileType, yr, mm, dd, labelName, varargin)
+           % MosaicFile returns the name of a daily mosaic image file
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.SCAGDRFSDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+    	   %TODO: make this an optional input
+    	   platformName = 'Terra';
+    	   yyyymmdd = sprintf('%04d%02d%02d', yr, mm, dd);
+
+           f = fullfile(myDir, ...
+			    sprintf('v%03d', version), ...
+			    sprintf('%s', batchName), ...
+			    sprintf('%s', regionName), ...
+			    sprintf('%04d', yr), ...
+			    sprintf('%s', fileType), ...
+			    sprintf('%s_%s_%s_%s_%s.mat', ...
+				    fileType, platformName, ...
+				    regionName, yyyymmdd, ...
+				    labelName));
+           
+       end
+       
+       function f = SummarySnowFile(obj, version, batchName, regionName, ...
+           startYr, stopYr, threshSCF, threshZ, varargin)
+           % SummarySnowFile returns the name of an SCF and SCD
+	   % summary file
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.SCAGDRFSDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+           
+           f = fullfile(myDir, ...
+			sprintf('v%03d', version), ...
+			sprintf('%s', batchName), ...
+			sprintf('%s_statistics', regionName), ...
+			sprintf(['%04d_to_%04d_Summary_snow_percent_lt%s' ...
+				 '_and_snow_cover_days_above%sm.mat'], ...
+				startYr, stopYr, ...
+				num2str(threshSCF), ...
+				num2str(threshZ)));
+           
+       end
+       
+       function f = SnowTodayFile(obj, version, batchName, ...
+               regionName, inputDt, creationDt, labelName, varargin)
+           % SnowTodayFile returns the name of an SCF and SCD
+           % figure file
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+           
+           optargs = {obj.SCAGDRFSDir};
+           optargs(1:numvarargs) = varargin;
+           [myDir] = optargs{:};
+           
+           f = fullfile(myDir, ...
+               sprintf('v%03d', version), ...
+               sprintf('%s', batchName), ...
+               sprintf('%s_SnowToday', regionName), ...
+               sprintf('%sinputs_createdOn%s_%s.png', ...
+               datestr(inputDt, 'yyyymmdd'), ...
+               datestr(creationDt, 'yyyymmdd'), ...
+               labelName));
+           
+       end
+       
+       function [files, haveDaysPerMonth, expectedDaysPerMonth] = ...
+               rawFilesFor3months(obj, ...
+               version, batchName, regionName, yr, mm, varargin)
+           % RawFilesFor3months returns MOD09/SCAGDRFS cubes surrounding this month
+           numvarargs = length(varargin);
+           if numvarargs > 2
+               error('%s:TooManyInputs, ', ...
+                   'requires exactly 2 optional inputs', mfilename());
+           end
+           
+           optargs = {obj.MOD09Dir, obj.SCAGDRFSDir};
+           optargs(1:numvarargs) = varargin;
+           [myMOD09Dir, mySCAGDRFSDir] = optargs{:};
+
+           % Look for cubes for previous and subsequent month
+           thisMonthDt = datetime(yr, mm, 1);
+           priorMonthDt = thisMonthDt - calmonths(1:1);
+           nextMonthDt = thisMonthDt + calmonths(1:1);
+           
+           Dts = [priorMonthDt, thisMonthDt, nextMonthDt];
+           nMonths = length(Dts);
+           expectedDaysPerMonth = zeros(nMonths, 1);
+           haveDaysPerMonth = zeros(nMonths, 1);
+           files = {};
+           nextIndex = 1;
+           for i=1:nMonths
+                
+               thisYYYY = year(Dts(i));
+               thisMM = month(Dts(i));
+               yyyymm = sprintf('%04d%02d', thisYYYY, thisMM);
+               
+               % Save the expected number of days in this month
+               expectedDaysPerMonth(i) = eomday(thisYYYY, thisMM);
+               
+               % Look for cubes for this month
+               mod09file = obj.MOD09File(version, batchName, regionName, ...
+                   'Raw', thisYYYY, thisMM, myMOD09Dir);
+               scagfile = obj.SCAGDRFSFile(version, batchName, regionName, ...
+                   'Raw', thisYYYY, thisMM, '', mySCAGDRFSDir);
+               
+               if ~isfile(mod09file) || ~isfile(scagfile)
+                   
+                   % Either prev or next cubes might be missing, but 
+                   % there must be cubes for this month to continue
+                   if thisMonthDt == Dts(i)
+                       errorStruct.identifier = ...
+                           'rawFilesFor3months:NoDataForRequestedMonth';
+                       errorStruct.message = sprintf( ...
+                           '%s: %s MOD09 and/or SCAGDRFS cubes missing.', ...
+                           mfilename(), yyyymm);
+                       error(errorStruct);
+                   else
+                       fprintf(['%s: %s: No MOD09 or SCAGDRFS cubes ' ...
+                           'for adjacent month %s\n'], ...
+                           mfilename(), datestr(thisMonthDt), yyyymm);
+                       continue;
+                   end
+               end
+
+               % Get actual number of days in this month with data
+               mdata = load(mod09file, 'umdays');
+               sdata = load(scagfile, 'usdays');
+               nMOD09days = length(mdata.umdays);
+               nSCAGdays = length(sdata.usdays);
+               if nMOD09days ~= nSCAGdays
+                   errorStruct.identifier = ...
+                       'rawFilesFor3months:ArchiveError';
+                   errorStruct.message = sprintf( ...
+                       '%s: %s umdays=%d ~= usdays=%d.', ...
+                       mfilename(), yyyymm, nMOD09days, nSCAGdays);
+                   error(errorStruct);
+               end
+               
+               haveDaysPerMonth(i) = nSCAGdays;
+               
+               files.MOD09{nextIndex} = mod09file;
+               files.SCAGDRFS{nextIndex} = scagfile;
+               nextIndex = nextIndex + 1;
+               
+           end
+
        end
        
        function f = geotiffFile(obj, extentName, platformName, sensorName, ...
@@ -234,12 +499,158 @@ classdef ESPEnv
            
        end
        
+       function f = modisForestHeightFile(obj, regionName, varargin)
+           % modisForestHeighFile returns forest height file for regionName
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           % fullfile requires char vectors, not modern Strings
+           optargs = {obj.modisForestDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           f = dir(fullfile(myDir, ...
+               sprintf('%s_CanopyHeight.mat', ...
+               regionName)));
+           
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'MODISData.modisForesstHeightFile:FileError';
+               errorStruct.message = sprintf( ...
+                   ['%s: Unexpected forest height files found ' ...
+                   'for %s at %s'], ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
+           
+       end
+       
+       function f = modisWatermaskFile(obj, regionName, varargin)
+           % modisWatermaskFile returns water mask file for the regionName
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           % fullfile requires char vectors, not modern Strings
+           optargs = {obj.modisWatermaskDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           %TODO: what does the 50 stand for in these filenames?
+           f = dir(fullfile(myDir, ...
+               sprintf('%s_MOD44_50_watermask_463m_sinusoidal.mat', ...
+               regionName)));
+           
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'MODISData.modisWatermaskFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected watermasks found for %s at %s', ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
+           
+       end
+       
+       function f = modisElevationFile(obj, regionName, varargin)
+           % modisElevationFile returns DEM for the regionName
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           % fullfile requires char vectors, not modern Strings
+           optargs = {obj.modisElevationDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+           
+           f = dir(fullfile(myDir, ...
+               sprintf('%s_dem.mat', ...
+               regionName)));
+           
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'MODISData.modisElevationFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected DEMs found for %s at %s', ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
+           
+       end
+       
+       
        function f = studyExtentFile(obj, regionName)
            % studyExtentFile returns a list of study extent files for the
            % given regionName
            
            f = dir(fullfile(obj.extentDir, ...
                sprintf('%s.mat', regionName)));
+           
+       end
+       
+       function projInfo = projInfoFor(obj, tileID, varargin)
+           % projInfoFor reads and returns tileID's projection information
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.mappingDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           try
+               projInfo = load(fullfile(myDir, ...
+                   sprintf('%s_ProjInfo.mat', tileID)));
+           catch e
+               fprintf("%s: Error reading projInfo in %s for %s\n", ...
+                   mfilename(), myDir, tileID);
+               rethrow(e);
+           end
+           
+       end
+
+       function s = readShapefileFor(obj, shapeName, varargin)
+           % shapefileFor - returns the request shapefile contents
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error(sprintf('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename()));
+           end
+
+           optargs = {obj.shapefileDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+
+           try
+               shapeFile = fullfile(myDir, ...
+		   shapeName, ...
+                   sprintf('%s.shp', shapeName));
+               s = shaperead(shapeFile);
+	       fprintf('%s: Read shapefile from %s\n', mfilename(), ...
+		       shapeFile);    
+           catch e
+               fprintf("%s: Error reading shapefile in %s for %s\n", ...
+                   mfilename(), myDir, shapeName);
+               rethrow(e);
+           end
            
        end
        

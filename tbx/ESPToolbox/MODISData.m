@@ -4,6 +4,15 @@ classdef MODISData
 %   data, including MOD09, modscag and moddrfs
     properties      % public properties
         archiveDir    % top-level directory with tile data
+        historicEndDt   % date of last historic data to use
+    end
+    properties(Constant)
+        pixSize_500m = 463.31271653;
+        tileRows_500m = 2400;
+        tileCols_500m = 2400;
+        %pixSize_1000m = pixSize_500m * 2;
+        %tileRows_1000m = 1200;
+        %tileCols_1000m = 1200;
     end
     methods         % public methods
         
@@ -23,7 +32,41 @@ classdef MODISData
             parse(p, varargin{:});
 
             obj.archiveDir = p.Results.archiveDir;
+            obj.historicEndDt = datetime("20181229", ...
+                'InputFormat', 'yyyyMMdd');
            
+        end
+        
+        function S = readInventoryStatus(obj, whichSet, ...
+                tile, imtype)
+           
+            % Load the inventory file for this set/tile/type
+            fileName = fullfile(obj.archiveDir, 'archive_status', ...
+                sprintf("%s.%s.%s-inventory.mat", whichSet, tile, imtype));
+            try
+                S = load(fileName);
+            catch e
+                fprintf("%s: Error reading inventory file %s", ...
+                    mfilename(), fileName);
+                rethrow(e);
+            end
+
+    	    % Only return historic/nrt data before/after cutoff Dt
+            if strcmp(whichSet, 'historic')
+                idx = S.datevals <= obj.historicEndDt;
+            else
+                idx = S.datevals > obj.historicEndDt;
+            end
+            
+            if any(idx)
+                S.datevals = S.datevals(idx);
+                nameFields = fields(S.filenames);
+                for i=1:length(nameFields)
+                    S.filenames.(nameFields{i}) = ...
+                        S.filenames.(nameFields{i})(idx);
+                end
+            end
+            
         end
         
     end
@@ -31,10 +74,10 @@ classdef MODISData
     methods(Static)  % static methods can be called for the class
         
         function dt = getMod09gaDt(fileNames)
-            %getMod09gaDate parses the MOD09GA filename for datetime
+            %getMod09gaDate parses the MOD09GA-like filename for datetime
             % Input
-            %   fileNames = string array, MOD09GA filename, of form
-            %   MOD09GA.Ayyyyddd.*hdf
+            %   fileNames = cell array with MOD09GA filenames, of form
+            %   MOD09GA.Ayyyyddd.*
             %
             % Optional Input n/a
             %   
@@ -45,13 +88,24 @@ classdef MODISData
             % This uses a nice trick that converts to datetime as an
             % offset from Jan 1
             
-            tokenNames = cellfun(@(x)regexp(x, ...
-                'MOD09GA\.A(?<yyyy>\d{4})(?<doy>\d{3})\.', 'names'), ...
-                fileNames, 'uniformOutput', false);
-            dt = cellfun(@(x)datetime(str2num(x.yyyy), 1, ...
-                str2num(x.doy)), ...
-                tokenNames);
-            ok = "ok";
+            try
+                
+                tokenNames = cellfun(@(x)regexp(x, ...
+                    'MOD09GA\.A(?<yyyy>\d{4})(?<doy>\d{3})\.', 'names'), ...
+                    fileNames, 'uniformOutput', false);
+                dt = cellfun(@(x)datetime(str2num(x.yyyy), 1, ...
+                    str2num(x.doy)), ...
+                    tokenNames);
+                
+            catch
+
+                errorStruct.identifier = 'MODISData:FileError';
+                errorStruct.message = sprintf(...
+                    '%s: Unable to parse dates from %s\n', ...
+                    mfilename(), strjoin(fileNames));
+                error(errorStruct);
+
+            end
 
         end
 
@@ -129,10 +183,10 @@ classdef MODISData
                 ['v' versionStr], tile);
             
             %% List the source hdf files
-            hdffiles = dir(fullfile(hdfDir, ...
+            hdffiles = dir(fullfile(hdfDir, '*', ...
                 ['MOD09GA.A*' tile '*.hdf']));
             fprintf(['%s: %d MOD09GA files found. ' ...
-                'Looking for matching %ss...\n'], mfilename(), ...
+                'Looking for matching %s...\n'], mfilename(), ...
                 length(hdffiles), imtype);
             dts = MODISData.getMod09gaDt(string({hdffiles.name})');
             
@@ -227,7 +281,7 @@ classdef MODISData
 
                         % HDF file and datevals
                         filenames.MOD09GA{cntgood, 1} = fullfile(...
-                            hdfDir, hdffiles(i).name);
+                            hdffiles(i).folder, hdffiles(i).name);
                         datevals(cntgood, 1) = dts(i);
 
                         % SCAG names
@@ -245,26 +299,26 @@ classdef MODISData
                         % Skip files if some or all scag files are missing
                     elseif svars==0 && dvars==1
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because itss missing some SCAG variables'])
+                            ' because it is missing some SCAG variables'])
                         cntmscag=cntmscag+1;
                         missingSCAG{cntmscag,1}=[tile '_' thisYYYYDDDStr];
                         % Skip files if some or all drfs files are missing
                     elseif svars==1 && dvars==0
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because its missing some DRFS variables'])
+                            ' because it is missing some DRFS variables'])
                         cntmdrfs=cntmdrfs+1;
                         missingDRFS{cntmdrfs,1}=[tile '_' thisYYYYDDDStr];
                     end
                 else
                     if ~exist('scagnames','var')
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because its missing all SCAG variables'])
+                            ' because it is missing all SCAG variables'])
                         cntmscag=cntmscag+1;
                         missingSCAG{cntmscag,1}=[tile '_' thisYYYYDDDStr];
                     end
                     if ~exist('drfsnames','var')
                         disp(['Skipping ' thisYYYYDDDStr ', ' tile...
-                            ' because its missing all DRFS variables'])
+                            ' because it is missing all DRFS variables'])
                         cntmdrfs=cntmdrfs+1;
                         missingDRFS{cntmdrfs,1}=[tile '_' thisYYYYDDDStr];
                     end
@@ -297,10 +351,12 @@ classdef MODISData
         
         function saveMODISfilenames(saveFile, filenames, datevals, ...
                 missingSCAG, missingDRFS)
-            %saveMODISfilenames - used in parfor loop
+            %saveMODISfilenames - saves a MODIS file inventory to .mat file
             
-            save(saveFile, 'filenames', 'datevals', 'missingSCAG', ...
-                'missingDRFS');
+            inventoryDate = datestr(datetime('now'));
+            
+            save(saveFile, 'inventoryDate', ...
+                'filenames', 'datevals', 'missingSCAG', 'missingDRFS');
 
         end
         
@@ -385,13 +441,21 @@ classdef MODISData
             % If using input for begin or end date, get a list of all
             % files in the directory and pull dates from first/last filenames
             if isnat(beginDate) || isnat(endDate)
-                list = dir(fullfile(mod09Folder, ...
-                    sprintf('MOD09GA.A*%s.%s*hdf', ...
-                    tileID, versionStr)));
+                yrDirs = MODISData.getSubDirs(mod09Folder);
+                
+                %list = dir(fullfile(mod09Folder, ...
+                %    sprintf('MOD09GA.A*%s.%s*hdf', ...
+                %    tileID, versionStr)));
                 if isnat(beginDate)
+                    list = dir(fullfile(mod09Folder, yrDirs{1}, ...
+                        sprintf('MOD09GA.A*%s.%s*hdf', ...
+                        tileID, versionStr)));
                     beginDate = MODISData.getMod09gaDt({list(1).name});
                 end
                 if isnat(endDate)
+                    list = dir(fullfile(mod09Folder, yrDirs{end}, ...
+                        sprintf('MOD09GA.A*%s.%s*hdf', ...
+                        tileID, versionStr)));
                     endDate = MODISData.getMod09gaDt({list(end).name});
                 end
             end
@@ -410,7 +474,7 @@ classdef MODISData
                 yyyyddd  = sprintf('%04d%03d', dt.Year, day(dt, 'dayofyear'));
 
                 % Find all MOD09GA files for this date
-                list = dir(fullfile(mod09Folder, ...
+                list = dir(fullfile(mod09Folder, '*', ...
                     sprintf('MOD09GA.A%s.%s.%s*hdf', ...
                     yyyyddd, tileID, versionStr)));
                 if ~isempty(list)
@@ -516,8 +580,8 @@ classdef MODISData
                 'names');
             [path, ~, ~] = fileparts(mod09File);
             parts = split(path, filesep);
-            procMode = parts(end-2);
-            topPath = join(parts(1:end-4), filesep);
+            procMode = parts(end-3);
+            topPath = join(parts(1:end-5), filesep);
             
             % Look for scag files
             versionStr = sprintf('v%s', tokenNames.version);
@@ -538,6 +602,198 @@ classdef MODISData
             
         end
         
+        function years = getSubDirs(folder)
+            % Returns a sorted cell array of the subdirs in folder
+            list = dir(folder);
+            
+            list = list([list(:).isdir]==1);
+            list = list(~ismember({list(:).name},{'.','..'}));
+            
+            years = sort({list.name});
+            
+        end
+        
+        function doy = doy(Dt)
+           % Returns the day of year of the input datetime Dt
+           % TODO: Make this work on an array of Dts
+           % TODO: Move this to a date utility object
+           jan1Dt = datetime(sprintf("%04d0101", year(Dt)), ...
+               'InputFormat', 'yyyyMMdd');
+           doy = days(Dt - jan1Dt + 1);
+            
+        end
+        
+        function idx = indexForYYYYMM(yr, mn, Dts)
+            %indexForYYYYMM finds indices to Dts array for yr, mn
+            %
+            % Input
+            %  yr: 4-digit year
+            %  mn: integer month
+            %  Dts: array of datetimes
+            %
+            % Output
+            %  idx: array of indices into Dts for requested yr, mn
+            %
+            % Notes
+            % Returns an empty array if no dates in Dts match yr, mn
+            %
+            
+            superset = datenum(Dts);
+            subset = datenum(yr, mn, 1):datenum(yr, mn, eomday(yr, mn));
+            idx = datefind(subset, superset);
+            
+        end
+
+        function [RefMatrix, umdays, NoValues, SensZ, SolZ, refl] = ...
+                loadMOD09(files)
+            %loadMOD09 loads the data from a list of MOD09 Raw cubes
+            %
+            % Input
+            %   files: cell array of filenames
+            %
+            % Output
+            %   concatenated data arrays read from filenames
+            %
+            % Notes: Returned RefMatrix is from final file loaded,
+            % earlier ones are loaded and then replaced.
+
+            NoValues = [];
+            SensZ = [];
+            SolZ = [];
+            refl = [];
+            umdays = [];
+            for mn=1:size(files,2)
+                [NoValuesT, SensZT, SolZT, reflT, RefMatrix] = ...
+                    parloadMatrices(files{mn}, ...
+                    'NoValues', 'SensZ', 'SolZ', 'refl', ...
+                    'RefMatrix');
+                [umdaysT] = parloadDts(files{mn}, 'umdays');
+                if mn == 1
+                    NoValues = NoValuesT; %cat was making this a double
+                    umdays = umdaysT{1}';
+                else
+                    NoValues = cat(3, NoValues, NoValuesT);
+                    umdays = [umdays umdaysT{1}'];
+                end
+                SensZ = cat(3, SensZ, SensZT);
+                SolZ = cat(3, SolZ, SolZT);
+                refl = cat(4, refl, reflT);
+            end
+            
+            umdays = datenum(umdays);
+            
+        end
+        
+        function [RefMatrix, usdays, RawSnow, RawVeg, RawRock, ...
+                RawDV, RawRF, RawGS_SCAG, RawGS_DRFS] = ...
+                loadSCAGDRFS(files)
+            %loadSCAGDRFS loads the data from a list of SCAGDRFS Raw cubes
+            %
+            % Input
+            %   files: cell array of filenames
+            %
+            % Output
+            %   concatenated data arrays read from filenames
+            %
+            % Notes: Returned RefMatrix is from final file loaded,
+            % earlier ones are loaded and then replaced.
+            
+            usdays = [];
+            RawSnow = [];
+            RawVeg = [];
+            RawRock = [];
+            RawGS_SCAG = [];
+            RawDV = [];
+            RawRF = [];
+            RawGS_DRFS = [];
+            for mn=1:size(files, 2)
+                [RawSnowT, RawVegT, RawRockT, RawDVT, RawRFT, ...
+                    RawGS_SCAGT, RawGS_DRFST, RefMatrix] = ...
+                    parloadMatrices(files{mn}, ...
+                    'RawSnow', 'RawVeg', 'RawRock', 'RawDV', 'RawRF', ...
+                    'RawGS_SCAG', 'RawGS_DRFS', 'RefMatrix');
+                [usdaysT] = ...
+                    parloadDts(files{mn}, ...
+                    'usdays');
+                if mn == 1
+                    usdays = usdaysT{1}';
+                else
+                    usdays = [usdays usdaysT{1}'];
+                end
+                RawSnow = cat(3, RawSnow, RawSnowT);
+                RawVeg = cat(3, RawVeg, RawVegT);
+                RawRock = cat(3, RawRock, RawRockT);
+                RawDV = cat(3, RawDV, RawDVT);
+                RawRF = cat(3, RawRF, RawRFT);
+                RawGS_SCAG = cat(3, RawGS_SCAG, RawGS_SCAGT);
+                RawGS_DRFS = cat(3, RawGS_DRFS, RawGS_DRFST);
+            end
+            
+            usdays = datenum(usdays);
+            
+        end
+
+        function FP = loadFP(fpFile, dims)
+            %loadFP loads a false positives mask
+            %
+            % Input
+            %   fpFile: watermask filename
+            %   dims: dimensions of expected mask
+            %
+            % Output
+            %   If fpFile contains an FP array, use it,
+            %   otherwise if it contains a watermask array, use that.
+            %   if not, a mask of size dims with 0s is allocated and
+            %   returned.
+            %FIXME: if file exists but doesnt have FP or watermask,
+            % nothing will be returned here.
+            %
+            % Load a false positives mask
+            if isfile(fpFile)
+                load(fpFile);
+                if ~exist('FP', 'var')
+                    FP = parloadMatrices(fpFile, 'watermask'); 
+                    clear watermask;  %TODO: why did Karl do this?
+                    fprintf('%s: Using watermask for FP from %s\n', ...
+                        mfilename(), fpFile);
+                else
+                    fprintf('%s: using FP directly from %s\n', ...
+                        mfilename(), fpFile);
+                end
+            else
+                FP = false(dims);
+                fprintf('%s: Using dummy false positives FP mask\n', ...
+                    mfilename());
+            end
+
+        end
+
+        function [ppl, ppt, thetad] = pixelSize(R, H, p, theta_s)
+            %pixelSize calculate pixel sizes in along-track and cross-track directions
+            % input
+            %  (first 3 inputs must be in same units)
+            %  R - Earth radius
+            %  H - orbit altitude
+            %  p - pixel size at nadir
+            %  theta_s - sensor zenith angle (degrees, can be vector of arguments)
+            %
+            % output (same size as vector theta_s)
+            %  ppl - pixel size in along-track direction
+            %  ppt - pixel size in cross-track direction
+            %  thetad - nadir sensor angle, degrees
+            %
+            
+            theta=asin(R*sind(theta_s)/(R+H));
+            ppl=(1/H)*(cos(theta)*(R+H)-R*sqrt(1-((R+H)/R)^2*(sin(theta)).^2));
+            beta=atan(p/(2*H));
+            ppt=(R/p)*(asin(((R+H)/R)*sin(theta+beta))-...
+                asin(((R+H)/R)*sin(theta-beta))-2*beta);
+            thetad=rad2deg(theta);
+            ppl=ppl*p;
+            ppt=ppt*p;
+            
+        end
+	
     end
 
 end
