@@ -143,9 +143,12 @@ classdef ESPEnv
            optargs = {obj.LandsatDir};
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
+           
+           pathRowStr = sprintf('p%03ir%03i', path, row);
 
            f = dir(fullfile(myDir, ...
-               sprintf('p%03ir%03i_*.mat', path, row)));
+               pathRowStr, ...
+               sprintf('%s_*.mat', pathRowStr)));
        end
        
        function f = LandsatProbCloudFile(obj, matFile)
@@ -591,11 +594,21 @@ classdef ESPEnv
        
        
        function f = studyExtentFile(obj, regionName)
-           % studyExtentFile returns a list of study extent files for the
+           % studyExtentFile returns the study extent file for the
            % given regionName
            
            f = dir(fullfile(obj.extentDir, ...
-               sprintf('%s.mat', regionName)));
+			    sprintf('%s.mat', regionName)));
+	   if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'ESPEnv.studyExtentFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected study extentsfound for %s at %s', ...
+                   mfilename(), regionName, obj.extentDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
            
        end
        
