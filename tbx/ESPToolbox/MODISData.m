@@ -5,6 +5,7 @@ classdef MODISData
     properties      % public properties
         archiveDir    % top-level directory with tile data
         historicEndDt   % date of last historic data to use
+        mstruct % mapping structure for MOSIS sinusoidal projection
     end
     properties(Constant)
         pixSize_500m = 463.31271653;
@@ -34,6 +35,15 @@ classdef MODISData
             obj.archiveDir = p.Results.archiveDir;
             obj.historicEndDt = datetime("20181229", ...
                 'InputFormat', 'yyyyMMdd');
+            
+            % Fetch the mstruct information for the MODIS sinusoidal map
+            [path, ~, ~] = fileparts(mfilename('fullpath'));
+            parts = split(path, filesep);
+            path = join(parts(1:end-1), filesep);
+            mstructFile = fullfile(path{1}, 'mapping', ...
+                'Sinusoidal_projection_structure.mat');
+            m = matfile(mstructFile);
+            obj.mstruct = m.mstruct;
            
         end
         
@@ -561,14 +571,53 @@ classdef MODISData
                         'h22v04'; 'h23v04'; 'h24v04'; ...
                         'h22v05'; 'h23v05'; 'h24v05'; 'h25v05'; ...
                         'h26v05';...
-                                  'h23v06'; 'h24v06'; 'h26v06'; ...
-                        'h26v06'};
+                        'h23v06'; 'h24v06'; 'h26v06'; 'h26v06'};
                 otherwise
                     error("%s: Unknown region=%s", ...
                         mfilename(), region);
             end
             
         end
+
+	function [Rmap, lr, dims] = RmapFor(espEnv, tiles)
+	    % RmapFor returns the merged referencing matrix for tiles
+	    % Input:
+	    % espEnv : environment tile projection files
+	    % tiles : cell array with tileIDs
+            % Output:
+	    % Rmap : referencing matrix for the merged tiles
+	    % lr : lower right map coordinates (m) for each tile
+	    % dims : dimensions of tile mosaic [rows cols]
+
+	    resolution = 500;
+	    ntiles = length(tiles);
+	    RefMatrices = zeros(ntiles, 3, 2);
+	    sizes = zeros(ntiles, 2);
+	    lr = zeros(ntiles, 2);
+	    
+	    % structure fieldnames for ProjInfo files
+	    resolutionName = ['RefMatrix_' num2str(resolution) 'm'];
+	    sizeName = ['size_' num2str(resolution) 'm'];
+
+	    for t = 1:ntiles
+
+            projInfo = espEnv.projInfoFor(tiles{t});
+            RefMatrices(t, :, :) = projInfo.(resolutionName);
+            sizes(t, :) = projInfo.(sizeName);
+            lr(t, :) = [sizes(t, :) 1] * squeeze(RefMatrices(t, :, :));
+    
+	    end
+
+	    Rmap = zeros(3, 2);
+	    Rmap(3, 1) = min(RefMatrices(:, 3, 1));
+	    Rmap(2, 1) = RefMatrices(1, 2, 1);
+	    Rmap(1, 2) = RefMatrices(1, 1, 2);
+	    Rmap(3, 2) = max(RefMatrices(:, 3, 2));
+        
+        xy = [max(lr(:, 1)) min(lr(:, 2))];
+        dims = round(map2pix(Rmap, xy));
+
+	end
         
         function list = matchingFiles(mod09File)
             % matchingFiles finds any scag/drfs files that 
