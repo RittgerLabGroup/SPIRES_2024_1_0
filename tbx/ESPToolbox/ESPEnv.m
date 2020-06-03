@@ -19,8 +19,8 @@ classdef ESPEnv
       modisElevationDir   % direcotry with MODIS DEMs
       
       MOD09Dir       % directory with MODIS scag cubes (.mat)
-      SCAGDRFSDir    % direcotry with MODIS SCAGDRFS cubes (.mat)
-      STCDir         % direcotyr with STC cubes (.mat)
+      SCAGDRFSRawDir % directory with Raw SCAGDRFS cubes (.mat)
+      SCAGDRFSDir    % directory with MODIS SCAGDRFS cubes (.mat)
    end
    methods
        function obj = ESPEnv(varargin)
@@ -62,8 +62,6 @@ classdef ESPEnv
                        'SierraBighorn_data', 'mod09');
                    obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'scagdrfs');
-                   obj.STCDir = fullfile('/Users', 'brodzik', ...
-                       'SierraBighorn_data', 'smooth');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'Landsat');
                    obj.LandsatProbCloudDir = fullfile('/Users', 'brodzik', ...
@@ -85,7 +83,6 @@ classdef ESPEnv
                    % Default path is relative to this file, 2 levels up
                    [path, ~, ~] = fileparts(mfilename('fullpath'));
                    parts = split(path, filesep);
-                   path = join(parts(1:end-2), filesep);
     
                    % 1 level up
                    path = join(parts(1:end-1), filesep);
@@ -120,8 +117,8 @@ classdef ESPEnv
                    path = fullfile('/pl', 'active', 'rittger_esp', ...
                        'modis');
                    obj.MOD09Dir = fullfile(path, 'mod09');
+                   obj.SCAGDRFSRawDir = fullfile(path, 'scagdrfs_raw_v01');
                    obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
-                   obj.STCDir = fullfile(path, 'smooth');
                    
            end
     
@@ -139,8 +136,8 @@ classdef ESPEnv
            % LandsatFile returns a list of Landsat files for given path/row
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.LandsatDir};
@@ -157,7 +154,7 @@ classdef ESPEnv
            % Parse the matFile for a date string
            [~, basename, ~] = fileparts(matFile);
            tokenNames = regexp(basename, ...
-               ['_(?<yyyymmdd>\d{8})'], ...
+               '_(?<yyyymmdd>\d{8})', ...
                'names');
            cloudBasename = sprintf('%s_cloud.tif', tokenNames.yyyymmdd);
            
@@ -169,8 +166,8 @@ classdef ESPEnv
            % MODISFile returns a list of MODIS STC cube files
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.MODISDir};
@@ -186,8 +183,8 @@ classdef ESPEnv
            % MOD09File returns the name of a monthly MOD09 cubefile
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.MOD09Dir};
@@ -214,8 +211,8 @@ classdef ESPEnv
            % SCAGDRFSFile returns the name of a monthly SCAGDRFS cubefile
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.SCAGDRFSDir};
@@ -243,12 +240,12 @@ classdef ESPEnv
        end
        
        function f = MosaicFile(obj, version, batchName, regionName, ...
-			      fileType, yr, mm, dd, labelName, varargin)
+			       yr, mm, dd, labelName, varargin)
            % MosaicFile returns the name of a daily mosaic image file
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.SCAGDRFSDir};
@@ -264,11 +261,9 @@ classdef ESPEnv
 			    sprintf('%s', batchName), ...
 			    sprintf('%s', regionName), ...
 			    sprintf('%04d', yr), ...
-			    sprintf('%s', fileType), ...
-			    sprintf('%s_%s_%s_%s_%s.mat', ...
-				    fileType, platformName, ...
-				    regionName, yyyymmdd, ...
-				    labelName));
+			    sprintf('%s_%s_%s_%s.mat', ...
+				    regionName, platformName, ...
+				    yyyymmdd, labelName));
            
        end
        
@@ -278,8 +273,8 @@ classdef ESPEnv
 	   % summary file
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.SCAGDRFSDir};
@@ -304,8 +299,8 @@ classdef ESPEnv
            % figure file
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
            
            optargs = {obj.SCAGDRFSDir};
@@ -333,9 +328,9 @@ classdef ESPEnv
                    'requires exactly 2 optional inputs', mfilename());
            end
            
-           optargs = {obj.MOD09Dir, obj.SCAGDRFSDir};
+           optargs = {obj.MOD09Dir, obj.SCAGDRFSRawDir};
            optargs(1:numvarargs) = varargin;
-           [myMOD09Dir, mySCAGDRFSDir] = optargs{:};
+           [myMOD09Dir, mySCAGDRFSRawDir] = optargs{:};
 
            % Look for cubes for previous and subsequent month
            thisMonthDt = datetime(yr, mm, 1);
@@ -361,7 +356,7 @@ classdef ESPEnv
                mod09file = obj.MOD09File(version, batchName, regionName, ...
                    'Raw', thisYYYY, thisMM, myMOD09Dir);
                scagfile = obj.SCAGDRFSFile(version, batchName, regionName, ...
-                   'Raw', thisYYYY, thisMM, '', mySCAGDRFSDir);
+                   'Raw', thisYYYY, thisMM, '', mySCAGDRFSRawDir);
                
                if ~isfile(mod09file) || ~isfile(scagfile)
                    
@@ -406,7 +401,7 @@ classdef ESPEnv
 
        end
        
-       function f = geotiffFile(obj, extentName, platformName, sensorName, ...
+       function f = geotiffFile(~, extentName, platformName, sensorName, ...
                 baseName, varName, version)
             % geotiffFile builds a geoTiff file name based on the input
             % values
@@ -448,8 +443,8 @@ classdef ESPEnv
            
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.colormapDir};
@@ -468,8 +463,8 @@ classdef ESPEnv
            
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            % fullfile requires char vectors, not modern Strings
@@ -618,8 +613,8 @@ classdef ESPEnv
            % projInfoFor reads and returns tileID's projection information
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.mappingDir};
@@ -641,8 +636,8 @@ classdef ESPEnv
            % shapefileFor - returns the request shapefile contents
            numvarargs = length(varargin);
            if numvarargs > 1
-               error(sprintf('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename()));
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
            end
 
            optargs = {obj.shapefileDir};
