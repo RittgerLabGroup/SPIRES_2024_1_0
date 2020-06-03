@@ -583,7 +583,7 @@ classdef ESPEnv
            
            if length(f) ~= 1
                errorStruct.identifier = ...
-                   'MODISData.modisElevationFile:FileError';
+                   'ESPEnv.modisElevationFile:FileError';
                errorStruct.message = sprintf( ...
                    '%s: Unexpected DEMs found for %s at %s', ...
                    mfilename(), regionName, myDir);
@@ -596,11 +596,21 @@ classdef ESPEnv
        
        
        function f = studyExtentFile(obj, regionName)
-           % studyExtentFile returns a list of study extent files for the
+           % studyExtentFile returns the study extent file for the
            % given regionName
            
            f = dir(fullfile(obj.extentDir, ...
-               sprintf('%s.mat', regionName)));
+			    sprintf('%s.mat', regionName)));
+	   if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'ESPEnv.studyExtentFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected study extentsfound for %s at %s', ...
+                   mfilename(), regionName, obj.extentDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
            
        end
        
