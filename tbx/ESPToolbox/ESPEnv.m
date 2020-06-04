@@ -143,9 +143,12 @@ classdef ESPEnv
            optargs = {obj.LandsatDir};
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
+           
+           pathRowStr = sprintf('p%03ir%03i', path, row);
 
            f = dir(fullfile(myDir, ...
-               sprintf('p%03ir%03i_*.mat', path, row)));
+               pathRowStr, ...
+               sprintf('%s_*.mat', pathRowStr)));
        end
        
        function f = LandsatProbCloudFile(obj, matFile)
