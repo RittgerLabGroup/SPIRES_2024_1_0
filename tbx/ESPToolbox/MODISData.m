@@ -374,7 +374,10 @@ classdef MODISData
             %inventoryJPLmod09ga creates an inventory of MOD09GA files for
             %tileID
             %
-            % Input TBD
+            % Input
+            %   folder - string top directory with MODIS data
+            %   whichSet - string. Either 'historic' or 'NRT'
+            %   tileID - tile to inventory
             %
             % Optional Input
             %   beginDate - datetime date to begin looking for files
@@ -400,7 +403,7 @@ classdef MODISData
             addRequired(p, 'folder', @ischar);
 
             validWhichSet = {'historic' 'nrt'};
-            checkWhichSet = @(x) any(strmatch(x, validWhichSet, 'exact'));
+            checkWhichSet = @(x) any(strcmp(x, validWhichSet));
             addRequired(p, 'whichSet', checkWhichSet);
 
             addRequired(p, 'tileID', @ischar);
@@ -566,6 +569,9 @@ classdef MODISData
                     list = {...
                         'h08v04'; 'h09v04'; 'h10v04'; ...
                         'h08v05'; 'h09v05'};
+                case 'indus'
+                    list = {...
+			'h23v05'; 'h24v05'; 'h25v05'};
                 case 'hma'
                     list = {...
                         'h22v04'; 'h23v04'; 'h24v04'; ...
