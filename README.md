@@ -34,10 +34,14 @@ To create a new version of the Toolbox:
     controls what shows up when you type `help ESPToolbox`.
 3.  Update the doc/*.html files and update the helpsearch file by
     calling `builddocsearchdb('/Users/brodzik/Documents/MATLAB/esp/tbx/doc')'
+    Apparently this has to be done after the .mtlbx file has been installed
+    (I'm not sure why)
     For new functions, add lines to functions.html and
     toolbox_overview.html.
     For new toolbox requirements, edit getting_started.html.
     To change left nav bar in help window, edit helptoc.xml.
+    use 'help myfunc' to see output in Command Window
+    use 'doc myfunc' to see output in popup window
 4.  There is some way to build extra documentation by opening your .m
     file and doing "Publish"--this shows up in the documentation, but
     I'm not entirely sure what good it does.
@@ -56,7 +60,8 @@ To create a new version of the Toolbox:
 
 To test a new Toolbox release:
 
-1.  Remove the sandbox directories from the matlab path with `rmsandbox()`.
+1.  Remove the sandbox directories from the matlab path by closing
+    the Project widget
 2.  Check and remove any previous Toolbox paths from the matlab path.
 3.  Double-click the new .mltbx file to add it to the path.
 

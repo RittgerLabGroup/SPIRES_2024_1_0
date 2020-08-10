@@ -5,7 +5,8 @@ classdef MODISData
     properties      % public properties
         archiveDir    % top-level directory with tile data
         historicEndDt   % date of last historic data to use
-        mstruct % mapping structure for MOSIS sinusoidal projection
+        mstruct % mapping structure for MODIS sinusoidal projection
+        cstruct % structure with units/fields for MOD09GA files
     end
     properties(Constant)
         pixSize_500m = 463.31271653;
@@ -36,14 +37,23 @@ classdef MODISData
             obj.historicEndDt = datetime("20181229", ...
                 'InputFormat', 'yyyyMMdd');
             
-            % Fetch the mstruct information for the MODIS sinusoidal map
-            [path, ~, ~] = fileparts(mfilename('fullpath'));
+            path = fileparts(mfilename('fullpath'));
             parts = split(path, filesep);
             path = join(parts(1:end-1), filesep);
-            mstructFile = fullfile(path{1}, 'mapping', ...
+            topPath = path{1};
+            
+            % Fetch the mstruct information for the MODIS sinusoidal map
+            mstructFile = fullfile(topPath, 'mapping', ...
                 'Sinusoidal_projection_structure.mat');
             m = matfile(mstructFile);
             obj.mstruct = m.mstruct;
+            
+            % Fetch the structure that describes MOD09GA fields/units
+            cstructFile = fullfile(topPath, 'mapping', ...
+                'MOD09GA_cstruct.mat');
+            m = matfile(cstructFile);
+            obj.cstruct = m.cstruct;
+            
            
         end
         

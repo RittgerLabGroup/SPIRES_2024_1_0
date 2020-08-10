@@ -1,3 +1,4 @@
+
 classdef ESPEnv
     % ESPEnv - environment for ESP data directories
     %   Directories with locations of various types of data needed for ESP
@@ -375,7 +376,7 @@ classdef ESPEnv
                expectedDaysPerMonth(i) = eomday(thisYYYY, thisMM);
                
                % Look for cubes for this month
-               mod09file = obj.MOD09File(version, batchName, regionName, ...
+               mod09file = obj.MOD09File(version, '', regionName, ...
                    'Raw', thisYYYY, thisMM, myMOD09Dir);
                scagfile = obj.SCAGDRFSFile(version, batchName, regionName, ...
                    'Raw', thisYYYY, thisMM, '', mySCAGDRFSRawDir);
