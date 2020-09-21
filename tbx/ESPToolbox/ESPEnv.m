@@ -17,8 +17,8 @@ classdef ESPEnv
       watermaskDir   % directory with water mask
       modisWatermaskDir   % directory with MODIS watermask files
       modisForestDir      % directory with MODIS canopy corrections
-      modisElevationDir   % direcotry with MODIS DEMs
-      
+      modisElevationDir   % directory with MODIS DEMs
+      modisTopographyDir  % directory with MODIS topography files
       MOD09Dir       % directory with MODIS scag cubes (.mat)
       SCAGDRFSRawDir % directory with Raw SCAGDRFS cubes (.mat)
       SCAGDRFSDir    % directory with MODIS SCAGDRFS cubes (.mat)
@@ -76,6 +76,8 @@ classdef ESPEnv
                        'SierraBighorn_data', 'forest_height');
                    obj.modisElevationDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'elevation');
+                   obj.modisTopographyDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'topography');
                    obj.shapefileDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'shapefiles');
                    
@@ -113,6 +115,7 @@ classdef ESPEnv
                    obj.modisWatermaskDir = fullfile(path, 'landcover');
                    obj.modisForestDir = fullfile(path, 'forest_height');
                    obj.modisElevationDir = fullfile(path, 'elevation');
+                   obj.modisTopographyDir = fullfile(path, 'topography');
                    obj.shapefileDir = fullfile(path, 'shapefiles');
                    
                    path = fullfile('/pl', 'active', 'rittger_esp', ...
@@ -182,7 +185,7 @@ classdef ESPEnv
            
        end
        
-       function f = MOD09File(obj, version, batchName, regionName, ...
+       function f = MOD09File(obj, version, regionName, ...
 			      fileType, yr, mm, varargin)
            % MOD09File returns the name of a monthly MOD09 cubefile
            numvarargs = length(varargin);
@@ -201,7 +204,6 @@ classdef ESPEnv
 
            f = fullfile(myDir, ...
 			    sprintf('v%03d', version), ...
-			    sprintf('%s', batchName), ...
 			    sprintf('%s', regionName), ...
 			    sprintf('%04d', yr), ...
 			    sprintf('%sMOD09_%s_%s_%s.mat', ...
@@ -210,7 +212,7 @@ classdef ESPEnv
            
        end
        
-       function f = SCAGDRFSFile(obj, version, batchName, regionName, ...
+       function f = SCAGDRFSFile(obj, version, regionName, ...
 			      fileType, yr, mm, labelName, varargin)
            % SCAGDRFSFile returns the name of a monthly SCAGDRFS cubefile
            numvarargs = length(varargin);
@@ -234,7 +236,6 @@ classdef ESPEnv
 
            f = fullfile(myDir, ...
 			    sprintf('v%03d', version), ...
-			    sprintf('%s', batchName), ...
 			    sprintf('%s', regionName), ...
 			    sprintf('%04d', yr), ...
 			    sprintf('%sSCAG_%s_%s_%s%s.mat', ...
@@ -343,7 +344,7 @@ classdef ESPEnv
        
        function [files, haveDaysPerMonth, expectedDaysPerMonth] = ...
                rawFilesFor3months(obj, ...
-               version, batchName, regionName, yr, mm, varargin)
+               version, regionName, yr, mm, varargin)
            % RawFilesFor3months returns MOD09/SCAGDRFS cubes surrounding this month
            numvarargs = length(varargin);
            if numvarargs > 2
@@ -376,9 +377,9 @@ classdef ESPEnv
                expectedDaysPerMonth(i) = eomday(thisYYYY, thisMM);
                
                % Look for cubes for this month
-               mod09file = obj.MOD09File(version, '', regionName, ...
+               mod09file = obj.MOD09File(version, regionName, ...
                    'Raw', thisYYYY, thisMM, myMOD09Dir);
-               scagfile = obj.SCAGDRFSFile(version, batchName, regionName, ...
+               scagfile = obj.SCAGDRFSFile(version, regionName, ...
                    'Raw', thisYYYY, thisMM, '', mySCAGDRFSRawDir);
                
                if ~isfile(mod09file) || ~isfile(scagfile)
@@ -612,6 +613,36 @@ classdef ESPEnv
            
        end
        
+       function f = modisTopographyFile(obj, regionName, varargin)
+           % modisTopographyFile file with regionName elevation-slope-aspect
+           
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           % fullfile requires char vectors, not modern Strings
+           optargs = {obj.modisTopographyDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+           
+           f = dir(fullfile(myDir, ...
+               sprintf('%s_Elevation_Slope_Aspect.mat', ...
+               regionName)));
+           
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'ESPEnv.modisTopographyFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected Topographies found for %s at %s', ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+       
+           f = fullfile(f(1).folder, f(1).name);
+           
+       end
        
        function f = studyExtentFile(obj, regionName)
            % studyExtentFile returns the study extent file for the
