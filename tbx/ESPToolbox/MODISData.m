@@ -709,8 +709,8 @@ classdef MODISData
             
         end
 
-        function [RefMatrix, umdays, NoValues, SensZ, SolZ, refl] = ...
-                loadMOD09(files)
+        function [RefMatrix, umdays, NoValues, SensZ, SolZ, SolAzimuth, ...
+                refl] = loadMOD09(files)
             %loadMOD09 loads the data from a list of MOD09 Raw cubes
             %
             % Input
@@ -725,13 +725,15 @@ classdef MODISData
             NoValues = [];
             SensZ = [];
             SolZ = [];
+            SolAzimuth = [];
             refl = [];
             umdays = [];
             for mn=1:size(files,2)
-                [NoValuesT, SensZT, SolZT, reflT, RefMatrix] = ...
+                [NoValuesT, SensZT, SolZT, SolAzimuthT, ...
+                    reflT, RefMatrix] = ...
                     parloadMatrices(files{mn}, ...
-                    'NoValues', 'SensZ', 'SolZ', 'refl', ...
-                    'RefMatrix');
+                    'NoValues', 'SensZ', 'SolZ', 'SolAzimuth', ...
+                    'refl', 'RefMatrix');
                 [umdaysT] = parloadDts(files{mn}, 'umdays');
                 if mn == 1
                     NoValues = NoValuesT; %cat was making this a double
@@ -742,6 +744,7 @@ classdef MODISData
                 end
                 SensZ = cat(3, SensZ, SensZT);
                 SolZ = cat(3, SolZ, SolZT);
+                SolAzimuth = cat(3, SolAzimuth, SolAzimuthT);
                 refl = cat(4, refl, reflT);
             end
             
