@@ -16,6 +16,7 @@ classdef MODISData
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
     end
+    
     methods         % public methods
         
         function obj = MODISData(varargin)
@@ -23,16 +24,16 @@ classdef MODISData
             % for local storage of MODIS tile data
             
             p = inputParser;
-
+            
             defaultArchiveDir = '/pl/active/rittger_esp/modis';
             checkArchiveDir = @(x) exist(x, 'dir');
             addOptional(p, 'archiveDir', defaultArchiveDir, ...
                 checkArchiveDir);
-
+            
             p.KeepUnmatched = true;
-
+            
             parse(p, varargin{:});
-
+            
             obj.archiveDir = p.Results.archiveDir;
             obj.historicEndDt = datetime("20181229", ...
                 'InputFormat', 'yyyyMMdd');
@@ -54,12 +55,12 @@ classdef MODISData
             m = matfile(cstructFile);
             obj.cstruct = m.cstruct;
             
-           
+            
         end
         
         function S = readInventoryStatus(obj, whichSet, ...
                 tile, imtype)
-           
+            
             % Load the inventory file for this set/tile/type
             fileName = fullfile(obj.archiveDir, 'archive_status', ...
                 sprintf("%s.%s.%s-inventory.mat", whichSet, tile, imtype));
@@ -70,8 +71,8 @@ classdef MODISData
                     mfilename(), fileName);
                 rethrow(e);
             end
-
-    	    % Only return historic/nrt data before/after cutoff Dt
+            
+            % Only return historic/nrt data before/after cutoff Dt
             if strcmp(whichSet, 'historic')
                 idx = S.datevals <= obj.historicEndDt;
             else
@@ -89,7 +90,68 @@ classdef MODISData
             
         end
         
+        function S = tileSubsetCoords(...
+                obj, espEnv, RefMatrix, nRows, nCols, tileID)
+            %ExtractTileSubset - returns row/col coords for tileID in RefMatrix
+            %% Refer to tutorial here:
+            %% https://laptrinhx.com/introduction-to-spatial-referencing-3251134442/
+            %%
+            %% Get Big RefMatrix from Slope-Aspect file
+            %%f = myEnv.modisTopographyFile('westernUS');
+            %%mObj = matfile(f);
+            %%[nRows, nCols] = size(mObj, 'A');
+            %%RefMatrix = mObj.RefMatrix;
+            
+            try
+                
+                %% Use the large RefMatrix to make a 2d referencing object
+                %% that relates x-y coordinates to row-col
+                %% Converting the scales to single precision
+                %% will ignore round-off issues in the tileID
+                %% projection information files.
+                ULx = RefMatrix(3, 1);
+                ULy = RefMatrix(3, 2);
+                scalex = single(RefMatrix(2, 1));
+                scaley = single(RefMatrix(1, 2));
+                LRx = RefMatrix(3, 1) + (nCols * scalex);
+                LRy = RefMatrix(3, 2) + (nRows * scaley);
+                
+                %% Think of spans similar to indexing a matrix:
+                %%
+                %% Y span increases from top to bottom of image
+                %%    Y span 2-element input here has to be [Ysmaller Ylarger]
+                %% X span increases from left to right of image
+                %% rows increase from top to bottom
+                %% cols increase from left to right
+                %%
+                RI = imref2d([nRows nCols], [ULx LRx], [LRy ULy]);
+
+                %% Now fetch the UL corner of the requested tileID
+                projInfo = espEnv.projInfoFor(tileID);
+                
+                x = single(projInfo.RefMatrix_500m(3, 1));
+                y = single(projInfo.RefMatrix_500m(3, 2));
+                
+                % And get row, col of nearest pixel to (x, y) with:
+                [r, c] = worldToSubscript(RI, x, y);
+                
+                % Default image reference insists that Y needs to increase from
+                % top to bottom, but that's not what sinusoidal projection does,
+                % so flip the row coordinate top-to-bottom
+                r = nRows - r + 1;
+                
+                S.Rows = [ r (r + obj.tileRows_500m - 1)];
+                S.Cols = [ c (c + obj.tileCols_500m - 1)];
+                
+            catch e
+                fprintf('%s: Error in tileSubsetCoords for %s\n', ...
+                    mfilename(), tileID);
+                rethrow(e);
+            end
+        end
+        
     end
+
     
     methods(Static)  % static methods can be called for the class
         
@@ -121,7 +183,7 @@ classdef MODISData
 
                 errorStruct.identifier = 'MODISData:FileError';
                 errorStruct.message = sprintf(...
-                    '%s: Unable to parse dates from %s\n', ...
+                    '%s: Error Unable to parse dates from %s\n', ...
                     mfilename(), strjoin(fileNames));
                 error(errorStruct);
 
@@ -594,46 +656,48 @@ classdef MODISData
             end
             
         end
-
-	function [Rmap, lr, dims] = RmapFor(espEnv, tiles)
-	    % RmapFor returns the merged referencing matrix for tiles
-	    % Input:
-	    % espEnv : environment tile projection files
-	    % tiles : cell array with tileIDs
-            % Output:
-	    % Rmap : referencing matrix for the merged tiles
-	    % lr : lower right map coordinates (m) for each tile
-	    % dims : dimensions of tile mosaic [rows cols]
-
-	    resolution = 500;
-	    ntiles = length(tiles);
-	    RefMatrices = zeros(ntiles, 3, 2);
-	    sizes = zeros(ntiles, 2);
-	    lr = zeros(ntiles, 2);
-	    
-	    % structure fieldnames for ProjInfo files
-	    resolutionName = ['RefMatrix_' num2str(resolution) 'm'];
-	    sizeName = ['size_' num2str(resolution) 'm'];
-
-	    for t = 1:ntiles
-
-            projInfo = espEnv.projInfoFor(tiles{t});
-            RefMatrices(t, :, :) = projInfo.(resolutionName);
-            sizes(t, :) = projInfo.(sizeName);
-            lr(t, :) = [sizes(t, :) 1] * squeeze(RefMatrices(t, :, :));
-    
-	    end
-
-	    Rmap = zeros(3, 2);
-	    Rmap(3, 1) = min(RefMatrices(:, 3, 1));
-	    Rmap(2, 1) = RefMatrices(1, 2, 1);
-	    Rmap(1, 2) = RefMatrices(1, 1, 2);
-	    Rmap(3, 2) = max(RefMatrices(:, 3, 2));
         
-        xy = [max(lr(:, 1)) min(lr(:, 2))];
-        dims = round(map2pix(Rmap, xy));
+        function [Rmap, lr, dims] = RmapFor(espEnv, tiles)
+            % RmapFor returns the merged referencing matrix for tiles
+            % Input:
+            % espEnv : environment tile projection files
+            % tiles : cell array with tileIDs
+            % Output:
+            % Rmap : referencing matrix for the merged tiles
+            % lr : lower right map coordinates (m) for each tile
+            % dims : dimensions of tile mosaic [rows cols]
+            
+            resolution = 500;
+            ntiles = length(tiles);
+            RefMatrices = zeros(ntiles, 3, 2);
+            sizes = zeros(ntiles, 2);
+            lr = zeros(ntiles, 2);
+            
+            % structure fieldnames for ProjInfo files
+            resolutionName = ['RefMatrix_' num2str(resolution) 'm'];
+            sizeName = ['size_' num2str(resolution) 'm'];
+            
+            for t = 1:ntiles
+                
+                projInfo = espEnv.projInfoFor(tiles{t});
+                RefMatrices(t, :, :) = projInfo.(resolutionName);
+                sizes(t, :) = projInfo.(sizeName);
+                lr(t, :) = [sizes(t, :) 1] * squeeze(RefMatrices(t, :, :));
+                
+            end
+            
+            Rmap = zeros(3, 2);
+            Rmap(3, 1) = min(RefMatrices(:, 3, 1));
+            Rmap(2, 1) = RefMatrices(1, 2, 1);
+            Rmap(1, 2) = RefMatrices(1, 1, 2);
+            Rmap(3, 2) = max(RefMatrices(:, 3, 2));
+            
+            xy = [max(lr(:, 1)) min(lr(:, 2))];
+            dims = round(map2pix(Rmap, xy));
+            
+        end
 
-	end
+        
         
         function list = matchingFiles(mod09File)
             % matchingFiles finds any scag/drfs files that 
@@ -709,8 +773,8 @@ classdef MODISData
             
         end
 
-        function [RefMatrix, umdays, NoValues, SensZ, SolZ, refl] = ...
-                loadMOD09(files)
+        function [RefMatrix, umdays, NoValues, SensZ, SolZ, SolAzimuth, ...
+                refl] = loadMOD09(files)
             %loadMOD09 loads the data from a list of MOD09 Raw cubes
             %
             % Input
@@ -725,13 +789,15 @@ classdef MODISData
             NoValues = [];
             SensZ = [];
             SolZ = [];
+            SolAzimuth = [];
             refl = [];
             umdays = [];
             for mn=1:size(files,2)
-                [NoValuesT, SensZT, SolZT, reflT, RefMatrix] = ...
+                [NoValuesT, SensZT, SolZT, SolAzimuthT, ...
+                    reflT, RefMatrix] = ...
                     parloadMatrices(files{mn}, ...
-                    'NoValues', 'SensZ', 'SolZ', 'refl', ...
-                    'RefMatrix');
+                    'NoValues', 'SensZ', 'SolZ', 'SolAzimuth', ...
+                    'refl', 'RefMatrix');
                 [umdaysT] = parloadDts(files{mn}, 'umdays');
                 if mn == 1
                     NoValues = NoValuesT; %cat was making this a double
@@ -742,6 +808,7 @@ classdef MODISData
                 end
                 SensZ = cat(3, SensZ, SensZT);
                 SolZ = cat(3, SolZ, SolZT);
+                SolAzimuth = cat(3, SolAzimuth, SolAzimuthT);
                 refl = cat(4, refl, reflT);
             end
             
