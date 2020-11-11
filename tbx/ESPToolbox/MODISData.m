@@ -643,7 +643,7 @@ classdef MODISData
                         'h08v05'; 'h09v05'};
                 case 'indus'
                     list = {...
-			'h23v05'; 'h24v05'; 'h25v05'};
+                        'h23v05'; 'h24v05'; 'h25v05'};
                 case 'hma'
                     list = {...
                         'h22v04'; 'h23v04'; 'h24v04'; ...
@@ -655,6 +655,20 @@ classdef MODISData
                         mfilename(), region);
             end
             
+        end
+        
+        function regionName = regionNameFor(tileID)
+           % regionNameFor returns the regionName for this tileID
+           switch tileID
+               case MODISData.tilesFor('westernUS')
+                   regionName = 'westernUS';
+               case MODISData.tilesFor('Indus')
+                   regionName = 'Indus';
+               otherwise
+                   error("%s: Unknown tileID=%s", ...
+                       mfilename(), tileID);
+           end
+               
         end
         
         function [Rmap, lr, dims] = RmapFor(espEnv, tiles)
