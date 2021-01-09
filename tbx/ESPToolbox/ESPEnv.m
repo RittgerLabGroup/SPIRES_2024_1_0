@@ -7,9 +7,7 @@ classdef ESPEnv
       shapefileDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
       heightmaskDir  % directory heightmask for Landsat canopy corrections
-      
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
-      
       LandsatDir     % directory with Landsat scag images (.mat)
       LandsatProbCloudDir % directory with liberal "probable" cloud masks (.tif)
       viirsDir       % directory with TBD for VIIRS
@@ -21,6 +19,7 @@ classdef ESPEnv
       MOD09Dir       % directory with MODIS scag cubes (.mat)
       SCAGDRFSRawDir % directory with Raw SCAGDRFS cubes (.mat)
       SCAGDRFSDir    % directory with MODIS SCAGDRFS cubes (.mat)
+      publicDir      % top-level directory for public FTP site
    end
    methods
        function obj = ESPEnv(varargin)
@@ -79,6 +78,8 @@ classdef ESPEnv
                        'SierraBighorn_data', 'topography');
                    obj.shapefileDir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'shapefiles');
+                   obj.publicDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'public');
                    
                otherwise
     
@@ -123,6 +124,9 @@ classdef ESPEnv
                    obj.SCAGDRFSRawDir = fullfile(path, 'scagdrfs_raw_v01');
                    obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
                    
+                   path = fullfile('/pl', 'active', 'rittger_esp_public');
+                   obj.publicDir = fullfile(path, 'snow-today');
+
            end
     
            % Convert these from 1x1 cells to plain char arrays

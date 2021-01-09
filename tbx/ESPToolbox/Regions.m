@@ -56,7 +56,6 @@ classdef Regions
             obj.indxMosaic = mObj.indxMosaic;
             obj.percentCoverage = mObj.percentCoverage;
             
-            
         end
         
         function out = paddedBounds(obj, ...
@@ -81,8 +80,75 @@ classdef Regions
            out.bounds(2, 2) = out.bounds(2, 2) + padheight;
            
         end
-           
         
+        function writeStats(obj, espEnv, historicalStats, ...
+                currentStats, regionNum, statsType)
+            % writes the year-to-date statsType for regionNum to public FTP
+
+            todayDt = datetime;
+            waterYr = year(todayDt);
+            thisMonth = month(todayDt);
+            if thisMonth >= 10
+                waterYr = waterYr + 1;
+            end
+            fileName = sprintf('SnowToday_%s_%s_WY%4d_yearToDate.txt', ...
+                obj.ShortName{regionNum}, statsType, waterYr);
+            fileName = fullfile(espEnv.publicDir, ...
+                obj.ShortName{regionNum}, ...
+                fileName);
+            [path, ~, ~] = fileparts(fileName);
+            if ~isfolder(path)
+                mkdir(path);
+            end
+            fileID = fopen(fileName, 'w');
+            
+            fprintf(fileID, 'SnowToday Statistics\n');
+            fclose(fileID);
+            
+            fprintf('%s: Wrote %s\n', mfilename(), fileName);
+            
+        end
+
+        function saveSubsetToGeotiff(obj, espEnv, dataDt, data, R, ...
+                regionNum, xLim, yLim, statsType)
+            % saves data subset by region bounds as geotiff on public FTP
+
+            % Get row/col coords of the subset area in this image
+            UL = int16(map2pix(R, xLim(1), yLim(2)));
+            LR = int16(map2pix(R, xLim(2), yLim(1)));
+
+            % Get the subset 
+            sub = data(UL(1):LR(1), UL(2):LR(2));
+
+            % Define the modified R matrix
+            subR = R;
+            subR(3, :) = [xLim(1), yLim(2)];
+            
+            % Set the filename to contain the data of the data
+            waterYr = year(dataDt);
+            thisMonth = month(dataDt);
+            if thisMonth >= 10
+                waterYr = waterYr + 1;
+            end
+            
+            fileName = sprintf('SnowToday_%s_%s_%s.tif', ...
+                obj.ShortName{regionNum}, ...
+                datestr(dataDt, 'yyyymmdd'), ...
+                statsType);
+            fileName = fullfile(espEnv.publicDir, ...
+                sprintf("WY%04d", waterYr), ...
+                obj.ShortName{regionNum}, ...
+                fileName);
+            [path, ~, ~] = fileparts(fileName);
+            if ~isfolder(path)
+                mkdir(path);
+            end
+            
+            geotiffwrite(fileName, sub, subR, 'CoordRefSysCode', 4326);
+            fprintf('%s: saved data to %s\n', mfilename(), fileName);
+            
+        end
+
     end
  
     methods(Static)  % static methods can be called for the class
