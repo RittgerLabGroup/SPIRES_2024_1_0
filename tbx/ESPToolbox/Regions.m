@@ -10,6 +10,7 @@ classdef Regions
         S             % region geometry structures
         indxMosaic    % mask with region IDS
         percentCoverage % areal percent coverage of the region in our tiles
+        useForSnowToday % logical cell array indicating we are using it
     end
     properties(Constant)
         % pixSize_500m = 463.31271653;
@@ -25,7 +26,7 @@ classdef Regions
 
             addRequired(p, 'regionName', @ischar);
 
-            defaultArchiveDir = '/pl/active/rittger_esp/region_masks';
+            defaultArchiveDir = '/pl/active/rittger_esp/region_masks/v2';
             checkArchiveDir = @(x) exist(x, 'dir');
             addOptional(p, 'archiveDir', defaultArchiveDir, ...
                 checkArchiveDir);
@@ -55,6 +56,7 @@ classdef Regions
             obj.S = mObj.S;
             obj.indxMosaic = mObj.indxMosaic;
             obj.percentCoverage = mObj.percentCoverage;
+            obj.useForSnowToday = mObj.useForSnowToday;
             
         end
         
