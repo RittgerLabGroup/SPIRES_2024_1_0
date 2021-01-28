@@ -72,4 +72,10 @@ The user of this toolbox will need to have a license to run:
 Financial Toolbox
 Mapping Toolbox
 
+This toolbox depends on the following packages:
+
+ParBal (git@github.com:edwardbair/ParBal.git) - for albedo calculations
+plotboxpos (https://github.com/kakearney/plotboxpos-pkg.git) - for plotting routines
+RasterReprojection (https://github.com/DozierJeff/RasterReprojection.git) - for
+		   reprojecting raster images
 A working version of wget is required to run fetch routines from JPL.
