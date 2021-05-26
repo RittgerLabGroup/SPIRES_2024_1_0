@@ -58,6 +58,140 @@ classdef MODISData
             
         end
         
+        function S = inventoryMod09ga(obj, ...
+                folder, whichSet, tileID, varargin)
+            %inventoryJPLmod09ga creates an inventory of MOD09GA files for
+            %tileID
+            %
+            % Input
+            %   folder - string top directory with MODIS data
+            %   whichSet - string. Either 'historic' or 'NRT'
+            %   tileID - tile to inventory
+            %
+            % Optional Input
+            %   beginDate - datetime date to begin looking for files
+            %      default is first date in the mod09ga directory for tileID
+            %   endDate = datetime date to stop looking for files
+            %      default is last date in the mod09ga directory for tileID
+            %   
+            % Output
+            %   Cell array with row for each date in beginDate:endDate
+            %
+            %
+            % Notes
+            % 
+            % Example
+            % 
+            % This example will ...
+            %
+            %
+
+            %% Parse inputs
+            p = inputParser;
+
+            addRequired(p, 'folder', @ischar);
+
+            validWhichSet = {'historic' 'nrt'};
+            checkWhichSet = @(x) any(strcmp(x, validWhichSet));
+            addRequired(p, 'whichSet', checkWhichSet);
+
+            addRequired(p, 'tileID', @ischar);
+            addParameter(p, 'beginDate', NaT, @isdatetime);
+            addParameter(p, 'endDate', NaT, @isdatetime);
+
+            p.KeepUnmatched = true;
+            parse(p, folder, whichSet, tileID, varargin{:});
+
+            if isnat(p.Results.beginDate)
+                beginDateStr = 'from input';
+            else
+                beginDateStr = datestr(p.Results.beginDate);
+            end
+            if isnat(p.Results.endDate)
+                endDateStr = 'from input';
+            else
+                endDateStr = datestr(p.Results.endDate);
+            end
+
+            beginDate = p.Results.beginDate;
+            endDate = p.Results.endDate;
+            
+            fprintf("%s: inventory for: %s, %s, %s, dates: %s - %s...\n", ...
+                mfilename(), p.Results.folder, p.Results.whichSet, ...
+                p.Results.tileID, beginDateStr, endDateStr);
+
+            %% TODO version should be optional argument
+            reflectance_version = 6;
+
+            %% TODO Local folders this junk should be moved to functions with
+            % specifics of our file system
+            % note that mod09ga levels don't have the year at the end
+            switch lower(whichSet)
+                case 'historic'
+                    processingMode = 'historic';
+                case 'nrt'
+                    processingMode = 'NRT';
+                otherwise
+                    error('%s: unrecognized argument %s ', mfilename(), ...
+                        whichSet);
+            end
+            versionStr = sprintf('%03d', reflectance_version);
+            mod09Folder = fullfile(folder, 'mod09ga', processingMode, ...
+                ['v' versionStr], tileID);        
+
+            %% Handle defaults for begin/end date
+            % If using input for begin or end date, get a list of all
+            % files in the directory and pull dates from first/last filenames
+            yrDirs = MODISData.getSubDirs(mod09Folder);
+            if isnat(beginDate)
+                if 0 < length(yrDirs)
+                    list = dir(fullfile(mod09Folder, yrDirs{1}, ...
+                        sprintf('MOD09GA.A*%s.%s*hdf', ...
+                        tileID, versionStr)));
+                    beginDate = MODISData.getMod09gaDt({list(1).name});
+                else
+                    beginDate = today('datetime') - 1;
+                end
+            end
+            
+            if isnat(endDate)
+                if 0 < length(yrDirs)
+                    list = dir(fullfile(mod09Folder, yrDirs{end}, ...
+                        sprintf('MOD09GA.A*%s.%s*hdf', ...
+                        tileID, versionStr)));
+                    endDate = MODISData.getMod09gaDt({list(end).name});
+                else
+                    endDate = today('datetime');
+                end
+            end
+
+            %% Allocate space for dates
+            % Make a struct array with 1 record for each date
+            ndays = days(endDate - beginDate) + 1;
+            S = repmat(struct('dt', NaT, 'num', 0, 'files', []), ndays, 1);
+
+            %% Loop for each date
+            recNum = 1;
+            for dt = beginDate:endDate
+                S(recNum).dt = dt;
+                S(recNum).num = 0;
+
+                yyyyddd  = sprintf('%04d%03d', dt.Year, day(dt, 'dayofyear'));
+
+                % Find all MOD09GA files for this date
+                list = dir(fullfile(mod09Folder, '*', ...
+                    sprintf('MOD09GA.A%s.%s.%s*hdf', ...
+                    yyyyddd, tileID, versionStr)));
+                if ~isempty(list)
+                    S(recNum).num = length(list);
+                    S(recNum).files = list;
+                end
+
+                recNum = recNum + 1;
+
+            end
+        end
+
         function S = readInventoryStatus(obj, whichSet, ...
                 tile, imtype)
             
@@ -442,136 +576,6 @@ classdef MODISData
 
         end
         
-        function S = inventoryMod09ga(folder, whichSet, tileID, varargin)
-            %inventoryJPLmod09ga creates an inventory of MOD09GA files for
-            %tileID
-            %
-            % Input
-            %   folder - string top directory with MODIS data
-            %   whichSet - string. Either 'historic' or 'NRT'
-            %   tileID - tile to inventory
-            %
-            % Optional Input
-            %   beginDate - datetime date to begin looking for files
-            %      default is first date in the mod09ga directory for tileID
-            %   endDate = datetime date to stop looking for files
-            %      default is last date in the mod09ga directory for tileID
-            %   
-            % Output
-            %   Cell array with row for each date in beginDate:endDate
-            %
-            %
-            % Notes
-            % 
-            % Example
-            % 
-            % This example will ...
-            %
-            %
-
-            %% Parse inputs
-            p = inputParser;
-
-            addRequired(p, 'folder', @ischar);
-
-            validWhichSet = {'historic' 'nrt'};
-            checkWhichSet = @(x) any(strcmp(x, validWhichSet));
-            addRequired(p, 'whichSet', checkWhichSet);
-
-            addRequired(p, 'tileID', @ischar);
-            addParameter(p, 'beginDate', NaT, @isdatetime);
-            addParameter(p, 'endDate', NaT, @isdatetime);
-
-            p.KeepUnmatched = true;
-            parse(p, folder, whichSet, tileID, varargin{:});
-
-            if isnat(p.Results.beginDate)
-                beginDateStr = 'from input';
-            else
-                beginDateStr = datestr(p.Results.beginDate);
-            end
-            if isnat(p.Results.endDate)
-                endDateStr = 'from input';
-            else
-                endDateStr = datestr(p.Results.endDate);
-            end
-
-            beginDate = p.Results.beginDate;
-            endDate = p.Results.endDate;
-            
-            fprintf("%s: inventory for: %s, %s, %s, dates: %s - %s...\n", ...
-                mfilename(), p.Results.folder, p.Results.whichSet, ...
-                p.Results.tileID, beginDateStr, endDateStr);
-
-            %% TODO version should be optional argument
-            reflectance_version = 6;
-
-            %% TODO Local folders this junk should be moved to functions with
-            % specifics of our file system
-            % note that mod09ga levels don't have the year at the end
-            switch lower(whichSet)
-                case 'historic'
-                    processingMode = 'historic';
-                case 'nrt'
-                    processingMode = 'NRT';
-                otherwise
-                    error('%s: unrecognized argument %s ', mfilename(), ...
-                        whichSet);
-            end
-            versionStr = sprintf('%03d', reflectance_version);
-            mod09Folder = fullfile(folder, 'mod09ga', processingMode, ...
-                ['v' versionStr], tileID);        
-
-            %% Handle defaults for begin/end date
-            % If using input for begin or end date, get a list of all
-            % files in the directory and pull dates from first/last filenames
-            if isnat(beginDate) || isnat(endDate)
-                yrDirs = MODISData.getSubDirs(mod09Folder);
-                
-                %list = dir(fullfile(mod09Folder, ...
-                %    sprintf('MOD09GA.A*%s.%s*hdf', ...
-                %    tileID, versionStr)));
-                if isnat(beginDate)
-                    list = dir(fullfile(mod09Folder, yrDirs{1}, ...
-                        sprintf('MOD09GA.A*%s.%s*hdf', ...
-                        tileID, versionStr)));
-                    beginDate = MODISData.getMod09gaDt({list(1).name});
-                end
-                if isnat(endDate)
-                    list = dir(fullfile(mod09Folder, yrDirs{end}, ...
-                        sprintf('MOD09GA.A*%s.%s*hdf', ...
-                        tileID, versionStr)));
-                    endDate = MODISData.getMod09gaDt({list(end).name});
-                end
-            end
-
-            %% Allocate space for dates
-            % Make a struct array with 1 record for each date
-            ndays = days(endDate - beginDate) + 1;
-            S = repmat(struct('dt', NaT, 'num', 0, 'files', []), ndays, 1);
-
-            %% Loop for each date
-            recNum = 1;
-            for dt = beginDate:endDate
-                S(recNum).dt = dt;
-                S(recNum).num = 0;
-
-                yyyyddd  = sprintf('%04d%03d', dt.Year, day(dt, 'dayofyear'));
-
-                % Find all MOD09GA files for this date
-                list = dir(fullfile(mod09Folder, '*', ...
-                    sprintf('MOD09GA.A%s.%s.%s*hdf', ...
-                    yyyyddd, tileID, versionStr)));
-                if ~isempty(list)
-                    S(recNum).num = length(list);
-                    S(recNum).files = list;
-                end
-
-                recNum = recNum + 1;
-
-            end
-        end
-
         function numDupes = removeMod09gaDuplicates(S)
             %removeMod09gaDuplicates removes duplicate MOD09GA files
             %
@@ -649,7 +653,7 @@ classdef MODISData
                         'h22v04'; 'h23v04'; 'h24v04'; ...
                         'h22v05'; 'h23v05'; 'h24v05'; 'h25v05'; ...
                         'h26v05';...
-                        'h23v06'; 'h24v06'; 'h26v06'; 'h26v06'};
+                        'h23v06'; 'h24v06'; 'h25v06'; 'h26v06'};
                 otherwise
                     error("%s: Unknown region=%s", ...
                         mfilename(), region);
