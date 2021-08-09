@@ -17,6 +17,8 @@ classdef ESPEnv
       modisElevationDir   % directory with MODIS DEMs
       modisTopographyDir  % directory with MODIS topography files
       MOD09Dir       % directory with MODIS scag cubes (.mat)
+      MODICEDir      % directory with (annual) MODICE data
+		     % by tile/year (.hdr/.dat, .tif)
       SCAGDRFSRawDir % directory with Raw SCAGDRFS cubes (.mat)
       SCAGDRFSDir    % directory with MODIS SCAGDRFS cubes (.mat)
       publicDir      % top-level directory for public FTP site
@@ -59,6 +61,8 @@ classdef ESPEnv
                        'SierraBighorn_data', 'MODIS');
                    obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'mod09');
+                   obj.MODICEDir = fullfile('/Users', 'brodzik', ...
+                       'SierraBighorn_data', 'modice');
                    obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
                        'SierraBighorn_data', 'scagdrfs');
                    obj.LandsatDir = fullfile('/Users', 'brodzik', ...
@@ -121,6 +125,7 @@ classdef ESPEnv
                    path = fullfile('/pl', 'active', 'rittger_esp', ...
                        'modis');
                    obj.MOD09Dir = fullfile(path, 'mod09');
+                   obj.MODICEDir = fullfile(path, 'modice');
                    obj.SCAGDRFSRawDir = fullfile(path, 'scagdrfs_raw_v01');
                    obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
                    
@@ -212,6 +217,35 @@ classdef ESPEnv
 			    sprintf('%sMOD09_%s_%s_%s.mat', ...
 				    fileType, platformName, ...
 				    regionName, yyyymm));
+           
+       end
+       
+       function f = MODICEFile(obj, version, tileID, ...
+			      yr, nstrikes, fileType, varargin)
+              
+           % MODICEFile returns the name of an annual MODICE tile
+           % fileType is one of: 'hdr', 'merged.ice.tif',
+           % 'modice_last_update.dat'or 'modice_persistent_ice.dat'
+           numvarargs = length(varargin);
+           if numvarargs > 1
+               error('%s:TooManyInputs, ', ...
+                   'requires at most 1 optional inputs', mfilename());
+           end
+
+           optargs = {obj.MODICEDir};
+           optargs(1:numvarargs) = varargin;  
+           [myDir] = optargs{:};
+           
+           yrStr = sprintf('%04d', yr);
+           vStr = sprintf('v%03.1f', version);
+           strikeStr = sprintf('%1dstrike', nstrikes);
+
+           f = fullfile(myDir, ...
+               vStr, ...
+               tileID, ...
+               yrStr, ...
+               sprintf('MODICE.%s.%s.%s.%s.%s', ...
+               vStr, tileID, yrStr, strikeStr, fileType));
            
        end
        
