@@ -99,7 +99,7 @@ classdef ESPEnv
                    obj.extentDir = fullfile(path, 'StudyExtents');
                    
                    % For all else, default paths are on PetaLibrary
-                   path = fullfile('/pl', 'active', 'SierraBighorn');
+                   path = fullfile('/pl', 'active', 'rittger_esp');
            
                    obj.MODISDir = fullfile(path, ...
                        'scag', 'MODIS', 'SSN', 'v01');
@@ -108,7 +108,7 @@ classdef ESPEnv
                    obj.watermaskDir = fullfile(path, ...
                        'landcover', 'NLCD_ucsb');
                    obj.LandsatDir = fullfile(path, ...
-					     'scag', 'Landsat', 'UCSB_v3_processing');
+					     'Landsat');
                    obj.LandsatProbCloudDir = fullfile(path, ...
 					     'scag', 'Landsat', 'UCSB_v3_processing_cloud');
                    obj.heightmaskDir = fullfile(path, ...
@@ -144,8 +144,8 @@ classdef ESPEnv
         
        end
        
-       function f = LandsatFile(obj, path, row, varargin)
-           % LandsatFile returns a list of Landsat files for given path/row
+       function f = LandsatScagDirs(obj, platform, path, row, varargin)
+           % LandsatFile returns list of Landsat scag directories for platform/path/row
            numvarargs = length(varargin);
            if numvarargs > 1
                error('%s:TooManyInputs, ', ...
@@ -155,12 +155,15 @@ classdef ESPEnv
            optargs = {obj.LandsatDir};
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
-           
+
+           platformStr = sprintf('Landsat%1i', platform);
            pathRowStr = sprintf('p%03ir%03i', path, row);
 
            f = dir(fullfile(myDir, ...
+               platformStr, ...
                pathRowStr, ...
-               sprintf('%s_*.mat', pathRowStr)));
+               '*'));
+
        end
        
        function f = LandsatProbCloudFile(obj, matFile)
