@@ -65,17 +65,33 @@ To test a new Toolbox release:
 2.  Check and remove any previous Toolbox paths from the matlab path.
 3.  Double-click the new .mltbx file to add it to the path.
 
-Run Requirements:
+## Run Requirements:
 
 The user of this toolbox will need to have a license to run:
 
 Financial Toolbox
 Mapping Toolbox
 
-This toolbox depends on the following packages:
+## Additional GitHub dependencies
+
+This toolbox depends on the following GitHub packages which should be
+explicitly listed in the pathdef.m file:
 
 ParBal (git@github.com:edwardbair/ParBal.git) - for albedo calculations
 plotboxpos (https://github.com/kakearney/plotboxpos-pkg.git) - for plotting routines
 RasterReprojection (https://github.com/DozierJeff/RasterReprojection.git) - for
 		   reprojecting raster images
+
+## MathWorks File Exchange
+
+Plus a few extras from MathWorks File Exchange, which I have installed
+in the tbx/file_exchange/ location:
+
+MTL_parser: https://www.mathworks.com/matlabcentral/fileexchange/39073-landsat-mss-tm-etm-metadata-mtl-parser
+   for reading Landsat MTL metadata
+tight_subplot: https://??
+   for producing nice plots
+
+## System dependencies
+
 A working version of wget is required to run fetch routines from JPL.
