@@ -9,7 +9,6 @@ classdef ESPEnv
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
       LandsatDir     % directory with Landsat scag images (.mat)
-      LandsatProbCloudDir % directory with liberal "probable" cloud masks (.tif)
       viirsDir       % directory with TBD for VIIRS
       watermaskDir   % directory with water mask
       modisWatermaskDir   % directory with MODIS watermask files
@@ -55,34 +54,34 @@ classdef ESPEnv
                    path = join(parts(1:end-1), filesep);
                    obj.colormapDir = fullfile(path, 'colormaps');
                    obj.mappingDir = fullfile(path, 'mapping');
-    
+
+		   homeDir = getenv('HOME');
+
                    % elsewhere
-                   obj.MODISDir = fullfile('/Users', 'brodzik', ...
+                   obj.MODISDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'MODIS');
-                   obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
+                   obj.MOD09Dir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'mod09');
-                   obj.MODICEDir = fullfile('/Users', 'brodzik', ...
+                   obj.MODICEDir = fullfile(homedir, ...
                        'SierraBighorn_data', 'modice');
-                   obj.MOD09Dir = fullfile('/Users', 'brodzik', ...
+                   obj.MOD09Dir = fullfile(homedir, ...
                        'SierraBighorn_data', 'scagdrfs');
-                   obj.LandsatDir = fullfile('/Users', 'brodzik', ...
+                   obj.LandsatDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'Landsat');
-                   obj.LandsatProbCloudDir = fullfile('/Users', 'brodzik', ...
-                       'SierraBighorn_data', 'Landsat_cloud');
-                   obj.heightmaskDir = fullfile('/Users', 'brodzik', ...
+                   obj.heightmaskDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'landcover', ...
                        'LandFireEVH_ucsb');
-                   obj.modisWatermaskDir = fullfile('/Users', 'brodzik', ...
+                   obj.modisWatermaskDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'landcover');
-                   obj.modisForestDir = fullfile('/Users', 'brodzik', ...
+                   obj.modisForestDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'forest_height');
-                   obj.modisElevationDir = fullfile('/Users', 'brodzik', ...
+                   obj.modisElevationDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'elevation');
-                   obj.modisTopographyDir = fullfile('/Users', 'brodzik', ...
+                   obj.modisTopographyDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'topography');
-                   obj.shapefileDir = fullfile('/Users', 'brodzik', ...
+                   obj.shapefileDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'shapefiles');
-                   obj.publicDir = fullfile('/Users', 'brodzik', ...
+                   obj.publicDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'public');
                    
                otherwise
@@ -109,8 +108,6 @@ classdef ESPEnv
                        'landcover', 'NLCD_ucsb');
                    obj.LandsatDir = fullfile(path, ...
 					     'Landsat_test');
-                   obj.LandsatProbCloudDir = fullfile(path, ...
-					     'scag', 'Landsat', 'UCSB_v3_processing_cloud');
                    obj.heightmaskDir = fullfile(path, ...
                        'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
                    
@@ -164,20 +161,6 @@ classdef ESPEnv
                pathRowStr, ...
                'LC*'));
 
-       end
-       
-       function f = LandsatProbCloudFile(obj, matFile)
-           % landsatProbCloudMaskFile returns probable cloud file for matFile
-
-           % Parse the matFile for a date string
-           [~, basename, ~] = fileparts(matFile);
-           tokenNames = regexp(basename, ...
-               '_(?<yyyymmdd>\d{8})', ...
-               'names');
-           cloudBasename = sprintf('%s_cloud.tif', tokenNames.yyyymmdd);
-           
-           f = dir(fullfile(obj.LandsatProbCloudDir, cloudBasename));
-           
        end
        
        function f = MODISFile(obj, varargin)
@@ -454,36 +437,32 @@ classdef ESPEnv
             % geotiffFile builds a geoTiff file name based on the input
             % values
 
-            if strcmp(sensorName, '')
-                switch platformName
-                    case 'Landsat4'
-                        sensorName = 'TM';
-                    case 'Landsat5'
-                        sensorName = 'TM';
-                    case 'Landsat7'
-                        sensorName = 'ETM';
-                    case 'Landsat8'
-                        sensorName = 'OLI';
-                    otherwise
-                        error("%s: Unknown platformName=%s", ...
-                            mfilename(), platformName);
-                end
-            end
-            
-            if strcmp(platformName, '')
-                switch sensorName
-                    case 'MODIS'
-                        platformName = 'Terra';
-                    otherwise
-                        error("%s: Unknown sensorName=%s", ...
-                            mfilename(), sensorName);
-                end
-            end
+	   if (regexpi(platformName, 'Landsat'))
+
+	       f = sprintf('%s.%s.%s.v%02d.tif', ...
+			   extentName, ...
+			   baseName, ...
+			   varName, ...
+			   version);
+	   else
+
+               if strcmp(platformName, '')
+                   switch sensorName
+                       case 'MODIS'
+                           platformName = 'Terra';
+                       otherwise
+                           error("%s: Unknown sensorName=%s", ...
+				 mfilename(), sensorName);
+                   end
+               end
                     
-            f = sprintf('%s.%s.%s-%s.%s.v%02d.tif', ...
-                extentName, baseName, platformName, sensorName, varName, ...
-                version);
+               f = sprintf('%s.%s.%s-%s.%s.v%02d.tif', ...
+			   extentName, baseName, ...
+			   platformName, sensorName, varName, ...
+			   version);
             
+	   end
+
        end
        
        function m = colormap(obj, colormapName, varargin)
