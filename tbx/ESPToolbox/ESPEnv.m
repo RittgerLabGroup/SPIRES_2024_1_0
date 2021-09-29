@@ -8,7 +8,8 @@ classdef ESPEnv
       extentDir      % directory with geographic extent definitions
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
-      LandsatDir     % directory with Landsat scag images (.mat)
+      LandsatDir     % directory with Landsat scag images
+      LandsatResampledDir % directory with resample Landsat images
       viirsDir       % directory with TBD for VIIRS
       watermaskDir   % directory with water mask
       modisWatermaskDir   % directory with MODIS watermask files
@@ -45,18 +46,18 @@ classdef ESPEnv
                    [path, ~, ~] = fileparts(mfilename('fullpath'));
                    parts = split(path, filesep);
                    path = join(parts(1:end-2), filesep);
-    
+                   
                    obj.viirsDir = fullfile(path, 'data', 'viirscag');
                    obj.watermaskDir = fullfile(path, 'data', 'masks');
                    obj.extentDir = fullfile(path, 'tbx', 'StudyExtents');
-           
+                   
                    % 1 level up
                    path = join(parts(1:end-1), filesep);
                    obj.colormapDir = fullfile(path, 'colormaps');
                    obj.mappingDir = fullfile(path, 'mapping');
-
-		   homeDir = getenv('HOME');
-
+                   
+                   homeDir = getenv('HOME');
+                   
                    % elsewhere
                    obj.MODISDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'MODIS');
@@ -68,6 +69,9 @@ classdef ESPEnv
                        'SierraBighorn_data', 'scagdrfs');
                    obj.LandsatDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'Landsat');
+                   obj.LandsatResampledDir = fullfile(homeDir, ...
+                       'SierraBighorn_data', 'Landsat', ...
+                       'Landsat_resampled');
                    obj.heightmaskDir = fullfile(homeDir, ...
                        'SierraBighorn_data', 'landcover', ...
                        'LandFireEVH_ucsb');
@@ -85,21 +89,21 @@ classdef ESPEnv
                        'SierraBighorn_data', 'public');
                    
                otherwise
-    
+                   
                    % Default path is relative to this file, 2 levels up
                    [path, ~, ~] = fileparts(mfilename('fullpath'));
                    parts = split(path, filesep);
-    
+                   
                    % 1 level up
                    path = join(parts(1:end-1), filesep);
-
+                   
                    obj.colormapDir = fullfile(path, 'colormaps');
                    obj.mappingDir = fullfile(path, 'mapping');
                    obj.extentDir = fullfile(path, 'StudyExtents');
                    
                    % For all else, default paths are on PetaLibrary
                    path = fullfile('/pl', 'active', 'rittger_esp');
-           
+                   
                    obj.MODISDir = fullfile(path, ...
                        'scag', 'MODIS', 'SSN', 'v01');
                    
@@ -107,7 +111,10 @@ classdef ESPEnv
                    obj.watermaskDir = fullfile(path, ...
                        'landcover', 'NLCD_ucsb');
                    obj.LandsatDir = fullfile(path, ...
-					     'Landsat_test');
+                       'Landsat_test');
+                   obj.LandsatResampledDir = fullfile(path, ...
+                       'Landsat_test', 'Landsat8_resampled');
+                   
                    obj.heightmaskDir = fullfile(path, ...
                        'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
                    
@@ -128,7 +135,7 @@ classdef ESPEnv
                    
                    path = fullfile('/pl', 'active', 'rittger_esp_public');
                    obj.publicDir = fullfile(path, 'snow-today');
-
+                   
            end
     
            % Convert these from 1x1 cells to plain char arrays
@@ -297,8 +304,7 @@ classdef ESPEnv
        function f = SummarySnowFile(obj, version, regionName, ...
            partitionName, ...				    
            startYr, stopYr, threshSCF, threshZ, varargin)
-           % SummarySnowFile returns the name of an SCF and SCD
-	   % summary file
+           % SummarySnowFile returns the name of an SCF and SCD summary file
            numvarargs = length(varargin);
            if numvarargs > 1
                error('%s:TooManyInputs, ', ...
@@ -433,36 +439,35 @@ classdef ESPEnv
        end
        
        function f = geotiffFile(~, extentName, platformName, sensorName, ...
-                baseName, varName, version)
-            % geotiffFile builds a geoTiff file name based on the input
-            % values
+               baseName, varName, version)
+           % builds a geoTiff file name based on the input values
 
-	   if (regexpi(platformName, 'Landsat'))
-
-	       f = sprintf('%s.%s.%s.v%02d.tif', ...
-			   extentName, ...
-			   baseName, ...
-			   varName, ...
-			   version);
-	   else
-
+           if (regexpi(platformName, 'Landsat'))
+               
+               f = sprintf('%s.%s.%s.v%02d.tif', ...
+                   extentName, ...
+                   baseName, ...
+                   varName, ...
+                   version);
+           else
+               
                if strcmp(platformName, '')
                    switch sensorName
                        case 'MODIS'
                            platformName = 'Terra';
                        otherwise
                            error("%s: Unknown sensorName=%s", ...
-				 mfilename(), sensorName);
+                               mfilename(), sensorName);
                    end
                end
-                    
+               
                f = sprintf('%s.%s.%s-%s.%s.v%02d.tif', ...
-			   extentName, baseName, ...
-			   platformName, sensorName, varName, ...
-			   version);
-            
-	   end
-
+                   extentName, baseName, ...
+                   platformName, sensorName, varName, ...
+                   version);
+               
+           end
+           
        end
        
        function m = colormap(obj, colormapName, varargin)
