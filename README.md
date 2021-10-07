@@ -95,3 +95,15 @@ tight_subplot: https://??
 ## System dependencies
 
 A working version of wget is required to run fetch routines from JPL.
+
+## Annual Maintenance for upgrading Snow Today statistics files
+
+The SnowToday plots expect to make "in Context" statistics relative
+to the date of the current data. This requires the annual statistics files
+be updated with the most recent water year (oct1-sep30) sometime after
+Sep 30 each year.
+
+The procedure for doing this is:
+
+
+
