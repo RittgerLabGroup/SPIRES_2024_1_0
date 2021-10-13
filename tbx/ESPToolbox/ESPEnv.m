@@ -30,7 +30,7 @@ classdef ESPEnv
            
            p = inputParser;
            
-           defaultHostName = 'Arete';
+           defaultHostName = 'Summit';
            validHostNames = {'Summit', 'Arete'};
            checkHostName = @(x) any(validatestring(x, validHostNames));
            addOptional(p, 'hostName', defaultHostName, ...
@@ -255,9 +255,9 @@ classdef ESPEnv
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
            
-           %if labelName is not empty, append an underscore
+           %if labelName is not empty, prepend a period
            if ~isempty(labelName)
-               labelName = sprintf('_%s', labelName);
+               labelName = sprintf('.%s', labelName);
            end
 
     	   %TODO: make this an optional input
