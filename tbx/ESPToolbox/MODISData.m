@@ -7,6 +7,8 @@ classdef MODISData
         historicEndDt   % date of last historic data to use
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
+	STCversion % version number of STC data used for
+		   % directory hierarchy
     end
     properties(Constant)
         pixSize_500m = 463.31271653;
@@ -54,7 +56,10 @@ classdef MODISData
                 'MOD09GA_cstruct.mat');
             m = matfile(cstructFile);
             obj.cstruct = m.cstruct;
-            
+
+	    % Set spatially-and-temporally-complete (STC) version
+	    % number to be used for directory hierarchy
+	    obj.STCversion = 3;
             
         end
         
