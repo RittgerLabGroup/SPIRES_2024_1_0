@@ -112,11 +112,21 @@ The procedure for doing this is:
 
 2) Use any of the holes that have been filled in in Step 1) to
    update the monthly data cubes for the latest period, likely
-   Oct of last year through Sep of this year.
+   Oct of last year through Sep of this year. This needs to be
+   done in 2 sets: first, update all the Raw Month cubes
 
-   See runUpdateMonthCubes.sh for each tile needed, for last year 10-12
+   See runUpdateRawMonthCubes.sh for each tile needed, for last year 10-12
    and this year 1-9. Use sbatch options for --job-name and --array.
-   This updates tile-specific Raw, Gap and Interp data cubes.
+   This updates tile-specific Raw monthly data cubes.
+
+   Only after all the Raw months are updated, do the STC
+   Gap/Interp updates.  These are the ones that do a month window
+   on either side of the month being processed, so 
+      
+   See runUpdateSTCMonthCubes.sh for each tile needed, for last year 10-12
+   and this year 1-8. Don't worry about Sept, since the restarted pipeline
+   will do Sept. Use sbatch options for --job-name and --array.
+   This updates tile-specific Gap and Interp monthly data cubes.
 
 3) Update the multi-variable mosaics for the new period
 
