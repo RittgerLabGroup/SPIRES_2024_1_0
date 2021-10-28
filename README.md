@@ -130,7 +130,7 @@ The procedure for doing this is:
 
 3) Update the multi-variable mosaics for the new period
 
-   See
+   Turn off Step3 processing, and use runSnowTodayStep2.sh for this.
 
 4) Update the long-term statistics for 2000-current year
 
