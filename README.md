@@ -130,11 +130,13 @@ The procedure for doing this is:
 
 3) Update the multi-variable mosaics for the new period
 
-   Turn off Step3 processing, and use runSnowTodayStep2.sh for this.
+   Turn off Step3 processing, and use runSnowTodayStep2.sh for this
 
-4) Update the long-term statistics for 2000-current year
+4) Update the long-term statistics for 2001-current year
 
-   see runSnowTodayStep3Historical.sh
+   See runSnowTodayStep3Historical.sh.
+   In Oct 2021, 2 hours was enough for array 10 and 12, but array 11
+   timed out. 4 hours was enough?
 
 5) re-start the daily pipeline
 
