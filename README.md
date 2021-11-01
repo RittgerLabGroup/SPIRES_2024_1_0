@@ -136,7 +136,7 @@ The procedure for doing this is:
 
    See runSnowTodayStep3Historical.sh.
    In Oct 2021, 2 hours was enough for array 10 and 12, but array 11
-   timed out. 4 hours was enough?
+   timed out. Ran it again, it needed 3 hours.
 
 5) re-start the daily pipeline
 
