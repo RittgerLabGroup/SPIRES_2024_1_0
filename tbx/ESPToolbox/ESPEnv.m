@@ -30,7 +30,7 @@ classdef ESPEnv
            
            p = inputParser;
            
-           defaultHostName = 'Arete';
+           defaultHostName = 'Summit';
            validHostNames = {'Summit', 'Arete'};
            checkHostName = @(x) any(validatestring(x, validHostNames));
            addOptional(p, 'hostName', defaultHostName, ...
@@ -255,9 +255,9 @@ classdef ESPEnv
            optargs(1:numvarargs) = varargin;  
            [myDir] = optargs{:};
            
-           %if labelName is not empty, append an underscore
+           %if labelName is not empty, prepend a period
            if ~isempty(labelName)
-               labelName = sprintf('_%s', labelName);
+               labelName = sprintf('.%s', labelName);
            end
 
     	   %TODO: make this an optional input
@@ -295,15 +295,13 @@ classdef ESPEnv
                sprintf('v%03d', version), ...
                sprintf('%s', regionName), ...
                sprintf('%04d', yr), ...
-               sprintf('%s_%s_%s_%s.mat', ...
-               regionName, platformName, ...
-               yyyymmdd, labelName));
+               sprintf('%s_%s_%s.%s.mat', ...
+               regionName, platformName, yyyymmdd, labelName));
 
        end
        
        function f = SummarySnowFile(obj, version, regionName, ...
-           partitionName, ...				    
-           startYr, stopYr, threshSCF, threshZ, varargin)
+           partitionName, startYr, stopYr, varargin)
            % SummarySnowFile returns the name of an SCF and SCD summary file
            numvarargs = length(varargin);
            if numvarargs > 1
@@ -316,14 +314,10 @@ classdef ESPEnv
            [myDir] = optargs{:};
            
            f = fullfile(myDir, ...
-			sprintf('v%03d', version), ...
-			sprintf('%s_statistics', regionName), ...
-			sprintf(['%04d_to_%04d_%sby%s_Summary_snow_percent_lt%s' ...
-				 '_and_snow_cover_days_above%sm.mat'], ...
-				startYr, stopYr, ...
-				regionName, partitionName, ...
-				num2str(threshSCF), ...
-				num2str(threshZ)));
+               sprintf('v%03d', version), ...
+               sprintf('%s_statistics', regionName), ...
+               sprintf('%04d_to_%04d_%sby%s_Summary.mat', ...
+               startYr, stopYr, regionName, partitionName));
            
        end
        
@@ -657,8 +651,8 @@ classdef ESPEnv
            % given regionName
            
            f = dir(fullfile(obj.extentDir, ...
-			    sprintf('%s.mat', regionName)));
-	   if length(f) ~= 1
+               sprintf('%s.mat', regionName)));
+           if length(f) ~= 1
                errorStruct.identifier = ...
                    'ESPEnv.studyExtentFile:FileError';
                errorStruct.message = sprintf( ...
@@ -666,7 +660,7 @@ classdef ESPEnv
                    mfilename(), regionName, obj.extentDir);
                error(errorStruct);
            end
-       
+           
            f = fullfile(f(1).folder, f(1).name);
            
        end
