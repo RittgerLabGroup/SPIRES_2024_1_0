@@ -128,6 +128,10 @@ The procedure for doing this is:
    will do Sept. Use sbatch options for --job-name and --array.
    This updates tile-specific Gap and Interp monthly data cubes.
 
+   It appears that these jobs often crash with out-of-memory errors when
+   they are set up for more than 3-month batchs.  So consider doing these
+   runs in Quarterly batches of no more than 3 months.
+
 3) Update the multi-variable mosaics for the new period
 
    Turn off Step3 processing, and use runSnowTodayStep2.sh for this
