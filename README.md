@@ -129,12 +129,22 @@ The procedure for doing this is:
    This updates tile-specific Gap and Interp monthly data cubes.
 
    It appears that these jobs often crash with out-of-memory errors when
-   they are set up for more than 3-month batchs.  So consider doing these
-   runs in Quarterly batches of no more than 3 months.
+   they are set up for more than 3-month batchs. So consider doing these
+   runs in Quarterly batches of no more than 3 months. When the
+   oom errors happen, I re-run them and they never recur on the
+   same tile/time.
+   
+   Notes from HMA 2000-2022 updates: timeouts happen a lot, when
+   the cube is re-run with a longer --time value, it will usually
+   finish in less than the original time.
 
 3) Update the multi-variable mosaics for the new period
 
    Turn off Step3 processing, and use runSnowTodayStep2.sh for this
+
+   HMA notes from 2022: The Indus mosaics all ran in < 2hours save one that
+   took 2.5 hours. Used runUpdateMosaic.sh with regionNames set to tileIDs
+   for "multivariate" (mosaic) files by tile.
 
 4) Update the long-term statistics for 2001-current year
 
