@@ -146,27 +146,40 @@ classdef MODISData
 
             %% Handle defaults for begin/end date
             % If using input for begin or end date, get a list of all
-            % files in the directory and pull dates from first/last filenames
+            % files in the directory and pull dates from first/last 
+            % filenames. Handle nominal case the first time any data
+            % this tile is being pulled
             yrDirs = MODISData.getSubDirs(mod09Folder);
             if isnat(beginDate)
+                if strcmp(whichSet, 'historic')
+                    beginDate = obj.historicEndDt - 1;
+                else
+                    beginDate = today('datetime') - 1;
+                end
                 if 0 < length(yrDirs)
                     list = dir(fullfile(mod09Folder, yrDirs{1}, ...
                         sprintf('MOD09GA.A*%s.*%d*hdf', ...
                         tileID, reflectance_version)));
-                    beginDate = MODISData.getMod09gaDt({list(1).name});
-                else
-                    beginDate = today('datetime') - 1;
+                    if 0 < length(list)
+                        beginDate = MODISData.getMod09gaDt(...
+                            {list(1).name});
+                    end
                 end
             end
             
             if isnat(endDate)
+                if strcmp(whichSet, 'historic')
+                    endDate = obj.historicEndDt;
+                else
+                    endDate = today('datetime');
+                end
                 if 0 < length(yrDirs)
                     list = dir(fullfile(mod09Folder, yrDirs{end}, ...
                         sprintf('MOD09GA.A*%s.*%d*hdf', ...
                         tileID, reflectance_version)));
-                    endDate = MODISData.getMod09gaDt({list(end).name});
-                else
-                    endDate = today('datetime');
+                    if 0 < length(list)
+                        endDate = MODISData.getMod09gaDt({list(end).name});
+                    end
                 end
             end
 
@@ -206,7 +219,7 @@ classdef MODISData
             try
                 S = load(fileName);
             catch e
-                fprintf("%s: Error reading inventory file %s", ...
+                fprintf("%s: Error reading inventory file %s\n", ...
                     mfilename(), fileName);
                 rethrow(e);
             end
@@ -659,6 +672,11 @@ classdef MODISData
                     'h22v04'; 'h23v04'; 'h24v04'; ...
                     'h22v05'; 'h23v05'; 'h24v05'; 'h25v05'; 'h26v05';...
                     'h23v06'; 'h24v06'; 'h25v06'; 'h26v06'};
+            elseif (strcmp(lowRegion, 'alaska'))
+                list = {...
+                    'h12v01'; 'h13v01';...
+                    'h09v02'; 'h10v02'; 'h11v02'; 'h12v02'; 'h13v02';...
+                    'h07v03'; 'h08v03'; 'h09v03'; 'h10v03'; 'h11v03'};
             elseif (regexp(lowRegion, 'h\d{2}v\d{2}'))
                 list = {lowRegion};
             else
