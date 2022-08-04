@@ -72,6 +72,45 @@ The user of this toolbox will need to have a license to run:
 Financial Toolbox
 Mapping Toolbox
 
+## For development only: Running matlab with a release-specific pathdef.m
+
+The pathdef.m will be specific to a version of matlab, I have
+saved multiple versions as pathdef_esp_dev_Ryyyyb.m.  You will
+need to have a symlink that points pathdef.m to the
+version-specific file if you are switching between different
+matlab releases.
+
+The first time running with a new version of matlab, remove the
+symlink and start matlab -nodisplay to generate the valid base
+version for this release. Then run:
+
+>> restoredefaultpath
+>> matlabrc
+>> savepath /<tmp>/<path>/pathdef.m
+
+then move this version-specific base pathdef.m to the top
+directory where you will run matlab.  Give it the version number
+and change the symlink to point to it when you want to work with
+this version of Matlab.  Add entries for the ./tbx/ locations to the beginning of the p variable, like this:
+
+```
+p = [...
+%%% BEGIN ENTRIES %%%
+     './tbx:', ...
+     './tbx/ESPToolbox:', ...
+     './tbx/ESPToolbox/html:', ...
+     './tbx/StudyExtents:', ...
+     './tbx/colormaps:', ...
+     './tbx/doc:', ...
+     './tbx/doc/css:', ...
+     './tbx/doc/helpsearch-v3:', ...
+     './tbx/file_exchange:', ...
+     './tbx/file_exchange/tight_subplot:', ...
+     './tbx/file_exchange/MTL_parser:', ...
+     './tbx/mapping:', ...
+     <rest of version-specific path here>
+```
+
 ## Additional GitHub dependencies
 
 This toolbox depends on the following GitHub packages which should be
@@ -153,6 +192,18 @@ The procedure for doing this is:
    timed out. Ran it again, it needed 3 hours.
 
 5) re-start the daily pipeline
+
+## Fetching data for a new set of tiles
+
+The fetch routines maintain and update a set of inventory files at /pl/active/rittger_esp/modis/archive_status.
+To fetch data for a new tile that does not yet have inventory files, define a new region/set of tiles in MODISData.m, for example, adding the 12 tiles that make up Alaska, and then use scripts/runFetchTile.sh:
+
+```
+for i in $(seq 1 12); do jname=$(printf "AK%02dFetch" $i); echo $jname; sbatch --\
+job-name=$jname --time=02:00:00 ./runFetchTile.sh -s 20000224 -e 20001231 -v historic Alaska $i; done 
+```
+
+On alpine, summer 2022, these jobs were taking about 1 hour per tile per year of data
 
 
 
