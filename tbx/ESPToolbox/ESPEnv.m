@@ -30,8 +30,8 @@ classdef ESPEnv
            
            p = inputParser;
            
-           defaultHostName = 'Summit';
-           validHostNames = {'Summit', 'Arete'};
+           defaultHostName = 'CURC';
+           validHostNames = {'CURC', 'Arete'};
            checkHostName = @(x) any(validatestring(x, validHostNames));
            addOptional(p, 'hostName', defaultHostName, ...
                checkHostName);
@@ -128,9 +128,9 @@ classdef ESPEnv
                    
                    path = fullfile('/pl', 'active', 'rittger_esp', ...
                        'modis');
-                   obj.MOD09Dir = fullfile(path, 'mod09');
+                   obj.MOD09Dir = fullfile(path, 'mod09_v');
                    obj.MODICEDir = fullfile(path, 'modice');
-                   obj.SCAGDRFSRawDir = fullfile(path, 'scagdrfs_raw_v01');
+                   obj.SCAGDRFSRawDir = fullfile(path, 'scagdrfs_raw_v');
                    obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
                    
                    path = fullfile('/pl', 'active', 'rittger_esp_public');
