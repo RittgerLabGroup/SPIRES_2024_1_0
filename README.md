@@ -1,4 +1,3 @@
-#testingdeletethis
 # ESP
 
 Earth Surface Properties Toolbox
