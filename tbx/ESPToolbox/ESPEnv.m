@@ -16,12 +16,9 @@ classdef ESPEnv
       modisForestDir      % directory with MODIS canopy corrections
       modisElevationDir   % directory with MODIS DEMs
       modisTopographyDir  % directory with MODIS topography files
-      MOD09Dir       % directory with MODIS scag cubes (.mat)
       MODICEDir      % directory with (annual) MODICE data
 		     % by tile/year (.hdr/.dat, .tif)
-      SCAGDRFSRawDir % directory with Raw SCAGDRFS cubes (.mat)
-      SCAGDRFSDir    % directory with MODIS SCAGDRFS cubes (.mat)
-      publicDir      % top-level directory for public FTP site
+      dirWith % struct with various STC pipeline directories
    end
    methods
        function obj = ESPEnv(varargin)
@@ -30,111 +27,71 @@ classdef ESPEnv
            
            p = inputParser;
            
-           defaultHostName = 'Summit';
-           validHostNames = {'Summit', 'Arete'};
+           defaultHostName = 'CURC';
+           validHostNames = {'CURC', 'CURCScratchAlpine'};
            checkHostName = @(x) any(validatestring(x, validHostNames));
            addOptional(p, 'hostName', defaultHostName, ...
                checkHostName);
            
-           p.KeepUnmatched = true;
-           
+           p.KeepUnmatched = false;
            parse(p, varargin{:});
            
-           switch p.Results.hostName
-               case 'Arete'
-                   % Default path is relative to this file, 2 levels up
-                   [path, ~, ~] = fileparts(mfilename('fullpath'));
-                   parts = split(path, filesep);
-                   path = join(parts(1:end-2), filesep);
+           if contains(p.Results.hostName, 'CURC')
+	       % Default path is relative to this file, 2 levels up
+               [path, ~, ~] = fileparts(mfilename('fullpath'));
+               parts = split(path, filesep);
                    
-                   obj.viirsDir = fullfile(path, 'data', 'viirscag');
-                   obj.watermaskDir = fullfile(path, 'data', 'masks');
-                   obj.extentDir = fullfile(path, 'tbx', 'StudyExtents');
+               % 1 level up
+               path = join(parts(1:end-1), filesep);
                    
-                   % 1 level up
-                   path = join(parts(1:end-1), filesep);
-                   obj.colormapDir = fullfile(path, 'colormaps');
-                   obj.mappingDir = fullfile(path, 'mapping');
+               obj.colormapDir = fullfile(path, 'colormaps');
+               obj.mappingDir = fullfile(path, 'mapping');
+               obj.extentDir = fullfile(path, 'StudyExtents');
                    
-                   homeDir = getenv('HOME');
+               % For Data Fusion stuff, paths are on PetaLibrary
+               path = fullfile('/pl', 'active', 'rittger_esp');
+               obj.MODISDir = fullfile(path, ...
+		   'scag', 'MODIS', 'SSN', 'v01');
                    
-                   % elsewhere
-                   obj.MODISDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'MODIS');
-                   obj.MOD09Dir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'mod09');
-                   obj.MODICEDir = fullfile(homedir, ...
-                       'SierraBighorn_data', 'modice');
-                   obj.MOD09Dir = fullfile(homedir, ...
-                       'SierraBighorn_data', 'scagdrfs');
-                   obj.LandsatDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'Landsat');
-                   obj.LandsatResampledDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'Landsat', ...
-                       'Landsat_resampled');
-                   obj.heightmaskDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'landcover', ...
-                       'LandFireEVH_ucsb');
-                   obj.modisWatermaskDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'landcover');
-                   obj.modisForestDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'forest_height');
-                   obj.modisElevationDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'elevation');
-                   obj.modisTopographyDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'topography');
-                   obj.shapefileDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'shapefiles');
-                   obj.publicDir = fullfile(homeDir, ...
-                       'SierraBighorn_data', 'public');
+               obj.viirsDir = fullfile(path, 'viirs');
+               obj.watermaskDir = fullfile(path, 'landcover', 'NLCD_ucsb');
+               obj.LandsatDir = fullfile(path, 'Landsat_test');
+               obj.LandsatResampledDir = fullfile(path, ...
+	           'Landsat_test', 'Landsat8_resampled');
+               obj.heightmaskDir = fullfile(path, ...
+                   'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
+               obj.MODICEDir = fullfile(path, 'modis', 'modice');
+
+               % For ESP pipelines, set scratch locations
+	       if strcmp(p.Results.hostName, 'CURCScratchAlpine')
+                   path = fullfile('/scratch', 'alpine', getenv('USER'));
+	       end
+
+               obj.modisWatermaskDir = fullfile(path, 'landcover');
+               obj.modisForestDir = fullfile(path, 'forest_height');
+               obj.modisElevationDir = fullfile(path, 'elevation');
+               obj.modisTopographyDir = fullfile(path, 'topography');
+               obj.shapefileDir = fullfile(path, 'shapefiles');
                    
-               otherwise
-                   
-                   % Default path is relative to this file, 2 levels up
-                   [path, ~, ~] = fileparts(mfilename('fullpath'));
-                   parts = split(path, filesep);
-                   
-                   % 1 level up
-                   path = join(parts(1:end-1), filesep);
-                   
-                   obj.colormapDir = fullfile(path, 'colormaps');
-                   obj.mappingDir = fullfile(path, 'mapping');
-                   obj.extentDir = fullfile(path, 'StudyExtents');
-                   
-                   % For all else, default paths are on PetaLibrary
-                   path = fullfile('/pl', 'active', 'rittger_esp');
-                   
-                   obj.MODISDir = fullfile(path, ...
-                       'scag', 'MODIS', 'SSN', 'v01');
-                   
-                   obj.viirsDir = fullfile(path, 'viirs');
-                   obj.watermaskDir = fullfile(path, ...
-                       'landcover', 'NLCD_ucsb');
-                   obj.LandsatDir = fullfile(path, ...
-                       'Landsat_test');
-                   obj.LandsatResampledDir = fullfile(path, ...
-                       'Landsat_test', 'Landsat8_resampled');
-                   
-                   obj.heightmaskDir = fullfile(path, ...
-                       'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
-                   
-                   
-                   path = fullfile('/pl', 'active', 'rittger_esp');
-                   obj.modisWatermaskDir = fullfile(path, 'landcover');
-                   obj.modisForestDir = fullfile(path, 'forest_height');
-                   obj.modisElevationDir = fullfile(path, 'elevation');
-                   obj.modisTopographyDir = fullfile(path, 'topography');
-                   obj.shapefileDir = fullfile(path, 'shapefiles');
-                   
-                   path = fullfile('/pl', 'active', 'rittger_esp', ...
-                       'modis');
-                   obj.MOD09Dir = fullfile(path, 'mod09');
-                   obj.MODICEDir = fullfile(path, 'modice');
-                   obj.SCAGDRFSRawDir = fullfile(path, 'scagdrfs_raw_v01');
-                   obj.SCAGDRFSDir = fullfile(path, 'scagdrfs');
-                   
-                   path = fullfile('/pl', 'active', 'rittger_esp_public');
-                   obj.publicDir = fullfile(path, 'snow-today');
+               path = fullfile(path, 'modis');
+
+	       % In practice, these directories will be
+	       % appended with labels from MODISData class
+               obj.dirWith = struct(...
+                   'MOD09Raw', fullfile(path, 'mod09_raw'), ...
+                   'SCAGDRFSRaw', fullfile(path, 'scagdrfs_raw'), ...
+                   'SCAGDRFSGap', fullfile(path, 'scagdrfs_gap'), ...
+                   'SCAGDRFSSTC', fullfile(path, 'scagdrfs_stc'), ...
+                   'SCAGDRFSDaily', fullfile(path, 'scagdrfs'), ...
+                   'publicFTP', ...
+		   fullfile('/pl', 'active', ...
+			    'rittger_esp_public', ...
+			    'snow-today'));
+
+	   else
+	       fprintf(['%s: Unrecognized host=%s, ' ...
+	           'cannot set expected paths\n'], ...
+		       mfilename(), p.Results.hostName);
                    
            end
     
@@ -186,30 +143,21 @@ classdef ESPEnv
            
        end
        
-       function f = MOD09File(obj, version, regionName, ...
-			      fileType, yr, mm, varargin)
+       function f = MOD09File(obj, MData, regionName, yr, mm)
            % MOD09File returns the name of a monthly MOD09 cubefile
-           numvarargs = length(varargin);
-           if numvarargs > 1
-               error('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename());
-           end
-
-           optargs = {obj.MOD09Dir};
-           optargs(1:numvarargs) = varargin;  
-           [myDir] = optargs{:};
+	   myDir = sprintf('%s_%s', obj.dirWith.MOD09Raw, ...
+			   MData.versionOf.MOD09Raw);
 
     	   %TODO: make this an optional input
     	   platformName = 'Terra';
     	   yyyymm = sprintf('%04d%02d', yr, mm);
 
            f = fullfile(myDir, ...
-			    sprintf('v%03d', version), ...
-			    sprintf('%s', regionName), ...
-			    sprintf('%04d', yr), ...
-			    sprintf('%sMOD09_%s_%s_%s.mat', ...
-				    fileType, platformName, ...
-				    regionName, yyyymm));
+			sprintf('v%03d', MData.versionOf.MODISCollection), ...
+			sprintf('%s', regionName), ...
+			sprintf('%04d', yr), ...
+			sprintf('RawMOD09_%s_%s_%s.mat', ...
+				platformName, regionName, yyyymm));
            
        end
        
@@ -242,20 +190,21 @@ classdef ESPEnv
            
        end
        
-       function f = SCAGDRFSFile(obj, version, regionName, ...
-			      fileType, yr, mm, labelName, varargin)
-           % SCAGDRFSFile returns the name of a monthly SCAGDRFS cubefile
-           numvarargs = length(varargin);
-           if numvarargs > 1
-               error('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename());
-           end
+       function f = SCAGDRFSFile(obj, MData, regionName, ...
+               fileType, yr, mm)
+           % SCAGDRFSFile returns the name of a monthly filetype
+           % SCAGDRFS cube
+           % fileType should be one of obj.dirWith 'SCAGDRFS*' cubes:
+           %   SCAGDRFSRaw
+           %   SCAGDRFSGap
+           %   SCAGDRFSSTC
 
-           optargs = {obj.SCAGDRFSDir};
-           optargs(1:numvarargs) = varargin;  
-           [myDir] = optargs{:};
-           
-           %if labelName is not empty, prepend a period
+           myDir = sprintf('%s_%s', obj.dirWith.(fileType), ...
+               MData.versionOf.(fileType));
+
+           % use versionOf value for file labelName
+           % if it is not empty, prepend a period
+           labelName = MData.versionOf.(fileType);
            if ~isempty(labelName)
                labelName = sprintf('.%s', labelName);
            end
@@ -264,54 +213,51 @@ classdef ESPEnv
     	   platformName = 'Terra';
     	   yyyymm = sprintf('%04d%02d', yr, mm);
 
+           prefix = struct('SCAGDRFSRaw', 'Raw', ...
+               'SCAGDRFSGap', 'Gap', ...
+               'SCAGDRFSSTC', 'Interp');
+
            f = fullfile(myDir, ...
-			    sprintf('v%03d', version), ...
-			    sprintf('%s', regionName), ...
-			    sprintf('%04d', yr), ...
-			    sprintf('%sSCAG_%s_%s_%s%s.mat', ...
-				    fileType, platformName, ...
-				    regionName, yyyymm, labelName));
+               sprintf('v%03d', MData.versionOf.MODISCollection), ...
+               sprintf('%s', regionName), ...
+               sprintf('%04d', yr), ...
+               sprintf('%sSCAG_%s_%s_%s%s.mat', ...
+               prefix.(fileType), platformName, ...
+		       regionName, yyyymm, labelName));
            
        end
        
-       function f = MosaicFile(obj, version, regionName, ...
-			       yr, mm, dd, labelName, varargin)
+       function f = MosaicFile(obj, MData, regionName, ...
+			       yr, mm, dd)
            % MosaicFile returns the name of a daily mosaic image file
-           numvarargs = length(varargin);
-           if numvarargs > 1
-               error('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename());
-           end
-
-           optargs = {obj.SCAGDRFSDir};
-           optargs(1:numvarargs) = varargin;  
-           [myDir] = optargs{:};
+	   myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
+			   MData.versionOf.SCAGDRFSDaily);
            
            %TODO: make this an optional input
     	   platformName = 'Terra';
     	   yyyymmdd = sprintf('%04d%02d%02d', yr, mm, dd);
 
+           % use versionOf value for file labelName
+	   % if it is not empty, prepend a period
+	   labelName = MData.versionOf.SCAGDRFSDaily;
+           if ~isempty(labelName)
+               labelName = sprintf('.%s', labelName);
+           end
+
            f = fullfile(myDir, ...
-               sprintf('v%03d', version), ...
+               sprintf('v%03d', MData.versionOf.MODISCollection), ...
                sprintf('%s', regionName), ...
                sprintf('%04d', yr), ...
-               sprintf('%s_%s_%s.%s.mat', ...
+               sprintf('%s_%s_%s%s.mat', ...
                regionName, platformName, yyyymmdd, labelName));
 
        end
        
-       function f = SummarySnowFile(obj, version, regionName, ...
-           partitionName, startYr, stopYr, doTest, varargin)
+       function f = SummarySnowFile(obj, MData, regionName, ...
+           partitionName, startYr, stopYr, doTest)
            % SummarySnowFile returns the name of statistics summary file
-           numvarargs = length(varargin);
-           if numvarargs > 1
-               error('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename());
-           end
-
-           optargs = {obj.SCAGDRFSDir};
-           optargs(1:numvarargs) = varargin;  
-           [myDir] = optargs{:};
+	   myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
+			   MData.versionOf.SCAGDRFSDaily);
            
            if doTest
                testDir = 'testRegions';
@@ -320,7 +266,7 @@ classdef ESPEnv
            end
            
            f = fullfile(myDir, ...
-               sprintf('v%03d', version), ...
+               sprintf('v%03d', MData.versionOf.MODISCollection), ...
                sprintf('%s_statistics', regionName), ...
                testDir, ...
                sprintf('%04d_to_%04d_%sby%s_Summary.mat', ...
@@ -328,22 +274,15 @@ classdef ESPEnv
            
        end
        
-       function f = SnowTodayFile(obj, version, ...
+       function f = SnowTodayFile(obj, MData, ...
                regionName, ...
                shortName, ...
-               inputDt, creationDt, labelName, doTest, varargin)
-           % SnowTodayFile returns the name of an SCF and SCD
-           % figure file
-           numvarargs = length(varargin);
-           if numvarargs > 1
-               error('%s:TooManyInputs, ', ...
-                   'requires at most 1 optional inputs', mfilename());
-           end
-           
-           optargs = {obj.SCAGDRFSDir};
-           optargs(1:numvarargs) = varargin;
-           [myDir] = optargs{:};
-           
+               inputDt, creationDt, labelName, doTest)
+           % SnowTodayFile returns the name of a Snow Today 
+           % map or plot .png file
+	   myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
+			   MData.versionOf.SCAGDRFSDaily);
+
            if doTest
                testDir = 'testRegions';
            else
@@ -351,7 +290,7 @@ classdef ESPEnv
            end
            
            f = fullfile(myDir, ...
-               sprintf('v%03d', version), ...
+               sprintf('v%03d', MData.versionOf.MODISCollection), ...
                sprintf('%s_SnowToday', regionName), ...
                testDir, ...
                shortName, ...
@@ -364,24 +303,15 @@ classdef ESPEnv
        end
        
        function [files, haveDaysPerMonth, expectedDaysPerMonth] = ...
-               rawFilesFor3months(obj, ...
-               version, regionName, yr, mm, varargin)
-           % RawFilesFor3months returns MOD09/SCAGDRFS cubes surrounding this month
-           numvarargs = length(varargin);
-           if numvarargs > 2
-               error('%s:TooManyInputs, ', ...
-                   'requires exactly 2 optional inputs', mfilename());
-           end
-           
-           optargs = {obj.MOD09Dir, obj.SCAGDRFSRawDir};
-           optargs(1:numvarargs) = varargin;
-           [myMOD09Dir, mySCAGDRFSRawDir] = optargs{:};
+               rawFilesFor3months(obj, MData, regionName, yr, mm)
+           % RawFilesFor3months returns MOD09/SCAGDRFS cubes surrounding 
+           % this month
 
            % Look for cubes for previous and subsequent month
            thisMonthDt = datetime(yr, mm, 1);
            priorMonthDt = thisMonthDt - calmonths(1:1);
            nextMonthDt = thisMonthDt + calmonths(1:1);
-           
+
            Dts = [priorMonthDt, thisMonthDt, nextMonthDt];
            nMonths = length(Dts);
            expectedDaysPerMonth = zeros(nMonths, 1);
@@ -389,23 +319,22 @@ classdef ESPEnv
            files = {};
            nextIndex = 1;
            for i=1:nMonths
-                
+
                thisYYYY = year(Dts(i));
                thisMM = month(Dts(i));
                yyyymm = sprintf('%04d%02d', thisYYYY, thisMM);
-               
+
                % Save the expected number of days in this month
                expectedDaysPerMonth(i) = eomday(thisYYYY, thisMM);
-               
-               % Look for cubes for this month
-               mod09file = obj.MOD09File(version, regionName, ...
-                   'Raw', thisYYYY, thisMM, myMOD09Dir);
-               scagfile = obj.SCAGDRFSFile(version, regionName, ...
-                   'Raw', thisYYYY, thisMM, '', mySCAGDRFSRawDir);
-               
+
+               % Look for Raw cubes for this month
+               mod09file = obj.MOD09File(MData, regionName, thisYYYY, thisMM);
+               scagfile = obj.SCAGDRFSFile(MData, regionName, ...
+                   'SCAGDRFSRaw', thisYYYY, thisMM);
+
                if ~isfile(mod09file) || ~isfile(scagfile)
-                   
-                   % Either prev or next cubes might be missing, but 
+
+                   % Either prev or next cubes might be missing, but
                    % there must be cubes for this month to continue
                    if thisMonthDt == Dts(i)
                        errorStruct.identifier = ...
@@ -435,13 +364,13 @@ classdef ESPEnv
                        mfilename(), yyyymm, nMOD09days, nSCAGdays);
                    error(errorStruct);
                end
-               
+
                haveDaysPerMonth(i) = nSCAGdays;
-               
+
                files.MOD09{nextIndex} = mod09file;
                files.SCAGDRFS{nextIndex} = scagfile;
                nextIndex = nextIndex + 1;
-               
+
            end
 
        end
@@ -529,7 +458,7 @@ classdef ESPEnv
            % heightmask reads and returns the height mask
            
            f = obj.heightmaskFile();
-           s.mask = geotiffread(fullfile(f.folder, f.name));
+           s.mask = readgeoraster(fullfile(f.folder, f.name));
            s.info = geotiffinfo(fullfile(f.folder, f.name));
            
        end
