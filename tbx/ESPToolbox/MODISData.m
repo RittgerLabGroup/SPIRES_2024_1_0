@@ -7,10 +7,7 @@ classdef MODISData
         historicEndDt   % date of last historic data to use
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
-        MODISCollection % major collection number of current MOD09GA files
-	    MOD09RawVersion % version of MOD09 Raw cubes
-        SCAGDRFSRawVersion % version of SCAGDRFS Raw cubes
-	    STCVersion % version of STC Gap/Interp cubes
+	versionOf % version structure for various stages of processing
     end
     properties(Constant)
         pixSize_500m = 463.31271653;
@@ -59,14 +56,28 @@ classdef MODISData
             m = matfile(cstructFile);
             obj.cstruct = m.cstruct;
 
-            % current major MODIS Collection number
-            obj.MODISCollection = 6;
-
-            % Set Raw/Gap/Interp cubes version strings
-	    % used for directory hierarchy
-	    obj.MOD09RawVersion = '2023.test0';
-            obj.SCAGDRFSRawVersion = '2023.test0';
-	    obj.STCVersion = '2023.test0';
+            % Set various versions needed to control where data
+	    % are located.
+	    % MODISCollection is major version of MOD09GA files
+	    % Raw/Gap/Interp cubes and Daily file version strings
+	    % are used for directory hierarchy and some filenames
+	    % Free-form string, by convention do not use '_' or
+	    % '.' as first characters
+	    % Directories:
+	    % If non-empty, these strings will be appended to the directory
+	    % names in ESPEnv as '<dir>_<versionOf.(dataType)>'
+	    % If empty, these strings will not be appended
+	    % Filenames:
+	    % If non-empty, these strings will be appended to
+	    % filenames as 'file.<versionOf.(dataType)>.ext'
+	    % If empty, these strings will not be used in filenames
+	    obj.versionOf = struct(...
+	        'MODISCollection', 6, ...
+		'MOD09Raw', 'v2023-test2', ...
+		'SCAGDRFSRaw',  'v2023-test2', ...
+		'SCAGDRFSGap',  'v2023-test2', ...
+		'SCAGDRFSSTC',  'v2023-test2', ...
+		'SCAGDRFSDaily',  'v2023-test2');
             
         end
         
