@@ -6,6 +6,7 @@ classdef ESPEnv
       mappingDir     % directory with MODIS tiles projection information
       shapefileDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
+	  confDir		 % directory with configuration files (inc. field names)
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
       LandsatDir     % directory with Landsat scag images
@@ -47,6 +48,7 @@ classdef ESPEnv
                obj.colormapDir = fullfile(path, 'colormaps');
                obj.mappingDir = fullfile(path, 'mapping');
                obj.extentDir = fullfile(path, 'StudyExtents');
+			   obj.confDir = fullfile(path, 'conf');
                    
                % For Data Fusion stuff, paths are on PetaLibrary
                path = fullfile('/pl', 'active', 'rittger_esp');
@@ -657,6 +659,11 @@ classdef ESPEnv
            end
            
        end
+	   
+	   function f = field_names_and_descriptions(obj)
+			f = readtable(fullfile(obj.confDir, ...
+				"field_names_and_descriptions.csv"), 'Delimiter', ',');
+	   end
        
    end
 end
