@@ -1,13 +1,13 @@
 classdef MODISData
-%MODISData - manages our inventory of MODIS tile data
-%   This class contains functions to manage our copy of MODIS tile
-%   data, including MOD09, modscag and moddrfs
+    %MODISData - manages our inventory of MODIS tile data
+    %   This class contains functions to manage our copy of MODIS tile
+    %   data, including MOD09, modscag and moddrfs
     properties      % public properties
         archiveDir    % top-level directory with tile data
         historicEndDt   % date of last historic data to use
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
-	versionOf % version structure for various stages of processing
+    	versionOf % version structure for various stages of processing
     end
     properties(Constant)
         pixSize_500m = 463.31271653;
@@ -17,39 +17,44 @@ classdef MODISData
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
     end
-    
+
     methods         % public methods
-        
+
         function obj = MODISData(varargin)
             % The MODISData constructor initializes the directory
             % for local storage of MODIS tile data
-            
+
             p = inputParser;
-            
+
             defaultArchiveDir = '/pl/active/rittger_esp/modis';
             checkArchiveDir = @(x) exist(x, 'dir');
             addOptional(p, 'archiveDir', defaultArchiveDir, ...
                 checkArchiveDir);
-            
-            p.KeepUnmatched = true;
-            
+
+    	    defaultLabel = 'v2023.0';
+    	    checkLabel = @(x) isstring(x) | ischar(x);
+    	    addParameter(p, 'label', defaultLabel, checkLabel);
+
+            p.KeepUnmatched = false;
             parse(p, varargin{:});
-            
+
+    	    label = p.Results.label;
+
             obj.archiveDir = p.Results.archiveDir;
             obj.historicEndDt = datetime("20181229", ...
                 'InputFormat', 'yyyyMMdd');
-            
+
             path = fileparts(mfilename('fullpath'));
             parts = split(path, filesep);
             path = join(parts(1:end-1), filesep);
             topPath = path{1};
-            
+
             % Fetch the mstruct information for the MODIS sinusoidal map
             mstructFile = fullfile(topPath, 'mapping', ...
                 'Sinusoidal_projection_structure.mat');
             m = matfile(mstructFile);
             obj.mstruct = m.mstruct;
-            
+
             % Fetch the structure that describes MOD09GA fields/units
             cstructFile = fullfile(topPath, 'mapping', ...
                 'MOD09GA_cstruct.mat');
@@ -57,30 +62,30 @@ classdef MODISData
             obj.cstruct = m.cstruct;
 
             % Set various versions needed to control where data
-	    % are located.
-	    % MODISCollection is major version of MOD09GA files
-	    % Raw/Gap/Interp cubes and Daily file version strings
-	    % are used for directory hierarchy and some filenames
-	    % Free-form string, by convention do not use '_' or
-	    % '.' as first characters
-	    % Directories:
-	    % If non-empty, these strings will be appended to the directory
-	    % names in ESPEnv as '<dir>_<versionOf.(dataType)>'
-	    % If empty, these strings will not be appended
-	    % Filenames:
-	    % If non-empty, these strings will be appended to
-	    % filenames as 'file.<versionOf.(dataType)>.ext'
-	    % If empty, these strings will not be used in filenames
-	    obj.versionOf = struct(...
-	        'MODISCollection', 6, ...
-		'MOD09Raw', 'v2023-test2', ...
-		'SCAGDRFSRaw',  'v2023-test2', ...
-		'SCAGDRFSGap',  'v2023-test2', ...
-		'SCAGDRFSSTC',  'v2023-test2', ...
-		'SCAGDRFSDaily',  'v2023-test2');
-            
+    	    % are located.
+    	    % MODISCollection is major version of MOD09GA files
+    	    % Raw/Gap/Interp cubes and Daily file version strings
+    	    % are used for directory hierarchy and some filenames
+    	    % Free-form string, by convention do not use '_' or
+    	    % '.' as first characters
+    	    % Directories:
+    	    % If non-empty, these strings will be appended to the directory
+    	    % names in ESPEnv as '<dir>_<versionOf.(dataType)>'
+    	    % If empty, these strings will not be appended
+    	    % Filenames:
+    	    % If non-empty, these strings will be appended to
+    	    % filenames as 'file.<versionOf.(dataType)>.ext'
+    	    % If empty, these strings will not be used in filenames
+    	    obj.versionOf = struct(...
+    	        'MODISCollection', 6, ...
+        		'MOD09Raw', label, ...
+        		'SCAGDRFSRaw', label, ...
+        		'SCAGDRFSGap',  label, ...
+        		'SCAGDRFSSTC',  label, ...
+        		'SCAGDRFSDaily',  label);
+
         end
-        
+
         function S = inventoryMod09ga(obj, ...
                 folder, whichSet, tileID, varargin)
             %inventoryJPLmod09ga creates an inventory of MOD09GA files for
@@ -96,15 +101,15 @@ classdef MODISData
             %      default is first date in the mod09ga directory for tileID
             %   endDate = datetime date to stop looking for files
             %      default is last date in the mod09ga directory for tileID
-            %   
+            %
             % Output
             %   Cell array with row for each date in beginDate:endDate
             %
             %
             % Notes
-            % 
+            %
             % Example
-            % 
+            %
             % This example will ...
             %
             %
@@ -138,7 +143,7 @@ classdef MODISData
 
             beginDate = p.Results.beginDate;
             endDate = p.Results.endDate;
-            
+
             fprintf("%s: inventory for: %s, %s, %s, dates: %s - %s...\n", ...
                 mfilename(), p.Results.folder, p.Results.whichSet, ...
                 p.Results.tileID, beginDateStr, endDateStr);
@@ -160,11 +165,11 @@ classdef MODISData
             end
             versionStr = sprintf('%03d', reflectance_version);
             mod09Folder = fullfile(folder, 'mod09ga', processingMode, ...
-                ['v' versionStr], tileID);        
+                ['v' versionStr], tileID);
 
             %% Handle defaults for begin/end date
             % If using input for begin or end date, get a list of all
-            % files in the directory and pull dates from first/last 
+            % files in the directory and pull dates from first/last
             % filenames. Handle nominal case the first time any data
             % this tile is being pulled
             yrDirs = MODISData.getSubDirs(mod09Folder);
@@ -184,7 +189,7 @@ classdef MODISData
                     end
                 end
             end
-            
+
             if isnat(endDate)
                 if strcmp(whichSet, 'historic')
                     endDate = obj.historicEndDt;
@@ -230,7 +235,7 @@ classdef MODISData
 
         function S = readInventoryStatus(obj, whichSet, ...
                 tile, imtype)
-            
+
             % Load the inventory file for this set/tile/type
             fileName = fullfile(obj.archiveDir, 'archive_status', ...
                 sprintf("%s.%s.%s-inventory.mat", whichSet, tile, imtype));
@@ -241,14 +246,14 @@ classdef MODISData
                     mfilename(), fileName);
                 rethrow(e);
             end
-            
+
             % Only return historic/nrt data before/after cutoff Dt
             if strcmp(whichSet, 'historic')
                 idx = S.datevals <= obj.historicEndDt;
             else
                 idx = S.datevals > obj.historicEndDt;
             end
-            
+
             if any(idx)
                 S.datevals = S.datevals(idx);
                 nameFields = fields(S.filenames);
@@ -257,9 +262,9 @@ classdef MODISData
                         S.filenames.(nameFields{i})(idx);
                 end
             end
-            
+
         end
-        
+
         function S = tileSubsetCoords(...
                 obj, espEnv, RefMatrix, nRows, nCols, tileID)
             %ExtractTileSubset - returns row/col coords for tileID in RefMatrix
@@ -271,9 +276,9 @@ classdef MODISData
             %%mObj = matfile(f);
             %%[nRows, nCols] = size(mObj, 'A');
             %%RefMatrix = mObj.RefMatrix;
-            
+
             try
-                
+
                 %% Use the large RefMatrix to make a 2d referencing object
                 %% that relates x-y coordinates to row-col
                 %% Converting the scales to single precision
@@ -285,7 +290,7 @@ classdef MODISData
                 scaley = single(RefMatrix(1, 2));
                 LRx = RefMatrix(3, 1) + (nCols * scalex);
                 LRy = RefMatrix(3, 2) + (nRows * scaley);
-                
+
                 %% Think of spans similar to indexing a matrix:
                 %%
                 %% Y span increases from top to bottom of image
@@ -298,33 +303,33 @@ classdef MODISData
 
                 %% Now fetch the UL corner of the requested tileID
                 projInfo = espEnv.projInfoFor(tileID);
-                
+
                 x = single(projInfo.RefMatrix_500m(3, 1));
                 y = single(projInfo.RefMatrix_500m(3, 2));
-                
+
                 % And get row, col of nearest pixel to (x, y) with:
                 [r, c] = worldToSubscript(RI, x, y);
-                
+
                 % Default image reference insists that Y needs to increase from
                 % top to bottom, but that's not what sinusoidal projection does,
                 % so flip the row coordinate top-to-bottom
                 r = nRows - r + 1;
-                
+
                 S.Rows = [ r (r + obj.tileRows_500m - 1)];
                 S.Cols = [ c (c + obj.tileCols_500m - 1)];
-                
+
             catch e
                 fprintf('%s: Error in tileSubsetCoords for %s\n', ...
                     mfilename(), tileID);
                 rethrow(e);
             end
         end
-        
+
     end
 
-    
+
     methods(Static)  % static methods can be called for the class
-        
+
         function dt = getMod09gaDt(fileNames)
             %getMod09gaDate parses the MOD09GA-like filename for datetime
             % Input
@@ -332,23 +337,23 @@ classdef MODISData
             %   MOD09GA.Ayyyyddd.*
             %
             % Optional Input n/a
-            %   
+            %
             % Output
             %   dt = datetime extracted from yyyyddd field in filename
             %
-            
+
             % This uses a nice trick that converts to datetime as an
             % offset from Jan 1
-            
+
             try
-                
+
                 tokenNames = cellfun(@(x)regexp(x, ...
                     'MOD09GA\.A(?<yyyy>\d{4})(?<doy>\d{3})\.', 'names'), ...
                     fileNames, 'uniformOutput', false);
                 dt = cellfun(@(x)datetime(str2num(x.yyyy), 1, ...
                     str2num(x.doy)), ...
                     tokenNames);
-                
+
             catch
 
                 errorStruct.identifier = 'MODISData:FileError';
@@ -378,17 +383,17 @@ classdef MODISData
             %      mod09ga, modscag, moddrfs
             %
             % Output
-            %   filenames - filenames excluding root directory where 
+            %   filenames - filenames excluding root directory where
             %      we have all files
             %   datevals - vector of corresponding datetimes
             %   missingSCAG - list of strings with missing scag/tiles
             %   missingDRFS - list of strings with missing drfs/tiles
             % Notes
-            %   This routine uses the list of MOD09GA files for this tile 
-            %   to look for matching scag/drfs files.  It assumes that 
-            %   there is 1 MOD09GA file for a given date. 
+            %   This routine uses the list of MOD09GA files for this tile
+            %   to look for matching scag/drfs files.  It assumes that
+            %   there is 1 MOD09GA file for a given date.
             %TODO: check datevals for dups and quit if they are found?
-            % 
+            %
             % Original version from Karl Rittger
             % NSIDC, CUB & ERI, UCSB
             % April 27, 2016
@@ -398,7 +403,7 @@ classdef MODISData
                 'rock_fraction';'other_fraction';'grain_size'};
             %'shade_fraction';
             drfs_variables = {'forcing';'deltavis';'drfs.grnsz'};
-            % Used for field names in ouptut, can't use . in Matlab 
+            % Used for field names in ouptut, can't use . in Matlab
             % fieldnames
             drfs_variables2 = {'forcing';'deltavis';'drfs_grnsz'};
 
@@ -426,14 +431,14 @@ classdef MODISData
             end
             reflectance_version = 6;
             versionStr = sprintf('%03d', reflectance_version);
-            
+
             hdfDir = fullfile(modisDir, 'mod09ga', processingMode, ...
                 ['v' versionStr], tile);
             scagDir = fullfile(modisDir, 'modscag', processingMode, ...
                 ['v' versionStr], tile);
             drfsDir = fullfile(modisDir, 'moddrfs', processingMode, ...
                 ['v' versionStr], tile);
-            
+
             %% List the source hdf files
             hdffiles = dir(fullfile(hdfDir, '*', ...
                 ['MOD09GA.A*' tile '*.hdf']));
@@ -441,7 +446,7 @@ classdef MODISData
                 'Looking for matching %s...\n'], mfilename(), ...
                 length(hdffiles), imtype);
             dts = MODISData.getMod09gaDt(string({hdffiles.name})');
-            
+
             %TODO: check for dup dates and quit now if found?
             [~, ind] = unique(dts);
             if length(ind) ~= length(dts)
@@ -449,7 +454,7 @@ classdef MODISData
                     '%s MOD09GA files\n\n\n\n'], ...
                     mfilename(), tile);
             end
-            
+
             %% Start counts
             cntgood=0;% HDF, all SCAG and all DRFS present
             cntmscag=0;% Missing some/all SCAG
@@ -471,7 +476,7 @@ classdef MODISData
 
                 thisYYYYStr = datestr(dts(i), 'yyyy');
                 thisYYYYDDDStr = sprintf('%04d%03d', dts(i).Year, ...
-                    day(dts(i), 'dayofyear')); 
+                    day(dts(i), 'dayofyear'));
 
                 % Path for hdf, scag, drfs files for this day
                 sDir = fullfile(scagDir, thisYYYYStr);
@@ -600,23 +605,23 @@ classdef MODISData
             end
 
         end
-        
+
         function saveMODISfilenames(saveFile, filenames, datevals, ...
                 missingSCAG, missingDRFS)
             %saveMODISfilenames - saves a MODIS file inventory to .mat file
-            
+
             inventoryDate = datestr(datetime('now'));
-            
+
             save(saveFile, 'inventoryDate', ...
                 'filenames', 'datevals', 'missingSCAG', 'missingDRFS');
 
         end
-        
+
         function numDupes = removeMod09gaDuplicates(S)
             %removeMod09gaDuplicates removes duplicate MOD09GA files
             %
             % Input
-            %   S = mod09ga inventory cell array returned from 
+            %   S = mod09ga inventory cell array returned from
             %       inventoryMod09ga
             %
             % Output
@@ -630,7 +635,7 @@ classdef MODISData
 
             % Find duplicate MOD09GA files from input inventory
             idx = [S.num] > 1;
-            
+
             subS = S(idx);
 
             for i=1:length(subS)
@@ -644,7 +649,7 @@ classdef MODISData
                     files(j) = fullfile(folders(j,:), names(j,:));
                 end
                 files = sort(files, 'descend');
-                
+
                 % Delete all but the first one, sorting in descending order
                 for j=1:length(files)
                     if 1 == j
@@ -652,9 +657,9 @@ classdef MODISData
                     else
                         fprintf("%s: deleting %s...\n", ...
                             mfilename(), files(j));
-                        
+
                         delete(files(j));
-                        
+
                         % Delete any scag/drfs files found for this
                         % file also
                         list = MODISData.matchingFiles(files(j));
@@ -667,16 +672,16 @@ classdef MODISData
                                 delete(modisFile);
                             end
                         end
-                        
+
                         numDupes = numDupes + 1;
                     end
                 end
             end
         end
-        
+
         function list = tilesFor(region)
             % tilesFor returns cell array of tileIDs for the region
-            
+
             lowRegion = lower(region);
             if (strcmp(lowRegion, 'westernus'))
                 list = {...
@@ -701,23 +706,23 @@ classdef MODISData
                 error("%s: Unknown region=%s", ...
                     mfilename(), region);
             end
-            
+
         end
-        
+
         function regionName = regionNameFor(tileID)
-           % regionNameFor returns the regionName for this tileID
-           switch tileID
-               case MODISData.tilesFor('westernUS')
-                   regionName = 'westernUS';
-               case MODISData.tilesFor('Indus')
-                   regionName = 'Indus';
-               otherwise
-                   error("%s: Unknown tileID=%s", ...
-                       mfilename(), tileID);
-           end
-               
+            % regionNameFor returns the regionName for this tileID
+            switch tileID
+                case MODISData.tilesFor('westernUS')
+                    regionName = 'westernUS';
+                case MODISData.tilesFor('Indus')
+                    regionName = 'Indus';
+                otherwise
+                    error("%s: Unknown tileID=%s", ...
+                        mfilename(), tileID);
+            end
+
         end
-        
+
         function [Rmap, lr, dims] = RmapFor(espEnv, tiles)
             % RmapFor returns the merged referencing matrix for tiles
             % Input:
@@ -727,41 +732,41 @@ classdef MODISData
             % Rmap : referencing matrix for the merged tiles
             % lr : lower right map coordinates (m) for each tile
             % dims : dimensions of tile mosaic [rows cols]
-            
+
             resolution = 500;
             ntiles = length(tiles);
             RefMatrices = zeros(ntiles, 3, 2);
             sizes = zeros(ntiles, 2);
             lr = zeros(ntiles, 2);
-            
+
             % structure fieldnames for ProjInfo files
             resolutionName = ['RefMatrix_' num2str(resolution) 'm'];
             sizeName = ['size_' num2str(resolution) 'm'];
-            
+
             for t = 1:ntiles
-                
+
                 projInfo = espEnv.projInfoFor(tiles{t});
                 RefMatrices(t, :, :) = projInfo.(resolutionName);
                 sizes(t, :) = projInfo.(sizeName);
                 lr(t, :) = [sizes(t, :) 1] * squeeze(RefMatrices(t, :, :));
-                
+
             end
-            
+
             Rmap = zeros(3, 2);
             Rmap(3, 1) = min(RefMatrices(:, 3, 1));
             Rmap(2, 1) = RefMatrices(1, 2, 1);
             Rmap(1, 2) = RefMatrices(1, 1, 2);
             Rmap(3, 2) = max(RefMatrices(:, 3, 2));
-            
+
             xy = [max(lr(:, 1)) min(lr(:, 2))];
             dims = round(map2pix(Rmap, xy));
-            
+
         end
 
-        
-        
+
+
         function list = matchingFiles(mod09File)
-            % matchingFiles finds any scag/drfs files that 
+            % matchingFiles finds any scag/drfs files that
             % match this mod09ga file, including procID
             tokenNames = regexp(mod09File, ...
                 ['MOD09GA.A(?<yyyy>\d{4})(?<doy>\d{3})\.' ...
@@ -772,10 +777,10 @@ classdef MODISData
             parts = split(path, filesep);
             procMode = parts(end-3);
             topPath = join(parts(1:end-5), filesep);
-            
+
             % Look for scag files
             versionStr = sprintf('v%s', tokenNames.version);
-            
+
             list = [...
                 dir(fullfile(topPath{1}, 'modscag', procMode{1},...
                 versionStr, tokenNames.tileID, tokenNames.yyyy,...
@@ -789,30 +794,30 @@ classdef MODISData
                 dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
                 versionStr, tokenNames.tileID, tokenNames.yyyy,...
                 sprintf('%s.*.tif', baseName)))];
-            
+
         end
-        
+
         function years = getSubDirs(folder)
             % Returns a sorted cell array of the subdirs in folder
             list = dir(folder);
-            
+
             list = list([list(:).isdir]==1);
             list = list(~ismember({list(:).name},{'.','..'}));
-            
+
             years = sort({list.name});
-            
+
         end
-        
+
         function doy = doy(Dt)
-           % Returns the day of year of the input datetime Dt
-           % TODO: Make this work on an array of Dts
-           % TODO: Move this to a date utility object
-           jan1Dt = datetime(sprintf("%04d0101", year(Dt)), ...
-               'InputFormat', 'yyyyMMdd');
-           doy = days(Dt - jan1Dt + 1);
-            
+            % Returns the day of year of the input datetime Dt
+            % TODO: Make this work on an array of Dts
+            % TODO: Move this to a date utility object
+            jan1Dt = datetime(sprintf("%04d0101", year(Dt)), ...
+                'InputFormat', 'yyyyMMdd');
+            doy = days(Dt - jan1Dt + 1);
+
         end
-        
+
         function idx = indexForYYYYMM(yr, mn, Dts)
             %indexForYYYYMM finds indices to Dts array for yr, mn
             %
@@ -827,11 +832,11 @@ classdef MODISData
             % Notes
             % Returns an empty array if no dates in Dts match yr, mn
             %
-            
+
             superset = datenum(Dts);
             subset = datenum(yr, mn, 1):datenum(yr, mn, eomday(yr, mn));
             idx = datefind(subset, superset);
-            
+
         end
 
         function [RefMatrix, umdays, NoValues, SensZ, SolZ, SolAzimuth, ...
@@ -872,11 +877,11 @@ classdef MODISData
                 SolAzimuth = cat(3, SolAzimuth, SolAzimuthT);
                 refl = cat(4, refl, reflT);
             end
-            
+
             umdays = datenum(umdays);
-            
+
         end
-        
+
         function [RefMatrix, usdays, RawSnow, RawVeg, RawRock, ...
                 RawDV, RawRF, RawGS_SCAG, RawGS_DRFS] = ...
                 loadSCAGDRFS(files)
@@ -890,7 +895,7 @@ classdef MODISData
             %
             % Notes: Returned RefMatrix is from final file loaded,
             % earlier ones are loaded and then replaced.
-            
+
             usdays = [];
             RawSnow = [];
             RawVeg = [];
@@ -921,9 +926,9 @@ classdef MODISData
                 RawGS_SCAG = cat(3, RawGS_SCAG, RawGS_SCAGT);
                 RawGS_DRFS = cat(3, RawGS_DRFS, RawGS_DRFST);
             end
-            
+
             usdays = datenum(usdays);
-            
+
         end
 
         function FP = loadFP(fpFile, dims)
@@ -945,7 +950,7 @@ classdef MODISData
             if isfile(fpFile)
                 load(fpFile);
                 if ~exist('FP', 'var')
-                    FP = parloadMatrices(fpFile, 'watermask'); 
+                    FP = parloadMatrices(fpFile, 'watermask');
                     clear watermask;  %TODO: why did Karl do this?
                     fprintf('%s: Using watermask for FP from %s\n', ...
                         mfilename(), fpFile);
@@ -975,7 +980,7 @@ classdef MODISData
             %  ppt - pixel size in cross-track direction
             %  thetad - nadir sensor angle, degrees
             %
-            
+
             theta=asin(R*sind(theta_s)/(R+H));
             ppl=(1/H)*(cos(theta)*(R+H)-R*sqrt(1-((R+H)/R)^2*(sin(theta)).^2));
             beta=atan(p/(2*H));
@@ -984,9 +989,9 @@ classdef MODISData
             thetad=rad2deg(theta);
             ppl=ppl*p;
             ppt=ppt*p;
-            
+
         end
-	
+
     end
 
 end
