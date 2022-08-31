@@ -149,7 +149,7 @@ classdef Regions
             %         e.g. albedo_clean_muZ, albedo_observed_muZ, snow_fraction
             %         must be in field_and_stats_names.csv.
             %         When input, write output csv files only for varName.
-            %       When not input, write output csv files for all variables.
+            %         When not input, write csv files for all variables.
 
             % instantiate the region and variable indexes on which to loop
             % ------------------------------------------------------------
