@@ -7,6 +7,7 @@ classdef ESPEnv
       shapefileDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
       confDir         % directory with configuration files (inc. field names)
+      regionMaskDir  % directory with region mask ids files
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
       LandsatDir     % directory with Landsat scag images
@@ -63,6 +64,9 @@ classdef ESPEnv
                obj.heightmaskDir = fullfile(path, ...
                    'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
                obj.MODICEDir = fullfile(path, 'modis', 'modice');
+               
+               obj.regionMaskDir = fullfile(path, ...
+                    'region_masks', 'v3');
 
                % For ESP pipelines, set scratch locations
            if strcmp(p.Results.hostName, 'CURCScratchAlpine')
