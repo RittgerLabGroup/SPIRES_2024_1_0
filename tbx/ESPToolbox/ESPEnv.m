@@ -6,7 +6,7 @@ classdef ESPEnv
       mappingDir     % directory with MODIS tiles projection information
       shapefileDir     % directory with MODIS tiles projection information
       extentDir      % directory with geographic extent definitions
-      confDir         % directory with configuration files (inc. field names)
+      confDir         % directory with configuration files (including variable names)
       regionMaskDir  % directory with region mask ids files
       heightmaskDir  % directory heightmask for Landsat canopy corrections
       MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)

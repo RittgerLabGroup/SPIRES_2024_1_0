@@ -15,9 +15,13 @@ classdef Regions
         percentCoverage % areal percent coverage of the region in our tiles
         useForSnowToday % logical cell array indicating we are using it
         lowIllumination % logical cell array for Northern areas
-        countOfSubRegions    % number of regions (=entities)
         espEnv          % ESPEnv object, local environment variables (paths...)
                         % and methods
+        snowCoverDayMins % Struct(minElevation (double), minSnowCoverFraction
+                         % (double [0:100]))
+                         % indicate the minimal elevation and minimal snow cover
+                         % fraction to count a pixel as covered by snow.
+                         % used in Variables.calcSnowCoverDays()
         modisData       % MODISData object, modis environment paths and methods
     end
     properties(Constant)
@@ -85,8 +89,10 @@ classdef Regions
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
-            size1 = size(obj.ShortName);
-            obj.countOfSubRegions = size1(1, 1);
+            
+            % Default values for snowCoverDaysMins
+            obj.snowCoverDayMins.minElevation = 800;
+            obj.snowCoverDayMins.minSnowCoverFraction = 10;
 
         end
 
@@ -145,8 +151,10 @@ classdef Regions
             % instantiate the region and variable indexes on which to loop
             % ------------------------------------------------------------
 
-            if ~exist('subRegionIndex', 'var')
-                subRegionIndexes = 1:obj.countOfSubRegions;
+            if ~exist('subRegionIndex', 'var')                
+                size1 = size(obj.ShortName);
+                countOfSubRegions = size1(1, 1);
+                subRegionIndexes = 1:countOfSubRegions;
             else
                 subRegionIndexes = subRegionIndex;
             end
