@@ -7,7 +7,7 @@ classdef MODISData
         historicEndDt   % date of last historic data to use
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
-    	versionOf % version structure for various stages of processing
+        versionOf % version structure for various stages of processing
     end
     properties(Constant)
         pixSize_500m = 463.31271653;
@@ -31,15 +31,14 @@ classdef MODISData
             addOptional(p, 'archiveDir', defaultArchiveDir, ...
                 checkArchiveDir);
 
-    	    defaultLabel = 'v2023.0';
-    	    checkLabel = @(x) isstring(x) | ischar(x);
-    	    addParameter(p, 'label', defaultLabel, checkLabel);
+             defaultLabel = 'v2023.0';
+             checkLabel = @(x) isstring(x) | ischar(x);
+             addParameter(p, 'label', defaultLabel, checkLabel);
 
             p.KeepUnmatched = false;
             parse(p, varargin{:});
 
-    	    label = p.Results.label;
-
+            label = p.Results.label;
             obj.archiveDir = p.Results.archiveDir;
             obj.historicEndDt = datetime("20181229", ...
                 'InputFormat', 'yyyyMMdd');
@@ -62,28 +61,28 @@ classdef MODISData
             obj.cstruct = m.cstruct;
 
             % Set various versions needed to control where data
-    	    % are located.
-    	    % MODISCollection is major version of MOD09GA files
-    	    % Raw/Gap/Interp cubes and Daily file version strings
-    	    % are used for directory hierarchy and some filenames
-    	    % Free-form string, by convention do not use '_' or
-    	    % '.' as first characters
-    	    % Directories:
-    	    % If non-empty, these strings will be appended to the directory
-    	    % names in ESPEnv as '<dir>_<versionOf.(dataType)>'
-    	    % If empty, these strings will not be appended
-    	    % Filenames:
-    	    % If non-empty, these strings will be appended to
-    	    % filenames as 'file.<versionOf.(dataType)>.ext'
-    	    % If empty, these strings will not be used in filenames
-    	    obj.versionOf = struct(...
-    	        'MODISCollection', 6, ...
-        		'MOD09Raw', label, ...
-        		'SCAGDRFSRaw', label, ...
-        		'SCAGDRFSGap',  label, ...
-        		'SCAGDRFSSTC',  label, ...
-        		'SCAGDRFSDaily',  label);
-
+             % are located.
+             % MODISCollection is major version of MOD09GA files
+             % Raw/Gap/Interp cubes and Daily file version strings
+             % are used for directory hierarchy and some filenames
+             % Free-form string, by convention do not use '_' or
+             % '.' as first characters
+             % Directories:
+             % If non-empty, these strings will be appended to the directory
+             % names in ESPEnv as '<dir>_<versionOf.(dataType)>'
+             % If empty, these strings will not be appended
+             % Filenames:
+             % If non-empty, these strings will be appended to
+             % filenames as 'file.<versionOf.(dataType)>.ext'
+             % If empty, these strings will not be used in filenames
+             obj.versionOf = struct(...
+                 'MODISCollection', 6, ...
+                  'MOD09Raw', label, ...
+                  'SCAGDRFSRaw', label, ...
+                  'SCAGDRFSGap',  label, ...
+                  'SCAGDRFSSTC',  label, ...
+                  'SCAGDRFSDaily',  label, ...
+                  'output_csv', label);
         end
 
         function S = inventoryMod09ga(obj, ...
