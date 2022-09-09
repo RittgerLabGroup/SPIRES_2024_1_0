@@ -4,6 +4,7 @@ classdef MODISData
     %   data, including MOD09, modscag and moddrfs
     properties      % public properties
         archiveDir    % top-level directory with tile data
+        alternateDir  % top-level directory with tile data on scratch
         historicEndDt   % date of last historic data to use
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
@@ -41,6 +42,11 @@ classdef MODISData
     	    label = p.Results.label;
 
             obj.archiveDir = p.Results.archiveDir;
+
+            % Default location for (fast) alternate data
+            obj.alternateDir = sprintf('/scratch/alpine/%s/modis', ...
+                getenv('USER'));
+
             obj.historicEndDt = datetime("20181229", ...
                 'InputFormat', 'yyyyMMdd');
 
@@ -323,6 +329,24 @@ classdef MODISData
                     mfilename(), tileID);
                 rethrow(e);
             end
+        end
+
+        function S = isFileOnScratch(obj, filename)
+            %isFileOnScratch looks for this filename on user's scratch space
+            %
+            % Input
+            %   filename - any filename of form /*/modis/*/file.ext
+            %
+            % Output
+            %   struct with
+            %   .filename - the temporary file expected on user's tmp
+            %   .exists - true or false (if tmp file exists)
+        
+            expression = '^/.*/modis';
+            replace = sprintf('/scratch/alpine/%s/modis', getenv('USER'));
+            S.filename = regexprep(filename, expression, replace);
+            S.onScratch = isfile(S.filename);
+            
         end
 
     end

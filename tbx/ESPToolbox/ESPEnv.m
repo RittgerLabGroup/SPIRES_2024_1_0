@@ -48,7 +48,7 @@ classdef ESPEnv
                obj.mappingDir = fullfile(path, 'mapping');
                obj.extentDir = fullfile(path, 'StudyExtents');
                    
-               % For Data Fusion stuff, paths are on PetaLibrary
+               % top level paths for ancillary data are on PetaLibrary
                path = fullfile('/pl', 'active', 'rittger_esp');
                obj.MODISDir = fullfile(path, ...
 		   'scag', 'MODIS', 'SSN', 'v01');
@@ -62,18 +62,17 @@ classdef ESPEnv
                    'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
                obj.MODICEDir = fullfile(path, 'modis', 'modice');
 
-               % For ESP pipelines, set scratch locations
-	       if strcmp(p.Results.hostName, 'CURCScratchAlpine')
-                   path = fullfile('/scratch', 'alpine', getenv('USER'));
-	       end
-
                obj.modisWatermaskDir = fullfile(path, 'landcover');
                obj.modisForestDir = fullfile(path, 'forest_height');
                obj.modisElevationDir = fullfile(path, 'elevation');
                obj.modisTopographyDir = fullfile(path, 'topography');
                obj.shapefileDir = fullfile(path, 'shapefiles');
                    
-               path = fullfile(path, 'modis');
+               % For ESP pipelines, set scratch locations
+	       if strcmp(p.Results.hostName, 'CURCScratchAlpine')
+                   path = fullfile('/scratch', 'alpine', ...
+				   getenv('USER'), 'modis');
+	       end
 
 	       % In practice, these directories will be
 	       % appended with labels from MODISData class
@@ -228,18 +227,18 @@ classdef ESPEnv
        end
        
        function f = MosaicFile(obj, MData, regionName, ...
-			       yr, mm, dd)
+               yr, mm, dd)
            % MosaicFile returns the name of a daily mosaic image file
-	   myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
-			   MData.versionOf.SCAGDRFSDaily);
-           
+    	   myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
+               MData.versionOf.SCAGDRFSDaily);
+
            %TODO: make this an optional input
-    	   platformName = 'Terra';
-    	   yyyymmdd = sprintf('%04d%02d%02d', yr, mm, dd);
+           platformName = 'Terra';
+           yyyymmdd = sprintf('%04d%02d%02d', yr, mm, dd);
 
            % use versionOf value for file labelName
-	   % if it is not empty, prepend a period
-	   labelName = MData.versionOf.SCAGDRFSDaily;
+    	   % if it is not empty, prepend a period
+    	   labelName = MData.versionOf.SCAGDRFSDaily;
            if ~isempty(labelName)
                labelName = sprintf('.%s', labelName);
            end
