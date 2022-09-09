@@ -1,0 +1,6 @@
+name,calc_suffix_n_prefix,varname_in_plot,varfieldname_in_plot,outfile_label_in_plot,legend_location,former_name_in_regions,label,units
+comment,prefix or suffix of field calculated in runStatsForLinePlots(),varName in plotMostRecentVarInContext(),varFieldName in plotMostRecentVarInContext(),outFileLabel in plotMostRecentVarInContext(),legendLocatin in  plotMostRecentVarInContext(),Former varName arg of Regions.writeStats() and former outStatsFileLabel in plotMostRecentVarInContext,Description (label) in Regions.writeStats(),Units in Regions.writeStats()
+snow_fraction,sca_area_km2,snow_fraction,sca,SCA,NorthEast,SCF,Total Snow Cover Area,square kilometers
+albedo_observed_muZ,albedo,albedo,albedo,Albedo,NorthEast,Albedo,Median Regional Snow Albedo,percent
+radiative_forcing ,radiative_forcing,radiative_forcing ,radiative_forcing,RF,SouthEast,RF,Median Regional Snow Radiative Forcing,Watts per square meter
+snow_cover_days ,scd_sum,SCD,scd,SCD,SouthEast,SCD,Snow Cover Days,days
