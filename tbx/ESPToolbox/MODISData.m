@@ -27,14 +27,22 @@ classdef MODISData
 
             p = inputParser;
 
+            % The default location is PetaLibrary, so that
+            % inventory paths are always set to the definitive PL
+            % location; in practice, alternateDir (user's scratch)
+            % will be checked and used since it is faster
             defaultArchiveDir = '/pl/active/rittger_esp/modis';
             checkArchiveDir = @(x) exist(x, 'dir');
             addOptional(p, 'archiveDir', defaultArchiveDir, ...
                 checkArchiveDir);
 
-             defaultLabel = 'v2023.0';
-             checkLabel = @(x) isstring(x) | ischar(x);
-             addParameter(p, 'label', defaultLabel, checkLabel);
+            % The default versionOf label
+            % For operational processing, this can be set to something
+            % consistent, e.g. 'v2023.0', or the individual versionOf
+            % labels can be controlled by the caller 
+            defaultLabel = 'test';
+            checkLabel = @(x) isstring(x) | ischar(x);
+            addParameter(p, 'label', defaultLabel, checkLabel);
 
             p.KeepUnmatched = false;
             parse(p, varargin{:});
