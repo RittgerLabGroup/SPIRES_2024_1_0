@@ -29,7 +29,8 @@ classdef ESPEnv
 
            p = inputParser;
 
-           defaultHostName = 'CURC';
+           % User's scratch locale is default, because it is fast
+           defaultHostName = 'CURCScratchAlpine';
            validHostNames = {'CURC', 'CURCScratchAlpine'};
            checkHostName = @(x) any(validatestring(x, validHostNames));
            addOptional(p, 'hostName', defaultHostName, ...
@@ -68,7 +69,8 @@ classdef ESPEnv
 
                % For ESP pipelines, set scratch locations
                if strcmp(p.Results.hostName, 'CURCScratchAlpine')
-                   path = fullfile('/scratch', 'alpine', getenv('USER'));
+                   path = fullfile('/scratch', 'alpine', ...
+                                   getenv('USER'), 'modis_ancillary');
                end
 
                obj.modisWatermaskDir = fullfile(path, 'landcover');
