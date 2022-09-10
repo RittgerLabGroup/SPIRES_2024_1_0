@@ -78,12 +78,14 @@ classdef ESPEnv
                obj.shapefileDir = fullfile(path, 'shapefiles');
                    
                % For ESP pipelines, set scratch locations
-	       if strcmp(p.Results.hostName, 'CURCScratchAlpine')
+    	       if strcmp(p.Results.hostName, 'CURCScratchAlpine')
                    path = fullfile('/scratch', 'alpine', ...
-				   getenv('USER'), 'modis');
-	       end
+    				   getenv('USER'), 'modis');
+               else
+                   path = fullfile(path, 'modis');
+    	       end
 
-	       % In practice, these directories will be
+    	       % In practice, these directories will be
                % appended with labels from MODISData class
                obj.dirWith = struct(...
                    'MOD09Raw', fullfile(path, 'mod09_raw'), ...
@@ -92,9 +94,8 @@ classdef ESPEnv
                    'SCAGDRFSSTC', fullfile(path, 'scagdrfs_stc'), ...
                    'SCAGDRFSDaily', fullfile(path, 'scagdrfs'), ...
                    'publicFTP', ...
-		   fullfile('/pl', 'active', ...
-		       'rittger_esp_public', ...
-                       'snow-today'), ...
+        		   fullfile('/pl', 'active', 'rittger_esp_public', ...
+                   'snow-today'), ...
                    'csv_output', fullfile(path, 'output', 'csv'));
 
        else
@@ -153,8 +154,15 @@ classdef ESPEnv
        end
 
        function f = MOD09File(obj, MData, regionName, yr, mm)
+           
            % MOD09File returns the name of a monthly MOD09 cubefile
-       myDir = sprintf('%s_%s', obj.dirWith.MOD09Raw, ...
+           % if versionOf value is not empty, use underscore separator
+           if ~isempty(MData.versionOf.MOD09Raw)
+               sepChar = '_';
+           else
+               sepChar = '';
+           end
+           myDir = sprintf('%s%s%s', obj.dirWith.MOD09Raw, sepChar, ...
                MData.versionOf.MOD09Raw);
 
            %TODO: make this an optional input
@@ -162,11 +170,11 @@ classdef ESPEnv
            yyyymm = sprintf('%04d%02d', yr, mm);
 
            f = fullfile(myDir, ...
-            sprintf('v%03d', MData.versionOf.MODISCollection), ...
-            sprintf('%s', regionName), ...
-            sprintf('%04d', yr), ...
-            sprintf('RawMOD09_%s_%s_%s.mat', ...
-                platformName, regionName, yyyymm));
+               sprintf('v%03d', MData.versionOf.MODISCollection), ...
+               sprintf('%s', regionName), ...
+               sprintf('%04d', yr), ...
+               sprintf('RawMOD09_%s_%s_%s.mat', ...
+               platformName, regionName, yyyymm));
 
        end
 
@@ -208,7 +216,13 @@ classdef ESPEnv
            %   SCAGDRFSGap
            %   SCAGDRFSSTC
 
-           myDir = sprintf('%s_%s', obj.dirWith.(fileType), ...
+           % if versionOf value is not empty, use underscore separator
+           if ~isempty(MData.versionOf.(fileType))
+               sepChar = '_';
+           else
+               sepChar = '';
+           end
+           myDir = sprintf('%s%s%s', obj.dirWith.(fileType), sepChar, ...
                MData.versionOf.(fileType));
 
            % use versionOf value for file labelName
