@@ -21,6 +21,7 @@ classdef ESPEnv
       MODICEDir      % directory with (annual) MODICE data
              % by tile/year (.hdr/.dat, .tif)
       dirWith % struct with various STC pipeline directories
+      parallelismConf   % struct with parameters for parallelism
    end
    methods
        function obj = ESPEnv(varargin)
@@ -118,6 +119,9 @@ classdef ESPEnv
                    obj.(props{i}) = obj.(props{i}){1};
                end
            end
+           
+           obj.parallelismConf.maxWorkers = 20;
+           obj.parallelismConf.jobStorageLocation = getenv('TMPDIR');
 
        end
 
@@ -282,6 +286,32 @@ classdef ESPEnv
                regionName, platformName, yyyymmdd, labelName));
 
        end
+       
+        function f = DailyMosaicFile(obj, regions, thisDatetime)
+            % Provides the filename of the mosaic data file with
+            % 
+            modisData = regions.modisData;
+            myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
+               modisData.versionOf.SCAGDRFSDaily);
+
+            %TODO: make this an optional input
+            platformName = 'Terra';
+
+            % use versionOf value for file labelName
+            % if it is not empty, prepend a period
+            labelName = modisData.versionOf.SCAGDRFSDaily;
+            if ~isempty(labelName)
+               labelName = sprintf('.%s', labelName);
+            end
+
+            f = fullfile(myDir, ...
+                sprintf('v%03d', modisData.versionOf.MODISCollection), ...
+                sprintf('%s', regions.regionName), ...
+                datestr(thisDatetime, 'yyyy'), ...
+                sprintf('%s_%s_%s%s.mat', ...
+                regions.regionName, platformName, ...
+                datestr(thisDatetime, 'yyyymmdd'), labelName));
+        end  
 
        function f = SummarySnowFile(obj, MData, regionName, ...
            partitionName, startYr, stopYr)
@@ -543,7 +573,7 @@ classdef ESPEnv
            f = fullfile(f(1).folder, f(1).name);
 
        end
-
+        
        function f = modisElevationFile(obj, regionName, varargin)
            % modisElevationFile returns DEM for the regionName
 
