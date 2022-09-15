@@ -89,7 +89,7 @@ classdef Variables
             % Taken from the day preceding the date range, if the date range
             % doesn't begin in the first month of the wateryear
             % else 0
-            snowCoverDays = zeros(regions.countOfRowsAndColumns);
+            snowCoverDays = zeros(regions.countOfRowsAndColumns, 'uint16');
 
             if month(dateRange(1)) ~= ESPDate.waterYearFirstMonth
                 mosaicFile = espEnv.DailyMosaicFile(regions, ...
