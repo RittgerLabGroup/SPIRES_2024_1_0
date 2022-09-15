@@ -123,6 +123,8 @@ classdef Variables
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             snow_cover_units = 'days';
             snow_cover_divisor = 1;
+            snow_cover_min_elevation = mins.minElevation;
+            snow_cover_min_snow_cover_fraction = mins.minSnowCoverFraction;
             tic;
             for d=1:numberOfDays
                 if mosaicFiles(d) ~= ""
@@ -130,7 +132,8 @@ classdef Variables
                         logical(snowCoverFraction(:, :, d));
                     snow_cover_days = snowCoverDays;
                     save(mosaicFiles(d), 'snow_cover_days', 'snow_cover_units', ...
-                        'snow_cover_divisor', '-append');
+                        'snow_cover_divisor', 'snow_cover_min_elevation', ...
+                        'snow_cover_min_snow_cover_fraction', '-append');
                 end
             end
             t2 = toc;
