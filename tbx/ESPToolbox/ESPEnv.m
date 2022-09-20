@@ -259,8 +259,8 @@ classdef ESPEnv
        function f = MosaicFile(obj, MData, regionName, ...
 			       yr, mm, dd)
            % MosaicFile returns the name of a daily mosaic image file
-    	   myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
-			   MData.versionOf.SCAGDRFSDaily);
+    	   myDir = sprintf('%s_%s', obj.dirWith.VariablesMatlab, ...
+			   MData.versionOf.VariablesMatlab);
 
            %TODO: make this an optional input
            platformName = 'Terra';
@@ -268,7 +268,7 @@ classdef ESPEnv
 
            % use versionOf value for file labelName
     	   % if it is not empty, prepend a period
-    	   labelName = MData.versionOf.SCAGDRFSDaily;
+    	   labelName = MData.versionOf.VariablesMatlab;
 
            if ~isempty(labelName)
                labelName = sprintf('.%s', labelName);
