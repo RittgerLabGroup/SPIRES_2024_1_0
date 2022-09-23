@@ -259,6 +259,48 @@ classdef ESPEnv
                regionName, yyyymm, labelName));
 
        end
+       
+       function f = MonthlySCAGDRFSFile(obj, regions, ...
+               fileType, thisDatetime)
+           % Monthly SCAGDRFSFile returns the name of a monthly filetype
+           % SCAGDRFS cube
+           % fileType should be one of obj.dirWith 'SCAGDRFS*' cubes:
+           %   SCAGDRFSRaw
+           %   SCAGDRFSGap
+           %   SCAGDRFSSTC
+            modisData = regions.modisData;
+            regionName = regions.regionName;
+           myDir = sprintf('%s_%s', obj.dirWith.(fileType), ...
+               modisData.versionOf.(fileType));
+
+           % use versionOf value for file labelName
+           % if it is not empty, prepend a period
+           labelName = MData.versionOf.(fileType);
+           if ~isempty(labelName)
+               labelName = sprintf('.%s', labelName);
+           end
+
+           %TODO: make this an optional input
+           platformName = 'Terra';
+
+           prefix = struct('SCAGDRFSRaw', 'Raw', ...
+               'SCAGDRFSGap', 'Gap', ...
+               'SCAGDRFSSTC', 'Interp');
+
+           f = fullfile(myDir, ...
+               sprintf('v%03d', MData.versionOf.MODISCollection), ...
+               sprintf('%s', regionName), ...
+               datestr(thisDatetime, 'yyyy'));
+           if ~exist(f, 'dir')
+                mkdir(f);
+            end    
+               
+           f = fullfile(f, ...
+               sprintf('%sSCAG_%s_%s_%s%s.mat', ...
+               prefix.(fileType), platformName, ...
+               regionName, ...
+               datestr(thisDatetime, 'yyyymm'), labelName));
+       end
 
        function f = MosaicFile(obj, MData, regionName, ...
 			       yr, mm, dd)
@@ -639,6 +681,26 @@ classdef ESPEnv
            f = fullfile(f(1).folder, f(1).name);
 
        end
+       
+       function f = modisRegionTopographyFile(obj, regions)
+            % modisTopographyFile file with regionName elevation-slope-aspect
+
+           f = dir(fullfile(obj.modisTopographyDir, ...
+               sprintf('%s_Elevation_Slope_Aspect.mat', ...
+               regions.regionName)));
+
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'ESPEnv.modisTopographyFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected Topographies found for %s at %s', ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+
+           f = fullfile(f(1).folder, f(1).name);
+
+       end
 
        function f = studyExtentFile(obj, regionName)
            % studyExtentFile returns the study extent file for the
@@ -714,6 +776,5 @@ classdef ESPEnv
                 "field_names_and_descriptions.csv"), 'Delimiter', ',');
             f([1],:) = []; % delete comment line
        end
-
    end
 end
