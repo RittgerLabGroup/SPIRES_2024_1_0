@@ -13,6 +13,8 @@ classdef Regions
         indxMosaic    % mask with region IDS
         countOfRowsAndColumns   % Array of the number of rows and columns
                         % (number of pixels on the vertical and horizontal axes)
+        atmosphericProfile  % Atmospheric profile of the region (used to calculate
+                            % albedo).                                     
         percentCoverage % areal percent coverage of the region in our tiles
         useForSnowToday % logical cell array indicating we are using it
         lowIllumination % logical cell array for Northern areas
@@ -91,7 +93,8 @@ classdef Regions
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
-            
+            obj.atmosphericProfile = mObj.atmosphericProfile;
+
             % Default values for snowCoverDaysMins
             obj.snowCoverDayMins.minElevation = 800;
             obj.snowCoverDayMins.minSnowCoverFraction = 10;
@@ -292,13 +295,13 @@ classdef Regions
 
             % Retrieval of aggregated data files
             historicalSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-                obj.regionName, obj.maskName, modisBeginWaterYr, modisEndWaterYr);
+                obj.regionName, obj.maskName, modisBeginWaterYear, modisEndWaterYear);
             historicalStats = load(historicalSummaryFile);
             fprintf('%s: Reading historical stats from %s\n', mfilename(), ...
                 historicalSummaryFile);
 
             currentSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-                obj.regionName, obj.maskName, waterYr, waterYr);
+                obj.regionName, obj.maskName, waterYear, waterYear);
             currentStats = load(currentSummaryFile);
             fprintf('%s: Reading current WY stats from %s\n', mfilename(), ...
                 currentSummaryFile);
@@ -307,7 +310,7 @@ classdef Regions
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             availableVariables = obj.espEnv.field_names_and_descriptions();
             outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
-                sprintf('WY%04d', waterYr), ...
+                sprintf('WY%04d', waterYear), ...
                 'linePlotsToDate');
 
             obj.writeStats(historicalStats, ...
