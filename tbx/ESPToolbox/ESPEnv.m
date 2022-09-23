@@ -21,7 +21,6 @@ classdef ESPEnv
       MODICEDir      % directory with (annual) MODICE data
              % by tile/year (.hdr/.dat, .tif)
       dirWith % struct with various STC pipeline directories
-      parallelismConf   % struct with parameters for parallelism
    end
    methods
        function obj = ESPEnv(varargin)
@@ -119,9 +118,6 @@ classdef ESPEnv
                    obj.(props{i}) = obj.(props{i}){1};
                end
            end
-           
-           obj.parallelismConf.maxWorkers = 20;
-           obj.parallelismConf.jobStorageLocation = getenv('TMPDIR');
 
        end
 
@@ -259,48 +255,6 @@ classdef ESPEnv
                regionName, yyyymm, labelName));
 
        end
-       
-       function f = MonthlySCAGDRFSFile(obj, regions, ...
-               fileType, thisDatetime)
-           % Monthly SCAGDRFSFile returns the name of a monthly filetype
-           % SCAGDRFS cube
-           % fileType should be one of obj.dirWith 'SCAGDRFS*' cubes:
-           %   SCAGDRFSRaw
-           %   SCAGDRFSGap
-           %   SCAGDRFSSTC
-            modisData = regions.modisData;
-            regionName = regions.regionName;
-           myDir = sprintf('%s_%s', obj.dirWith.(fileType), ...
-               modisData.versionOf.(fileType));
-
-           % use versionOf value for file labelName
-           % if it is not empty, prepend a period
-           labelName = MData.versionOf.(fileType);
-           if ~isempty(labelName)
-               labelName = sprintf('.%s', labelName);
-           end
-
-           %TODO: make this an optional input
-           platformName = 'Terra';
-
-           prefix = struct('SCAGDRFSRaw', 'Raw', ...
-               'SCAGDRFSGap', 'Gap', ...
-               'SCAGDRFSSTC', 'Interp');
-
-           f = fullfile(myDir, ...
-               sprintf('v%03d', MData.versionOf.MODISCollection), ...
-               sprintf('%s', regionName), ...
-               datestr(thisDatetime, 'yyyy'));
-           if ~exist(f, 'dir')
-                mkdir(f);
-            end    
-               
-           f = fullfile(f, ...
-               sprintf('%sSCAG_%s_%s_%s%s.mat', ...
-               prefix.(fileType), platformName, ...
-               regionName, ...
-               datestr(thisDatetime, 'yyyymm'), labelName));
-       end
 
        function f = MosaicFile(obj, MData, regionName, ...
 			       yr, mm, dd)
@@ -328,36 +282,6 @@ classdef ESPEnv
                regionName, platformName, yyyymmdd, labelName));
 
        end
-       
-        function f = DailyMosaicFile(obj, regions, thisDatetime)
-            % Provides the filename of the mosaic data file with
-            % 
-            modisData = regions.modisData;
-            myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
-               modisData.versionOf.SCAGDRFSDaily);
-
-            %TODO: make this an optional input
-            platformName = 'Terra';
-
-            % use versionOf value for file labelName
-            % if it is not empty, prepend a period
-            labelName = modisData.versionOf.SCAGDRFSDaily;
-            if ~isempty(labelName)
-               labelName = sprintf('.%s', labelName);
-            end
-
-            f = fullfile(myDir, ...
-                sprintf('v%03d', modisData.versionOf.MODISCollection), ...
-                sprintf('%s', regions.regionName), ...
-                datestr(thisDatetime, 'yyyy'));
-            if ~exist(f, 'dir')
-                mkdir(f);
-            end
-            f = fullfile(f, ...
-                sprintf('%s_%s_%s%s.mat', ...
-                regions.regionName, platformName, ...
-                datestr(thisDatetime, 'yyyymmdd'), labelName));
-        end  
 
        function f = SummarySnowFile(obj, MData, regionName, ...
            partitionName, startYr, stopYr)
@@ -619,7 +543,7 @@ classdef ESPEnv
            f = fullfile(f(1).folder, f(1).name);
 
        end
-        
+
        function f = modisElevationFile(obj, regionName, varargin)
            % modisElevationFile returns DEM for the regionName
 
@@ -640,7 +564,7 @@ classdef ESPEnv
 
            if length(f) ~= 1
                errorStruct.identifier = ...
-                   'ESPEnv_modisElevationFile:FileError';
+                   'ESPEnv.modisElevationFile:FileError';
                errorStruct.message = sprintf( ...
                    '%s: Unexpected DEMs found for %s at %s', ...
                    mfilename(), regionName, myDir);
@@ -668,26 +592,6 @@ classdef ESPEnv
            f = dir(fullfile(myDir, ...
                sprintf('%s_Elevation_Slope_Aspect.mat', ...
                regionName)));
-
-           if length(f) ~= 1
-               errorStruct.identifier = ...
-                   'ESPEnv.modisTopographyFile:FileError';
-               errorStruct.message = sprintf( ...
-                   '%s: Unexpected Topographies found for %s at %s', ...
-                   mfilename(), regionName, myDir);
-               error(errorStruct);
-           end
-
-           f = fullfile(f(1).folder, f(1).name);
-
-       end
-       
-       function f = modisRegionTopographyFile(obj, regions)
-            % modisTopographyFile file with regionName elevation-slope-aspect
-
-           f = dir(fullfile(obj.modisTopographyDir, ...
-               sprintf('%s_Elevation_Slope_Aspect.mat', ...
-               regions.regionName)));
 
            if length(f) ~= 1
                errorStruct.identifier = ...
@@ -776,5 +680,6 @@ classdef ESPEnv
                 "field_names_and_descriptions.csv"), 'Delimiter', ',');
             f([1],:) = []; % delete comment line
        end
+
    end
 end

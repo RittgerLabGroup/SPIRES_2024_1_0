@@ -166,8 +166,7 @@ classdef Regions
                 % Check if the varName is ok
                 index = find(strcmp(availableVariables.name, varName));
                 if isempty(index)
-                    ME = MException('mfilename():UnauthorizedVarName', ...
-                        '%s: varName %s not found in the ', ...
+                    ME = MException('%s: varName %s not found in the ', ...
                         'list of authorized varName',  mfilename(), varName);
                     throw(ME)
                 else
