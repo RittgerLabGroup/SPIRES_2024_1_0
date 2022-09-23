@@ -298,17 +298,14 @@ classdef Regions
             modisEndWaterYr = beginThisWaterYr;
 
             % Retrieval of aggregated data files
-            % NB: Will have to remove the doTest
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            doTest = false;
             historicalSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-                obj.regionName, obj.maskName, modisBeginWaterYr, modisEndWaterYr, doTest);
+                obj.regionName, obj.maskName, modisBeginWaterYr, modisEndWaterYr);
             historicalStats = load(historicalSummaryFile);
             fprintf('%s: Reading historical stats from %s\n', mfilename(), ...
                 historicalSummaryFile);
 
             currentSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-                obj.regionName, obj.maskName, waterYr, waterYr, doTest);
+                obj.regionName, obj.maskName, waterYr, waterYr);
             currentStats = load(currentSummaryFile);
             fprintf('%s: Reading current WY stats from %s\n', mfilename(), ...
                 currentSummaryFile);
@@ -316,7 +313,7 @@ classdef Regions
             % Variables and output directory
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             availableVariables = obj.espEnv.field_names_and_descriptions();
-            outputDirectory = fullfile(obj.espEnv.dirWith.csv_output, ...
+            outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
                 sprintf('WY%04d', waterYr), ...
                 'linePlotsToDate');
 

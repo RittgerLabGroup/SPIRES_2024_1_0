@@ -29,7 +29,8 @@ classdef ESPEnv
 
            p = inputParser;
 
-           defaultHostName = 'CURC';
+           % User's scratch locale is default, because it is fast
+           defaultHostName = 'CURCScratchAlpine';
            validHostNames = {'CURC', 'CURCScratchAlpine'};
            checkHostName = @(x) any(validatestring(x, validHostNames));
            addOptional(p, 'hostName', defaultHostName, ...
@@ -51,10 +52,9 @@ classdef ESPEnv
                obj.extentDir = fullfile(path, 'StudyExtents');
                obj.confDir = fullfile(path, 'conf');
 
-               % For Data Fusion stuff, paths are on PetaLibrary
+               % For top-level stuff, paths are on PetaLibrary
                path = fullfile('/pl', 'active', 'rittger_esp');
-               obj.MODISDir = fullfile(path, ...
-           'scag', 'MODIS', 'SSN', 'v01');
+               obj.MODISDir = fullfile(path, 'scag', 'MODIS', 'SSN', 'v01');
 
                obj.viirsDir = fullfile(path, 'viirs');
                obj.watermaskDir = fullfile(path, 'landcover', 'NLCD_ucsb');
@@ -65,35 +65,44 @@ classdef ESPEnv
                    'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
                obj.MODICEDir = fullfile(path, 'modis', 'modice');
                
-               obj.regionMaskDir = fullfile(path, ...
-                    'region_masks', 'v3');
+               obj.regionMaskDir = fullfile(path, 'region_masks', 'v3');
 
                % For ESP pipelines, set scratch locations
-           if strcmp(p.Results.hostName, 'CURCScratchAlpine')
-                   path = fullfile('/scratch', 'alpine', getenv('USER'));
-           end
+               if strcmp(p.Results.hostName, 'CURCScratchAlpine')
+                   path = fullfile('/scratch', 'alpine', ...
+                                   getenv('USER'), 'modis_ancillary');
+               end
 
                obj.modisWatermaskDir = fullfile(path, 'landcover');
                obj.modisForestDir = fullfile(path, 'forest_height');
                obj.modisElevationDir = fullfile(path, 'elevation');
                obj.modisTopographyDir = fullfile(path, 'topography');
                obj.shapefileDir = fullfile(path, 'shapefiles');
+                   
+               % For ESP pipelines, set scratch locations
+    	       if strcmp(p.Results.hostName, 'CURCScratchAlpine')
+                   path = fullfile('/scratch', 'alpine', ...
+    				   getenv('USER'), 'modis');
+               else
+                   path = fullfile(path, 'modis');
+    	       end
 
-               path = fullfile(path, 'modis');
-
-           % In practice, these directories will be
-           % appended with labels from MODISData class
+    	       % In practice, these directories will be
+               % appended with labels from MODISData class
                obj.dirWith = struct(...
-                   'MOD09Raw', fullfile(path, 'mod09_raw'), ...
-                   'SCAGDRFSRaw', fullfile(path, 'scagdrfs_raw'), ...
-                   'SCAGDRFSGap', fullfile(path, 'scagdrfs_gap'), ...
-                   'SCAGDRFSSTC', fullfile(path, 'scagdrfs_stc'), ...
-                   'SCAGDRFSDaily', fullfile(path, 'scagdrfs'), ...
+                   'MOD09Raw', fullfile(path, 'intermediary', 'mod09_raw'), ...
+                   'SCAGDRFSRaw', fullfile(path, 'intermediary', 'scagdrfs_raw'), ...
+                   'SCAGDRFSGap', fullfile(path, 'intermediary', 'scagdrfs_gap'), ...
+                   'SCAGDRFSSTC', fullfile(path, 'intermediary', 'scagdrfs_stc'), ...
+                   'VariablesMatlab', fullfile(path, 'variables', 'scagdrfs_mat'), ...
+                   'VariablesGeotiff', fullfile(path, 'variables', 'scagdrfs_geotiff'), ...
+                   'RegionalStatsMatlab', fullfile(path, 'regional_stats', ...
+						   'scagdrfs_mat'), ...
+                   'RegionalStatsCsv', fullfile(path, 'regional_stats', ...
+						'scagdrfs_csv'), ...
                    'publicFTP', ...
-           fullfile('/pl', 'active', ...
-                'rittger_esp_public', ...
-                'snow-today'), ...
-                   'csv_output', fullfile(path, 'output', 'csv'));
+        		   fullfile('/pl', 'active', 'rittger_esp_public', ...
+				    'snow-today'));
 
        else
            fprintf(['%s: Unrecognized host=%s, ' ...
@@ -151,8 +160,15 @@ classdef ESPEnv
        end
 
        function f = MOD09File(obj, MData, regionName, yr, mm)
+           
            % MOD09File returns the name of a monthly MOD09 cubefile
-       myDir = sprintf('%s_%s', obj.dirWith.MOD09Raw, ...
+           % if versionOf value is not empty, use underscore separator
+           if ~isempty(MData.versionOf.MOD09Raw)
+               sepChar = '_';
+           else
+               sepChar = '';
+           end
+           myDir = sprintf('%s%s%s', obj.dirWith.MOD09Raw, sepChar, ...
                MData.versionOf.MOD09Raw);
 
            %TODO: make this an optional input
@@ -160,11 +176,11 @@ classdef ESPEnv
            yyyymm = sprintf('%04d%02d', yr, mm);
 
            f = fullfile(myDir, ...
-            sprintf('v%03d', MData.versionOf.MODISCollection), ...
-            sprintf('%s', regionName), ...
-            sprintf('%04d', yr), ...
-            sprintf('RawMOD09_%s_%s_%s.mat', ...
-                platformName, regionName, yyyymm));
+               sprintf('v%03d', MData.versionOf.MODISCollection), ...
+               sprintf('%s', regionName), ...
+               sprintf('%04d', yr), ...
+               sprintf('RawMOD09_%s_%s_%s.mat', ...
+               platformName, regionName, yyyymm));
 
        end
 
@@ -206,7 +222,13 @@ classdef ESPEnv
            %   SCAGDRFSGap
            %   SCAGDRFSSTC
 
-           myDir = sprintf('%s_%s', obj.dirWith.(fileType), ...
+           % if versionOf value is not empty, use underscore separator
+           if ~isempty(MData.versionOf.(fileType))
+               sepChar = '_';
+           else
+               sepChar = '';
+           end
+           myDir = sprintf('%s%s%s', obj.dirWith.(fileType), sepChar, ...
                MData.versionOf.(fileType));
 
            % use versionOf value for file labelName
@@ -235,18 +257,19 @@ classdef ESPEnv
        end
 
        function f = MosaicFile(obj, MData, regionName, ...
-                   yr, mm, dd)
+			       yr, mm, dd)
            % MosaicFile returns the name of a daily mosaic image file
-       myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
-               MData.versionOf.SCAGDRFSDaily);
+    	   myDir = sprintf('%s_%s', obj.dirWith.VariablesMatlab, ...
+			   MData.versionOf.VariablesMatlab);
 
            %TODO: make this an optional input
            platformName = 'Terra';
            yyyymmdd = sprintf('%04d%02d%02d', yr, mm, dd);
 
            % use versionOf value for file labelName
-       % if it is not empty, prepend a period
-       labelName = MData.versionOf.SCAGDRFSDaily;
+    	   % if it is not empty, prepend a period
+    	   labelName = MData.versionOf.VariablesMatlab;
+
            if ~isempty(labelName)
                labelName = sprintf('.%s', labelName);
            end
@@ -261,21 +284,13 @@ classdef ESPEnv
        end
 
        function f = SummarySnowFile(obj, MData, regionName, ...
-           partitionName, startYr, stopYr, doTest)
+           partitionName, startYr, stopYr)
            % SummarySnowFile returns the name of statistics summary file
-       myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
-               MData.versionOf.SCAGDRFSDaily);
-
-           if doTest
-               testDir = 'testRegions';
-           else
-               testDir = '';
-           end
+	   myDir = sprintf('%s_%s', obj.dirWith.RegionalStatsMatlab, ...
+               MData.versionOf.RegionalStatsMatlab);
 
            f = fullfile(myDir, ...
                sprintf('v%03d', MData.versionOf.MODISCollection), ...
-               sprintf('%s_statistics', regionName), ...
-               testDir, ...
                sprintf('%04d_to_%04d_%sby%s_Summary.mat', ...
                startYr, stopYr, regionName, partitionName));
 
@@ -284,22 +299,17 @@ classdef ESPEnv
        function f = SnowTodayFile(obj, MData, ...
                regionName, ...
                shortName, ...
-               inputDt, creationDt, labelName, doTest)
+               inputDt, creationDt, labelName)
            % SnowTodayFile returns the name of a Snow Today
-           % map or plot .png file
-       myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
-               MData.versionOf.SCAGDRFSDaily);
-
-           if doTest
-               testDir = 'testRegions';
-           else
-               testDir = '';
-           end
+           % map or plot .png file -- this is really obsolete
+           % maybe need to keep it for the Geotiffs?  but
+           % there should be a method for the geotiffs files
+	   myDir = sprintf('%s_%s', obj.dirWith.VariablesMatlab, ...
+               MData.versionOf.VariablesMatlab);
 
            f = fullfile(myDir, ...
                sprintf('v%03d', MData.versionOf.MODISCollection), ...
                sprintf('%s_SnowToday', regionName), ...
-               testDir, ...
                shortName, ...
                sprintf('%sinputs_createdOn%s_%s_%s.png', ...
                datestr(inputDt, 'yyyymmdd'), ...
