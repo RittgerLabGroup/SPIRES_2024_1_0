@@ -292,21 +292,13 @@ classdef Regions
 
             % Retrieval of aggregated data files
             historicalSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-<<<<<<< HEAD
                 obj.regionName, obj.maskName, modisBeginWaterYr, modisEndWaterYr);
-=======
-                obj.regionName, obj.maskName, modisBeginWaterYear, modisEndWaterYear, doTest);
->>>>>>> 4999fbf48c40fe4a848f7737b99d2eda8172a3f9
             historicalStats = load(historicalSummaryFile);
             fprintf('%s: Reading historical stats from %s\n', mfilename(), ...
                 historicalSummaryFile);
 
             currentSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-<<<<<<< HEAD
                 obj.regionName, obj.maskName, waterYr, waterYr);
-=======
-                obj.regionName, obj.maskName, waterYear, waterYear, doTest);
->>>>>>> 4999fbf48c40fe4a848f7737b99d2eda8172a3f9
             currentStats = load(currentSummaryFile);
             fprintf('%s: Reading current WY stats from %s\n', mfilename(), ...
                 currentSummaryFile);
@@ -314,13 +306,8 @@ classdef Regions
             % Variables and output directory
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             availableVariables = obj.espEnv.field_names_and_descriptions();
-<<<<<<< HEAD
             outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
                 sprintf('WY%04d', waterYr), ...
-=======
-            outputDirectory = fullfile(obj.espEnv.dirWith.csv_output, ...
-                sprintf('WY%04d', waterYear), ...
->>>>>>> 4999fbf48c40fe4a848f7737b99d2eda8172a3f9
                 'linePlotsToDate');
 
             obj.writeStats(historicalStats, ...
