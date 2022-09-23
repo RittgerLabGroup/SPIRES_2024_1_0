@@ -3,7 +3,6 @@ classdef Regions
 %   This class contains functions to manage information about our
 %   subregions by state (county) and watersheds at several levels
     properties      % public properties
-        archiveDir    % top-level directory with region data
         name          % name of region set
         regionName    % name of the big region which encompasses all the
                       % subregions
@@ -12,6 +11,8 @@ classdef Regions
         LongName      % cell array of long names for title
         S             % region geometry structures
         indxMosaic    % mask with region IDS
+        countOfRowsAndColumns   % Array of the number of rows and columns
+                        % (number of pixels on the vertical and horizontal axes)
         percentCoverage % areal percent coverage of the region in our tiles
         useForSnowToday % logical cell array indicating we are using it
         lowIllumination % logical cell array for Northern areas
@@ -86,6 +87,7 @@ classdef Regions
             obj.LongName = mObj.LongName;
             obj.S = mObj.S;
             obj.indxMosaic = mObj.indxMosaic;
+            obj.countOfRowsAndColumns = size(obj.indxMosaic);
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
@@ -121,7 +123,7 @@ classdef Regions
 
         function writeStats(obj, historicalStats, ...
             currentStats, availableVariables, ...
-            outputDirectory, subRegionIndex, varName)
+            outputDirectory, subRegionIndex, varName, espDate)
             % writes the year-to-date varName for regionIndex to ouput directory.
             %
             % Parameters
@@ -147,6 +149,8 @@ classdef Regions
             %         must be in field_and_stats_names.csv.
             %         When input, write output csv files only for varName.
             %         When not input, write csv files for all variables.
+            % espDate: ESPDate, Optional
+            %         Date for which stats are calculated.
 
             % instantiate the region and variable indexes on which to loop
             % ------------------------------------------------------------
@@ -166,7 +170,8 @@ classdef Regions
                 % Check if the varName is ok
                 index = find(strcmp(availableVariables.name, varName));
                 if isempty(index)
-                    ME = MException('%s: varName %s not found in the ', ...
+                    ME = MException('mfilename():UnauthorizedVarName', ...
+                        '%s: varName %s not found in the ', ...
                         'list of authorized varName',  mfilename(), varName);
                     throw(ME)
                 else
@@ -176,14 +181,10 @@ classdef Regions
 
             % Current year (for file naming)
             % ------------------------------
-            % ND: There should be a specific class which handles the waterY,
-            % a notion found elsewhere in the scripts
-            todayDt = datetime;
-            waterYr = year(todayDt);
-            thisMonth = month(todayDt);
-            if thisMonth >= 10
-                waterYr = waterYr + 1;
+            if ~exist('espDate', 'var')
+                espDate = ESPDate()
             end
+            waterYear = espDate.getWaterYear();
 
             for subRegionIdx=subRegionIndexes
                 for varIdx=varIndexes
@@ -201,7 +202,7 @@ classdef Regions
                     % File
                     % ----
                     fileName = sprintf('SnowToday_%s_%s_WY%4d_yearToDate.csv', ...
-                        obj.ShortName{subRegionIdx}, varName, waterYr);
+                        obj.ShortName{subRegionIdx}, varName, waterYear);
                     fileName = fullfile(outputDirectory, ...
                         fileName);
                     [path, ~, ~] = fileparts(fileName);
@@ -215,12 +216,12 @@ classdef Regions
 
                     fprintf(fileID, 'SnowToday %s Statistics To Date : %s\n', ...
                         label, ...
-                        datestr(todayDt, 'yyyy-mm-dd'));
+                        datestr(espDate.thisDatetime, 'yyyy-mm-dd'));
                     fprintf(fileID, 'Units : %s\n', units);
                     fprintf(fileID, 'Water Year : %04d\n', ...
-                        waterYr);
+                        waterYear);
                     fprintf(fileID, 'Water Year Begins : %04d-10-01\n', ...
-                        waterYr - 1);
+                        waterYear - 1);
                     fprintf(fileID, 'SubRegionName : %s\n', ...
                         historicalStats.LongName{subRegionIdx});
                     fprintf(fileID, 'SubRegionID : %s\n', ...
@@ -271,41 +272,41 @@ classdef Regions
             end
         end
 
-        function runWriteStats(obj, runDatetime)
+        function runWriteStats(obj, espDate)
             % Parameters
             % ----------
-            % runDatetime: datetime, optional
-            %    datetime of the run (today, or another day before if necessary
+            % espDate: ESPDate, optional
+            %    Date of the run (today, or another day before if necessary)
 
 
 
             % Dates
             %%%%%%%
-            if ~exist('runDatetime', 'var')
-                runDatetime = datetime;
+            if ~exist('espDate', 'var')
+                espDate = ESPDate();
             end
 
-            [thisYYYY, thisMM, ~] = ymd(runDatetime);
-            if thisMM < 10
-                beginThisWaterYr = thisYYYY - 1;
-                waterYr = thisYYYY;
-            else
-                beginThisWaterYr = thisYYYY;
-                waterYr = thisYYYY + 1;
-            end
-
-            modisBeginWaterYr = 2001;
-            modisEndWaterYr = beginThisWaterYr;
+            waterYear = espDate.getWaterYear();
+            modisBeginWaterYear = modisBeginWaterYear.modisBeginWaterYear;
+            modisEndWaterYear = waterYear - 1;
 
             % Retrieval of aggregated data files
             historicalSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
+<<<<<<< HEAD
                 obj.regionName, obj.maskName, modisBeginWaterYr, modisEndWaterYr);
+=======
+                obj.regionName, obj.maskName, modisBeginWaterYear, modisEndWaterYear, doTest);
+>>>>>>> 4999fbf48c40fe4a848f7737b99d2eda8172a3f9
             historicalStats = load(historicalSummaryFile);
             fprintf('%s: Reading historical stats from %s\n', mfilename(), ...
                 historicalSummaryFile);
 
             currentSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
+<<<<<<< HEAD
                 obj.regionName, obj.maskName, waterYr, waterYr);
+=======
+                obj.regionName, obj.maskName, waterYear, waterYear, doTest);
+>>>>>>> 4999fbf48c40fe4a848f7737b99d2eda8172a3f9
             currentStats = load(currentSummaryFile);
             fprintf('%s: Reading current WY stats from %s\n', mfilename(), ...
                 currentSummaryFile);
@@ -313,8 +314,13 @@ classdef Regions
             % Variables and output directory
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             availableVariables = obj.espEnv.field_names_and_descriptions();
+<<<<<<< HEAD
             outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
                 sprintf('WY%04d', waterYr), ...
+=======
+            outputDirectory = fullfile(obj.espEnv.dirWith.csv_output, ...
+                sprintf('WY%04d', waterYear), ...
+>>>>>>> 4999fbf48c40fe4a848f7737b99d2eda8172a3f9
                 'linePlotsToDate');
 
             obj.writeStats(historicalStats, ...
