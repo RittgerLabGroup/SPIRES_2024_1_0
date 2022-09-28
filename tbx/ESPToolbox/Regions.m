@@ -93,7 +93,7 @@ classdef Regions
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
-            obj.atmosphericProfile = mObj.atmosphericProfile;
+            obj.atmosphericProfile = 'mlw'; % 'sas' for Arctic.
 
             % Default values for snowCoverDaysMins
             obj.snowCoverDayMins.minElevation = 800;
@@ -149,7 +149,7 @@ classdef Regions
             % varName: str, Optional
             %         name of the variable on which the stats are aggregated
             %         e.g. albedo_clean_muZ, albedo_observed_muZ, snow_fraction
-            %         must be in field_and_stats_names.csv.
+            %         must be in conf_of_variables.csv.
             %         When input, write output csv files only for varName.
             %         When not input, write csv files for all variables.
             % espDate: ESPDate, Optional
@@ -171,11 +171,12 @@ classdef Regions
                 varIndexes = 1:availableVariablesSize(1);
             else
                 % Check if the varName is ok
-                index = find(strcmp(availableVariables.name, varName));
+                index = find(strcmp(availableVariables.output_name, varName));
                 if isempty(index)
                     ME = MException('mfilename():UnauthorizedVarName', ...
                         '%s: varName %s not found in the ', ...
-                        'list of authorized varName',  mfilename(), varName);
+                        'list of authorized outputnames in ', ...
+                        'ESPEnv.confOfVarariables()',  mfilename(), varName);
                     throw(ME)
                 else
                     varIndexes = index;
@@ -197,10 +198,10 @@ classdef Regions
                     % a suffix or prefix of fields in the historicalStats and
                     % currentStats files) and label and units (for the header)
                     varNameInfos = availableVariables(varIdx, :);
-                    varName = varNameInfos.('name'){1};
+                    varName = varNameInfos.('output_name'){1};
                     abbreviation = varNameInfos.('calc_suffix_n_prefix'){1};
                     label = varNameInfos.('label'){1};
-                    units = varNameInfos.('units'){1};
+                    units = varNameInfos.('units_in_map'){1};
 
                     % File
                     % ----
@@ -308,7 +309,8 @@ classdef Regions
 
             % Variables and output directory
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            availableVariables = obj.espEnv.field_names_and_descriptions();
+            variables = obj.espEnv.confOfVariables();
+            availableVariables = variables(find(variables.write_stats_csv == 1), :);
             outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
                 sprintf('WY%04d', waterYear), ...
                 'linePlotsToDate');

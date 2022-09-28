@@ -268,14 +268,14 @@ classdef ESPEnv
            %   SCAGDRFSRaw
            %   SCAGDRFSGap
            %   SCAGDRFSSTC
-            modisData = regions.modisData;
-            regionName = regions.regionName;
+           modisData = regions.modisData;
+           regionName = regions.regionName;
            myDir = sprintf('%s_%s', obj.dirWith.(fileType), ...
                modisData.versionOf.(fileType));
 
            % use versionOf value for file labelName
            % if it is not empty, prepend a period
-           labelName = MData.versionOf.(fileType);
+           labelName = modisData.versionOf.(fileType);
            if ~isempty(labelName)
                labelName = sprintf('.%s', labelName);
            end
@@ -288,7 +288,7 @@ classdef ESPEnv
                'SCAGDRFSSTC', 'Interp');
 
            f = fullfile(myDir, ...
-               sprintf('v%03d', MData.versionOf.MODISCollection), ...
+               sprintf('v%03d', modisData.versionOf.MODISCollection), ...
                sprintf('%s', regionName), ...
                datestr(thisDatetime, 'yyyy'));
            if ~exist(f, 'dir')
@@ -650,6 +650,29 @@ classdef ESPEnv
            f = fullfile(f(1).folder, f(1).name);
 
        end
+       
+       function f = modisRegionElevationFile(obj, regions)
+           % modisElevationFile returns DEM for the regions
+           %
+           % Parameters
+           % ----------
+           % regions: Region object
+           regionName = regions.regionName; 
+           f = dir(fullfile(obj.modisElevationDir, ...
+               sprintf('%s_dem.mat', ...
+               regionName)));
+
+           if length(f) ~= 1
+               errorStruct.identifier = ...
+                   'ESPEnv_modisElevationFile:FileError';
+               errorStruct.message = sprintf( ...
+                   '%s: Unexpected DEMs found for %s at %s', ...
+                   mfilename(), regionName, myDir);
+               error(errorStruct);
+           end
+
+           f = fullfile(f(1).folder, f(1).name);
+       end
 
        function f = modisTopographyFile(obj, regionName, varargin)
            % modisTopographyFile file with regionName elevation-slope-aspect
@@ -771,9 +794,9 @@ classdef ESPEnv
 
        end
 
-       function f = field_names_and_descriptions(obj)
+       function f = confOfVariables(obj)
             f = readtable(fullfile(obj.confDir, ...
-                "field_names_and_descriptions.csv"), 'Delimiter', ',');
+                "conf_of_variables.csv"), 'Delimiter', ',');
             f([1],:) = []; % delete comment line
        end
    end
