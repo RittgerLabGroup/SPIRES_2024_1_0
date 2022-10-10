@@ -122,6 +122,10 @@ classdef ESPEnv
            
            obj.parallelismConf.maxWorkers = 20;
            obj.parallelismConf.jobStorageLocation = getenv('TMPDIR');
+           % Windows machine
+           if isempty(obj.parallelismConf.jobStorageLocation)
+            obj.parallelismConf.jobStorageLocation = getenv('TMP');
+           end
 
        end
 
