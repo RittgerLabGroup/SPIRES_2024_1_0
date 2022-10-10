@@ -11,6 +11,7 @@ classdef Regions
         LongName      % cell array of long names for title
         S             % region geometry structures
         indxMosaic    % mask with region IDS
+        RefMatrix      % infos on pixel size and others                                                       
         countOfRowsAndColumns   % Array of the number of rows and columns
                         % (number of pixels on the vertical and horizontal axes)
         atmosphericProfile  % Atmospheric profile of the region (used to calculate
@@ -25,10 +26,15 @@ classdef Regions
                          % indicate the minimal elevation and minimal snow cover
                          % fraction to count a pixel as covered by snow.
                          % used in Variables.calcSnowCoverDays()
+        geotiffCrop     % Struct(xLeft (double), xRight (double), yTop (double),
+                        % yBottom (double))
+                        % Data to crop the geotiff reprojected raster for web use
         modisData       % MODISData object, modis environment paths and methods
     end
     properties(Constant)
         % pixSize_500m = 463.31271653;
+        geotiffCompression = 'LZW';
+        geotiffESPG = 3857;                                   
     end
 
     methods         % public methods
@@ -89,16 +95,14 @@ classdef Regions
             obj.LongName = mObj.LongName;
             obj.S = mObj.S;
             obj.indxMosaic = mObj.indxMosaic;
+            obj.RefMatrix = mObj.RefMatrix;                                           
             obj.countOfRowsAndColumns = size(obj.indxMosaic);
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
-            obj.atmosphericProfile = 'mlw'; % 'sas' for Arctic.
-
-            % Default values for snowCoverDaysMins
-            obj.snowCoverDayMins.minElevation = 800;
-            obj.snowCoverDayMins.minSnowCoverFraction = 10;
-
+            obj.atmosphericProfile = mObj.atmosphericProfile;
+            obj.snowCoverDayMins = mObj.snowCoverDayMins;
+            obj.geotiffCrop = mObj.geotiffCrop;
         end
 
         function out = paddedBounds(obj, ...
@@ -158,7 +162,7 @@ classdef Regions
             % instantiate the region and variable indexes on which to loop
             % ------------------------------------------------------------
 
-            if ~exist('subRegionIndex', 'var')
+            if ~exist('subRegionIndex', 'var') | isnan(subRegionIndex)
                 size1 = size(obj.ShortName);
                 countOfSubRegions = size1(1, 1);
                 subRegionIndexes = 1:countOfSubRegions;
@@ -166,7 +170,7 @@ classdef Regions
                 subRegionIndexes = subRegionIndex;
             end
 
-            if ~exist('varName', 'var')
+            if ~exist('varName', 'var') | isnan(varName)
                 availableVariablesSize = size(availableVariables);
                 varIndexes = 1:availableVariablesSize(1);
             else
@@ -310,11 +314,14 @@ classdef Regions
             variables = obj.espEnv.confOfVariables();
             availableVariables = variables(find(variables.write_stats_csv == 1), :);
             outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
-                sprintf('WY%04d', waterYear), ...
-                'linePlotsToDate');
+                sprintf('WY%04d', waterYear));
+            if ~isdir(outputDirectory)
+                mkdir(outputDirectory);
+            end
 
             obj.writeStats(historicalStats, ...
-                currentStats, availableVariables, outputDirectory);
+                currentStats, availableVariables, outputDirectory, ...
+                NaN, NaN, waterYearDate);
         end
 
         function saveSubsetToGeotiff(obj, espEnv, dataDt, data, R, ...

@@ -6,6 +6,8 @@ classdef Variables
     end
 
     properties(Constant)
+        uint8NoData = cast(255, 'uint8');
+        uint16NoData = cast(65535, 'uint16');                                        
         albedoScale = 10000.; % Factor to multiply albedo obtained from
                              % ParBal.spires_albedo
         albedoDeltavisScale = 100.; % Factor for deltavis in albedo_observed

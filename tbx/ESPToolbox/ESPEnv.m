@@ -270,15 +270,15 @@ classdef ESPEnv
             % directory creation if dir doesn't exist
             % 
             modisData = regions.modisData;
-            myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
-                modisData.versionOf.SCAGDRFSDaily);
+            myDir = sprintf('%s_%s', obj.dirWith.VariablesMatlab, ...
+                modisData.versionOf.VariablesMatlab);
 
             %TODO: make this an optional input
             platformName = 'Terra';
 
             % use versionOf value for file labelName
             % if it is not empty, prepend a period
-            labelName = modisData.versionOf.SCAGDRFSDaily;
+            labelName = modisData.versionOf.VariablesMatlab;
             if ~isempty(labelName)
                 labelName = sprintf('.%s', labelName);
             end
