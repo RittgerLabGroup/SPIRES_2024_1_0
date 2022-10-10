@@ -14,7 +14,7 @@ classdef Regions
         countOfRowsAndColumns   % Array of the number of rows and columns
                         % (number of pixels on the vertical and horizontal axes)
         atmosphericProfile  % Atmospheric profile of the region (used to calculate
-                            % albedo).                                     
+                            % albedo).
         percentCoverage % areal percent coverage of the region in our tiles
         useForSnowToday % logical cell array indicating we are using it
         lowIllumination % logical cell array for Northern areas
@@ -54,7 +54,7 @@ classdef Regions
             % modisData: MODISData object
             %    Modis environment, with paths
 
-            
+
             % Masks variable
             %%%%%%%%%%%%%%%%
             if ~exist('maskName', 'var')
@@ -158,7 +158,7 @@ classdef Regions
             % instantiate the region and variable indexes on which to loop
             % ------------------------------------------------------------
 
-            if ~exist('subRegionIndex', 'var')                
+            if ~exist('subRegionIndex', 'var')
                 size1 = size(obj.ShortName);
                 countOfSubRegions = size1(1, 1);
                 subRegionIndexes = 1:countOfSubRegions;

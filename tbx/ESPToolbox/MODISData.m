@@ -288,7 +288,7 @@ classdef MODISData
             %% https://laptrinhx.com/introduction-to-spatial-referencing-3251134442/
             %%
             %% Get Big RefMatrix from Slope-Aspect file
-            %%f = myEnv.modisTopographyFile('westernUS');
+            %%f = myEnv.topographyFile(westernUSRegions);
             %%mObj = matfile(f);
             %%[nRows, nCols] = size(mObj, 'A');
             %%RefMatrix = mObj.RefMatrix;

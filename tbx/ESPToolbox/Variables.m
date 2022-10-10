@@ -28,7 +28,7 @@ classdef Variables
 
         function calcSnowCoverDays(obj, espDate)
             % Calculates snow cover days from snow_fraction variable
-            % and updates the interpolation data files with the value.
+            % and updates the monthly STC cube interpolation data files with the value.
             % Cover days are calculated if elevation and snow cover fraction
             % are above thresholds defined at the Regions level (attribute
             % snowCoverDayMins.
@@ -54,7 +54,7 @@ classdef Variables
             if ~exist('espDate', 'var')
                 espDate = ESPDate();
             end
-            dateRange = espDate.getMonthFirstDateRangeForCalculations();
+            dateRange = espDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
             elevationFile = espEnv.modisRegionElevationFile(regions);
@@ -79,23 +79,23 @@ classdef Variables
 
             if month(dateRange(1)) ~= ESPDate.waterYearFirstMonth
                 dateBefore = daysadd(dateRange(1) , -1);
-                interpFile = espEnv.MonthlySCAGDRFSFile(regions, ...
+                STCFile = espEnv.SCAGDRFSFile(regions, ...
                     'SCAGDRFSSTC', dateBefore);
 
-                if isfile(interpFile)
-                    interpData = load(interpFile, 'snow_cover_days');
+                if isfile(STCFile)
+                    interpData = load(STCFile, 'snow_cover_days');
                     fprintf('%s: Loading snow_cover_days from %s\n', ...
-                            mfilename(), interpFile);
+                            mfilename(), STCFile);
                     if ~isempty(interpData) && ...
-						any(strcmp(fieldnames(interpData), 'snow_cover_days')) 
+                        any(strcmp(fieldnames(interpData), 'snow_cover_days'))
                         lastSnowCoverDays = interpData.snow_cover_days(:, :, end);
                     else
                         warning('%s: No snow_cover_days variable in %s\n', ...
-                            mfilename(), interpFile);
+                            mfilename(), STCFile);
                     end
                 else
                     warning('%s: Missing interpolation file %s\n', mfilename(), ...
-                        interpFile);
+                        STCFile);
                 end
             end
 
@@ -105,21 +105,21 @@ classdef Variables
             for monthDayIdx=1:numberOfMonths
                 % 2.a. Loading of the monthly interpolation file
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                interpFile = espEnv.MonthlySCAGDRFSFile(regions, ...
+                STCFile = espEnv.SCAGDRFSFile(regions, ...
                     'SCAGDRFSSTC', dateRange(monthDayIdx));
 
-                if ~isfile(interpFile)
+                if ~isfile(STCFile)
                     warning('%s: Missing interpolation file %s\n', mfilename(), ...
-                        interpFile);
+                        STCFile);
                     continue;
                 end
 
-                interpData = load(interpFile, 'snow_fraction');
+                interpData = load(STCFile, 'snow_fraction');
                 fprintf('%s: Loading snow_fraction from %s\n', ...
-                        mfilename(), interpFile);
+                        mfilename(), STCFile);
                 if isempty(interpData)
                     warning('%s: No snow_fraction variable in %s\n', ...
-                        mfilename(), interpFile);
+                        mfilename(), STCFile);
                     continue;
                 end
 
@@ -128,20 +128,20 @@ classdef Variables
                 % considered covered by snow
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 snowCoverFraction(snowCoverFraction < ...
-					snow_cover_min_snow_cover_fraction) = 0;
+                    snow_cover_min_snow_cover_fraction) = 0;
                 snowCoverFraction(elevationData.Z < snow_cover_min_elevation) = 0;
 
                 % 2.c. Cumulated snow cover days calculation and save
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-				snowCoverFractionWithoutNaN = snowCoverFraction(:, :, :);
-				snowCoverFractionWithoutNaN(isnan(snowCoverFraction)) = 0; 
-				logicalSnowCoverFraction = cast(logical(snowCoverFractionWithoutNaN), ...
-					'double');
-				logicalSnowCoverFraction(isnan(snowCoverFraction)) = NaN; 
+                snowCoverFractionWithoutNaN = snowCoverFraction(:, :, :);
+                snowCoverFractionWithoutNaN(isnan(snowCoverFraction)) = 0;
+                logicalSnowCoverFraction = cast(logical(snowCoverFractionWithoutNaN), ...
+                    'double');
+                logicalSnowCoverFraction(isnan(snowCoverFraction)) = NaN;
                 snow_cover_days = lastSnowCoverDays + ...
                     cumsum(logicalSnowCoverFraction, 3);
                 lastSnowCoverDays = snow_cover_days(:, :, end);
-                save(interpFile, 'snow_cover_days', 'snow_cover_divisor', ...
+                save(STCFile, 'snow_cover_days', 'snow_cover_divisor', ...
                             'snow_cover_units', 'snow_cover_min_elevation', ...
                             'snow_cover_min_snow_cover_fraction', '-append');
             end
