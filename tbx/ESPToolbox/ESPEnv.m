@@ -216,12 +216,14 @@ classdef ESPEnv
 
         function f = SCAGDRFSFile(obj, regions, ...
             fileType, thisDatetime)
-            % Monthly SCAGDRFSFile returns the name of a monthly filetype
+            % SCAGDRFSFile returns the name of a monthly filetype
             % SCAGDRFS cube
             % fileType should be one of obj.dirWith 'SCAGDRFS*' cubes:
             %   SCAGDRFSRaw
             %   SCAGDRFSGap
             %   SCAGDRFSSTC
+            %
+            % Directory creation if dir doesn't exist
             modisData = regions.modisData;
             regionName = regions.regionName;
 
@@ -264,7 +266,8 @@ classdef ESPEnv
         end
 
         function f = MosaicFile(obj, regions, thisDatetime)
-            % Provides the filename of the mosaic data file with
+            % Provides the filename of the daily mosaic data file with
+            % directory creation if dir doesn't exist
             % 
             modisData = regions.modisData;
             myDir = sprintf('%s_%s', obj.dirWith.SCAGDRFSDaily, ...
