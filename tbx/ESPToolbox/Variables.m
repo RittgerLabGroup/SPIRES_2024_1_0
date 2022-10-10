@@ -57,7 +57,7 @@ classdef Variables
             dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
-            elevationFile = espEnv.modisRegionElevationFile(regions);
+            elevationFile = espEnv.elevationFile(regions);
             elevationData = load(elevationFile, 'Z');
 
             variables = espEnv.confOfVariables();
