@@ -332,6 +332,8 @@ classdef ESPEnv
             % RawFilesFor3months returns MOD09/SCAGDRFS cubes surrounding
             % this month
 
+            regions = Regions(regionName, [regionName '_mask'], obj, MData);
+
             % Look for cubes for previous and subsequent month
             thisMonthDt = datetime(yr, mm, 1);
             priorMonthDt = thisMonthDt - calmonths(1:1);
@@ -354,8 +356,8 @@ classdef ESPEnv
 
                 % Look for Raw cubes for this month
                 mod09file = obj.MOD09File(MData, regionName, thisYYYY, thisMM);
-                scagfile = obj.SCAGDRFSFile(MData, regionName, ...
-                    'SCAGDRFSRaw', thisYYYY, thisMM);
+                scagfile = obj.SCAGDRFSFile(regions, ...
+                    'SCAGDRFSRaw', datetime(thisYYYY, thisMM, 1));
 
                 if ~isfile(mod09file) || ~isfile(scagfile)
 
