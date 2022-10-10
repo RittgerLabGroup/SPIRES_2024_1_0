@@ -26,7 +26,7 @@ classdef Variables
             obj.regions = regions;
         end
 
-        function calcSnowCoverDays(obj, espDate)
+        function calcSnowCoverDays(obj, waterYearDate)
             % Calculates snow cover days from snow_fraction variable
             % and updates the monthly STC cube interpolation data files with the value.
             % Cover days are calculated if elevation and snow cover fraction
@@ -36,7 +36,7 @@ classdef Variables
             %
             % Parameters
             % ----------
-            % espDate: ESPDate object, optional
+            % waterYearDate: waterYearDate object, optional
             %   Date and range of days before over which calculation
             %   should be carried out
 
@@ -51,10 +51,10 @@ classdef Variables
             modisData = regions.modisData;
             mins = regions.snowCoverDayMins;
 
-            if ~exist('espDate', 'var')
-                espDate = ESPDate();
+            if ~exist('waterYearDate', 'var')
+                waterYearDate = waterYearDate();
             end
-            dateRange = espDate.getMonthlyFirstDatetimeRange();
+            dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
             elevationFile = espEnv.modisRegionElevationFile(regions);
@@ -77,7 +77,7 @@ classdef Variables
             % else 0
             lastSnowCoverDays = 0;
 
-            if month(dateRange(1)) ~= ESPDate.waterYearFirstMonth
+            if month(dateRange(1)) ~= waterYearDate.waterYearFirstMonth
                 dateBefore = daysadd(dateRange(1) , -1);
                 STCFile = espEnv.SCAGDRFSFile(regions, ...
                     'SCAGDRFSSTC', dateBefore);

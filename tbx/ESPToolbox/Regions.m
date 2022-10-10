@@ -126,7 +126,7 @@ classdef Regions
 
         function writeStats(obj, historicalStats, ...
             currentStats, availableVariables, ...
-            outputDirectory, subRegionIndex, varName, espDate)
+            outputDirectory, subRegionIndex, varName, waterYearDate)
             % writes the year-to-date varName for regionIndex to ouput directory.
             %
             % Parameters
@@ -152,7 +152,7 @@ classdef Regions
             %         must be in conf_of_variables.csv.
             %         When input, write output csv files only for varName.
             %         When not input, write csv files for all variables.
-            % espDate: ESPDate, Optional
+            % waterYearDate: waterYearDate, Optional
             %         Date for which stats are calculated.
 
             % instantiate the region and variable indexes on which to loop
@@ -185,10 +185,10 @@ classdef Regions
 
             % Current year (for file naming)
             % ------------------------------
-            if ~exist('espDate', 'var')
-                espDate = ESPDate()
+            if ~exist('waterYearDate', 'var')
+                waterYearDate = waterYearDate();
             end
-            waterYear = espDate.getWaterYear();
+            waterYear = waterYearDate.getWaterYear();
 
             for subRegionIdx=subRegionIndexes
                 for varIdx=varIndexes
@@ -220,7 +220,7 @@ classdef Regions
 
                     fprintf(fileID, 'SnowToday %s Statistics To Date : %s\n', ...
                         label, ...
-                        datestr(espDate.thisDatetime, 'yyyy-mm-dd'));
+                        datestr(waterYearDate.thisDatetime, 'yyyy-mm-dd'));
                     fprintf(fileID, 'Units : %s\n', units);
                     fprintf(fileID, 'Water Year : %04d\n', ...
                         waterYear);
@@ -276,21 +276,21 @@ classdef Regions
             end
         end
 
-        function runWriteStats(obj, espDate)
+        function runWriteStats(obj, waterYearDate)
             % Parameters
             % ----------
-            % espDate: ESPDate, optional
+            % waterYearDate: waterYearDate, optional
             %    Date of the run (today, or another day before if necessary)
 
 
 
             % Dates
             %%%%%%%
-            if ~exist('espDate', 'var')
-                espDate = ESPDate();
+            if ~exist('waterYearDate', 'var')
+                waterYearDate = waterYearDate();
             end
 
-            waterYear = espDate.getWaterYear();
+            waterYear = waterYearDate.getWaterYear();
             modisBeginWaterYear = modisBeginWaterYear.modisBeginWaterYear;
             modisEndWaterYear = waterYear - 1;
 
