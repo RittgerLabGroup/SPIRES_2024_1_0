@@ -54,7 +54,7 @@ classdef Variables
             mins = regions.snowCoverDayMins;
 
             if ~exist('waterYearDate', 'var')
-                waterYearDate = waterYearDate();
+                waterYearDate = WaterYearDate();
             end
             dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);

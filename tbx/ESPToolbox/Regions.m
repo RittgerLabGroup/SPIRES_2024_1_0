@@ -3,6 +3,7 @@ classdef Regions
 %   This class contains functions to manage information about our
 %   subregions by state (county) and watersheds at several levels
     properties      % public properties
+        archiveDir    % top-level directory with region data
         name          % name of region set
         regionName    % name of the big region which encompasses all the
                       % subregions
@@ -190,7 +191,7 @@ classdef Regions
             % Current year (for file naming)
             % ------------------------------
             if ~exist('waterYearDate', 'var')
-                waterYearDate = waterYearDate();
+                waterYearDate = WaterYearDate();
             end
             waterYear = waterYearDate.getWaterYear();
 
@@ -289,7 +290,7 @@ classdef Regions
             % Dates
             %%%%%%%
             if ~exist('waterYearDate', 'var')
-                waterYearDate = waterYearDate();
+                waterYearDate = WaterYearDate();
             end
 
             waterYear = waterYearDate.getWaterYear();

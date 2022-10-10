@@ -228,7 +228,7 @@ classdef ESPEnv
             regionName = regions.regionName;
 
             % if versionOf value is not empty, use underscore separator
-            if ~isempty(MData.versionOf.(fileType))
+            if ~isempty(modisData.versionOf.(fileType))
                 sepChar = '_';
             else
                 sepChar = '';
