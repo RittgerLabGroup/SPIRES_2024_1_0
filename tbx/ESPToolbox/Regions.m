@@ -173,7 +173,7 @@ classdef Regions
                 % Check if the varName is ok
                 index = find(strcmp(availableVariables.output_name, varName));
                 if isempty(index)
-                    ME = MException('mfilename():UnauthorizedVarName', ...
+                    ME = MException('WriteStats_UnauthorizedVarName', ...
                         '%s: varName %s not found in the ', ...
                         'list of authorized outputnames in ', ...
                         'ESPEnv.confOfVarariables()',  mfilename(), varName);
@@ -282,8 +282,6 @@ classdef Regions
             % waterYearDate: waterYearDate, optional
             %    Date of the run (today, or another day before if necessary)
 
-
-
             % Dates
             %%%%%%%
             if ~exist('waterYearDate', 'var')
@@ -291,7 +289,7 @@ classdef Regions
             end
 
             waterYear = waterYearDate.getWaterYear();
-            modisBeginWaterYear = modisBeginWaterYear.modisBeginWaterYear;
+            modisBeginWaterYear = modisData.beginWaterYear;
             modisEndWaterYear = waterYear - 1;
 
             % Retrieval of aggregated data files

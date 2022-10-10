@@ -17,6 +17,7 @@ classdef MODISData
         %pixSize_1000m = pixSize_500m * 2;
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
+        beginWaterYear = 2001;
     end
 
     methods         % public methods
