@@ -125,7 +125,7 @@ classdef ESPEnv
             % local scratch so ~/.matlab/ doesn't grow indefinitely
             if ~isempty(getenv('SLURM_ARRAY_JOB_ID'))
                 obj.parallelismConf.jobStorageLocation = fullfile(getenv('SLURM_SCRATCH'), ...
-                    getenv('SLURM_ARRAY_JOB_ID')));
+                    getenv('SLURM_ARRAY_JOB_ID'));
             % if not in a job, but still on a linux machine
             elseif ~isempty(getenv('TMPDIR'))
                 obj.parallelismConf.jobStorageLocation = getenv('TMPDIR');
