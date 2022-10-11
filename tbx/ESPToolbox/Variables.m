@@ -62,7 +62,7 @@ classdef Variables
             elevationFile = espEnv.elevationFile(regions);
             elevationData = load(elevationFile, 'Z');
 
-            variables = espEnv.confOfVariables();
+            variables = espEnv.configurationOfVariables();
             snowCoverConf = variables(find( ...
                 strcmp(variables.output_name, 'snow_cover_days')), :);
             snow_cover_units = snowCoverConf.units_in_map;

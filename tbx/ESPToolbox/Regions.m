@@ -35,7 +35,7 @@ classdef Regions
     properties(Constant)
         % pixSize_500m = 463.31271653;
         geotiffCompression = 'LZW';
-        geotiffESPG = 3857;                                   
+        geotiffEPSG = 3857;                                   
     end
 
     methods         % public methods
@@ -181,7 +181,7 @@ classdef Regions
                     ME = MException('WriteStats_UnauthorizedVarName', ...
                         '%s: varName %s not found in the ', ...
                         'list of authorized outputnames in ', ...
-                        'ESPEnv.confOfVarariables()',  mfilename(), varName);
+                        'ESPEnv.configurationOfVariables()',  mfilename(), varName);
                     throw(ME)
                 else
                     varIndexes = index;
@@ -312,7 +312,7 @@ classdef Regions
 
             % Variables and output directory
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            variables = obj.espEnv.confOfVariables();
+            variables = obj.espEnv.configurationOfVariables();
             availableVariables = variables(find(variables.write_stats_csv == 1), :);
             outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
                 sprintf('WY%04d', waterYear));

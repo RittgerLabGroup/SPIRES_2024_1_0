@@ -710,9 +710,9 @@ classdef ESPEnv
             end
         end
 
-        function f = confOfVariables(obj)
+        function f = configurationOfVariables(obj)
             f = readtable(fullfile(obj.confDir, ...
-                "conf_of_variables.csv"), 'Delimiter', ',');
+                "configuration_of_variables.csv"), 'Delimiter', ',');
             f([1],:) = []; % delete comment line
         end
     end
