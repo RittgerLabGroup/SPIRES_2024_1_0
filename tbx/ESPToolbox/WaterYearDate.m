@@ -11,7 +11,6 @@ classdef WaterYearDate
         monthFirstDay = 1;
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultMonthWindow = 3;
-        modisBeginWaterYear = 2001;
     end
     
     methods
@@ -22,13 +21,21 @@ classdef WaterYearDate
             % ----------
             % thisDatetime: datetime, optional
             %   Date to handle
+            % monthWindow: int, optional
+            %   Number of months to handle before thisDatetime, knowing
+            %   that only the months of the water year associated with
+            %   thisDatetime will be handled
             if ~exist('thisDatetime', 'var')
                 thisDatetime = datetime;
             end
             if ~exist('monthWindow', 'var')
                 monthWindow = obj.defaultMonthWindow;
             end
-            obj.thisDatetime = thisDatetime;
+
+            [thisYYYY, thisMM, thisDD] = ymd(thisDatetime);
+            obj.thisDatetime = datetime(thisYYYY, thisMM, thisDD, ...
+                obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
+                obj.dayStartTime.SS);
             obj.monthWindow = monthWindow;
         end
         

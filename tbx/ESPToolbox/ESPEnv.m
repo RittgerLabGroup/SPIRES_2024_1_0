@@ -120,11 +120,68 @@ classdef ESPEnv
             end
 
             obj.parallelismConf.maxWorkers = 20;
-            obj.parallelismConf.jobStorageLocation = getenv('TMPDIR');
-            % Windows machine
-            if isempty(obj.parallelismConf.jobStorageLocation)
+            % Set JobStorageLocation to something that will be
+            % unique for each slurm process id and put it on
+            % local scratch so ~/.matlab/ doesn't grow indefinitely
+            if ~isempty(getenv('SLURM_ARRAY_JOB_ID'))
+                obj.parallelismConf.jobStorageLocation = fullfile(getenv('SLURM_SCRATCH'), ...
+                    getenv('SLURM_ARRAY_JOB_ID')));
+            % if not in a job, but still on a linux machine
+            elseif ~isempty(getenv('TMPDIR'))
+                obj.parallelismConf.jobStorageLocation = getenv('TMPDIR');
+            % if Windows machine
+            else
                 obj.parallelismConf.jobStorageLocation = getenv('TMP');
             end
+        end
+
+        function S = configParallelismPool(obj, maxWorkers)
+            % Configures the pool allowing to parallelize tasks.
+            %
+            % Parameters
+            % ----------
+            % maxWorkers: max number of workers (default is 
+            %   obj.parallelismConf.maxWorkers)
+            %   jobStorageLocation: alternative location for job
+            %    storage information, default is
+            %    ~/.matlab/local_cluster_jobs/R2019b/
+            %    use this to customize locations in SLURM jobs, e.g.
+            %    fullfile(getenv('SLURM_SCRATCH'), getenv('SLURM_ARRAY_JOB_ID'));
+            %
+            % Return
+            % ------
+            % S: struct.
+            %   info about the pool.
+
+            if ~exist('maxWorkers', 'var') | isnan(maxWorkers)
+                maxWorkers = obj.parallelismConf.maxWorkers;
+            end
+            jobStorageLocation = obj.parallelismConf.jobStorageLocation;
+
+            S.pool = gcp('nocreate');
+
+            % Use a running pool only if it doesn't use the maxWorkers, else
+            % shut it down.
+            if ~isempty(S.pool)
+                if maxWorkers == 0
+                    maxWorkers = S.pool.NumWorkers;
+                elseif S.pool.NumWorkers > maxWorkers
+                    delete(S.pool);
+                    S.pool = gcp('nocreate');
+                end
+            end
+
+            % If no pool (or previous pool shut down), create a new pool.
+            if isempty(S.pool)
+                S.cluster = parcluster('local');
+                S.cluster.JobStorageLocation = jobStorageLocation;
+                if maxWorkers == 0 | maxWorkers > S.cluster.NumWorkers
+                    maxWorkers = S.cluster.NumWorkers;
+                end
+                S.pool = parpool(S.cluster, maxWorkers);
+                S.cluster.disp();
+            end
+            S.pool.disp();
         end
 
         function f = LandsatScagDirs(obj, platform, path, row, varargin)
