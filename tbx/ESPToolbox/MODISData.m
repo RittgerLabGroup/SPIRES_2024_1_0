@@ -17,6 +17,7 @@ classdef MODISData
         %pixSize_1000m = pixSize_500m * 2;
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
+        beginWaterYear = 2001;
     end
 
     methods         % public methods
@@ -288,7 +289,7 @@ classdef MODISData
             %% https://laptrinhx.com/introduction-to-spatial-referencing-3251134442/
             %%
             %% Get Big RefMatrix from Slope-Aspect file
-            %%f = myEnv.modisTopographyFile('westernUS');
+            %%f = myEnv.topographyFile(westernUSRegions);
             %%mObj = matfile(f);
             %%[nRows, nCols] = size(mObj, 'A');
             %%RefMatrix = mObj.RefMatrix;
