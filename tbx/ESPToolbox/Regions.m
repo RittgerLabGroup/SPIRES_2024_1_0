@@ -12,9 +12,7 @@ classdef Regions
         LongName      % cell array of long names for title
         S             % region geometry structures
         indxMosaic    % mask with region IDS
-        RefMatrix      % infos on pixel size and others                                                       
-        countOfRowsAndColumns   % Array of the number of rows and columns
-                        % (number of pixels on the vertical and horizontal axes)
+        RefMatrix      % infos on pixel size and others
         atmosphericProfile  % Atmospheric profile of the region (used to calculate
                             % albedo).
         percentCoverage % areal percent coverage of the region in our tiles
@@ -96,14 +94,47 @@ classdef Regions
             obj.LongName = mObj.LongName;
             obj.S = mObj.S;
             obj.indxMosaic = mObj.indxMosaic;
-            obj.RefMatrix = mObj.RefMatrix;                                           
-            obj.countOfRowsAndColumns = size(obj.indxMosaic);
+            obj.RefMatrix = mObj.RefMatrix;
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
             obj.atmosphericProfile = mObj.atmosphericProfile;
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
             obj.geotiffCrop = mObj.geotiffCrop;
+        end
+        
+        function elevations = getElevations(obj)
+            % Return
+            % ------
+            %   elevations: Array(double)
+            %       Array of elevations [m] of the upper-level region
+            %       or tile regions.
+            %       NB: No implementation for subregions.
+
+            fileName = obj.espEnv.elevationFile(obj);
+            try
+                mObj = matfile(fileName);
+                % Dem file for tiles
+                if ismember('Elevation', fieldnames(mObj))
+                    elevations = mObj.Elevation;
+                    elevations = elevations.Z;
+                % Dem file for upper level regions
+                else
+                    elevations = mObj.Z;
+                end
+            catch e
+                fprintf("%s: Error reading elevation from %s\n", ...
+                    mfilename(), fileName);
+                rethrow(e);
+            end
+        end
+
+        function size1 = getSizeInPixels(obj)
+            % Return
+            % ------
+            % Array of the number of rows and columns
+            % (number of pixels on the vertical and horizontal axes)
+            size1 = size(obj.indxMosaic);
         end
 
         function out = paddedBounds(obj, ...
@@ -154,7 +185,7 @@ classdef Regions
             % varName: str, Optional
             %         name of the variable on which the stats are aggregated
             %         e.g. albedo_clean_muZ, albedo_observed_muZ, snow_fraction
-            %         must be in conf_of_variables.csv.
+            %         must be in configuration_of_variables.csv.
             %         When input, write output csv files only for varName.
             %         When not input, write csv files for all variables.
             % waterYearDate: waterYearDate, Optional

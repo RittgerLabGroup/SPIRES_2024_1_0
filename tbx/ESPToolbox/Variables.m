@@ -59,8 +59,7 @@ classdef Variables
             dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
-            elevationFile = espEnv.elevationFile(regions);
-            elevationData = load(elevationFile, 'Z');
+            elevationData = regions.getElevations();
 
             variables = espEnv.configurationOfVariables();
             snowCoverConf = variables(find( ...
@@ -131,7 +130,7 @@ classdef Variables
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 snowCoverFraction(snowCoverFraction < ...
                     snow_cover_min_snow_cover_fraction) = 0;
-                snowCoverFraction(elevationData.Z < snow_cover_min_elevation) = 0;
+                snowCoverFraction(elevationData < snow_cover_min_elevation) = 0;
 
                 % 2.c. Cumulated snow cover days calculation and save
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

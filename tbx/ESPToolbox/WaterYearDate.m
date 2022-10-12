@@ -9,6 +9,8 @@ classdef WaterYearDate
     properties(Constant)
         waterYearFirstMonth = 10;
         monthFirstDay = 1;
+        waterYearLastMonth = 9;
+        waterYearLastDay = 30;
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultMonthWindow = 3;
     end
