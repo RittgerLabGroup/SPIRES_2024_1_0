@@ -1,7 +1,7 @@
 classdef Regions
-%Regions - information about spatial sub-regions (states/watersheds)
-%   This class contains functions to manage information about our
-%   subregions by state (county) and watersheds at several levels
+    %Regions - information about spatial sub-regions (states/watersheds)
+    %   This class contains functions to manage information about our
+    %   subregions by state (county) and watersheds at several levels
     properties      % public properties
         archiveDir    % top-level directory with region data
         name          % name of region set
@@ -36,7 +36,7 @@ classdef Regions
     properties(Constant)
         % pixSize_500m = 463.31271653;
         geotiffCompression = 'LZW';
-        geotiffEPSG = 3857;                                   
+        geotiffEPSG = 3857;
     end
 
     methods         % public methods
@@ -108,7 +108,7 @@ classdef Regions
             obj.STC = mObj.stc;
 
         end
-        
+
         function elevations = getElevations(obj)
             % Return
             % ------
@@ -132,7 +132,83 @@ classdef Regions
                 fprintf("%s: Error reading elevation from %s\n", ...
                     mfilename(), fileName);
                 rethrow(e);
-            end
+            end                      
+        end
+
+        function [xExtent, yExtent] = getGeotiffExtent(obj, geotiffEPSG)
+            % Returns two vector indicating the x-y limits of the geotiff
+            % for the web, after projection, which actually contain data.
+            % These limits are used to crop the geotiff
+            % in writeGeotiffs().
+            % Code based on the code in RasterProjection package, script
+            % util.parseReprojectionInput
+            % 
+            % Parameters
+            % ----------
+            % geotiffEPSG: int.
+            %   Output projection system
+            %
+            % Return
+            % ------
+            % xExtent: [int int]
+            %   Minimum & maximum of projected x-coordinates
+            % yExtent: [int int]
+            %   Minimum & maximum of projected y-coordinates
+
+            % Convert matlab-obsolete RefMatrix to new class RasterReference matlab function
+            rasterReference = refmatToMapRasterReference(obj.RefMatrix, ...
+                obj.getSizeInPixels());
+            rasterReference.ProjectedCRS = ...
+                MODISsinusoidal();% RasterReprojection package
+            % NB mstruct of regions are wrong and cannot be used here
+
+            outputProjection = projcrs(geotiffEPSG);
+            pixelSize = obj.RefMatrix(2,1); %Size of pixel
+            InRR = rasterReference;
+            InS = InRR.ProjectedCRS;
+            OutS = outputProjection;
+            [XIntrinsic, YIntrinsic] =...
+                meshgrid([1 InRR.RasterSize(2)],[1 InRR.RasterSize(1)]);
+            [xWorld, yWorld] = intrinsicToWorld(InRR, XIntrinsic, YIntrinsic); 
+                %RasterReprojection package
+                
+            [latlim,lonlim] = projinv(InS,xWorld,yWorld);
+            [x,y] = projfwd(OutS,latlim,lonlim);
+            xExtent = [min(x(:)) max(x(:))];
+            yExtent = [min(y(:)) max(y(:))];  
+        end
+        
+        function [xLimit, yLimit] = getGeotiffExtentMinusCrop(obj, geotiffEPSG)
+            % Returns two vector indicating the x-y limits of the geotiff
+            % for the web, after projection, which actually contain data.
+            % These limits are used to crop the geotiff
+            % in writeGeotiffs().
+            % 
+            % Parameters
+            % ----------
+            % geotiffEPSG: int.
+            %   Output projection system
+            %
+            % Return
+            % ------
+            % xLimit: [int int]
+            %   Minimum & maximum of cropped projected x-coordinates
+            % yLimit: [int int]
+            %   Minimum & maximum of cropped projected y-coordinates
+            
+            [xExtent, yExtent] = obj.getGeotiffExtent(geotiffEPSG);
+            pixelSize = obj.RefMatrix(2,1); %Size of 
+            
+            xLimit = [xExtent(1) + ((pixelSize * ...
+                obj.geotiffCrop.xLeft) / 2), ...
+                xExtent(2) - pixelSize / 2 - ((pixelSize * ...
+                obj.geotiffCrop.xRight) / 2)];
+            xLimit = sort(xLimit);
+            yLimit = [yExtent(1) + pixelSize / 2  + ((pixelSize * ...
+                obj.geotiffCrop.yBottom) / 2), ...
+               yExtent(2) + pixelSize/2 - ((pixelSize * ...
+                obj.geotiffCrop.yTop) / 2)];
+            yLimit = sort(yLimit);
         end
 
         function size1 = getSizeInPixels(obj)
@@ -200,23 +276,193 @@ classdef Regions
 
         end
 
-	% FIXME: this method isn't really needed, a better
-	% alternative is for the caller to make a temporary structure
-	% with elements that should be saved to the output file, and
-	% then appending the output file with the structure, using the 
-	% -s option
-	function saveEnvironment(obj, outFilename)
-	    % Appends runtime environment variables to outFilename
-	    
-	    % make a copy so variable references in save will work
-	    espEnv = obj.espEnv;
-	    modisData = obj.modisData;
-	    STC = obj.STC;
-	    save(outFilename, '-append', 'espEnv', 'modisData', 'STC');
-            fprintf("%s: Appended espEnv/modisData/STC to %s\n", ...
-                class(obj), outFilename);
+        % FIXME: this method isn't really needed, a better
+        % alternative is for the caller to make a temporary structure
+        % with elements that should be saved to the output file, and
+        % then appending the output file with the structure, using the 
+        % -s option
+        function saveEnvironment(obj, outFilename)
+            % Appends runtime environment variables to outFilename
+            
+            % make a copy so variable references in save will work
+            espEnv = obj.espEnv;
+            modisData = obj.modisData;
+            STC = obj.STC;
+            save(outFilename, '-append', 'espEnv', 'modisData', 'STC');
+                fprintf("%s: Appended espEnv/modisData/STC to %s\n", ...
+                    class(obj), outFilename);
 
-	end
+        end
+
+        function writeGeotiffs(obj, availableVariables, ...
+            outputDirectory, varName, waterYearDate)
+            % Write the geotiffs of the upper level region
+            % over a period up to a date to output directory.
+            % The geotiff is cropped according geotiffCrop properties
+            % of the regions object.
+            %
+            % Parameters
+            % ----------
+            % availableVariables: Table
+            %        All the variables and their related infos that
+            %        can be aggregated in statistics.
+            % outputDirectory: Str
+            %        Directory where the files are written
+            % varName: str, Optional
+            %         name of the variable on which the stats are aggregated
+            %         e.g. albedo_clean_muZ, albedo_observed_muZ, snow_fraction
+            %         must be in configuration_of_variables.csv.
+            %         When input, write output csv files only for varName.
+            %         When not input, write csv files for all variables.
+            % waterYearDate: waterYearDate, Optional
+            %         Date for which stats are calculated.
+
+            tic;
+            fprintf('%s: Start regional geotiffs generation and writing\n', mfilename());
+            espEnv = obj.espEnv;
+
+            % instantiate the variable indexes on which to loop
+            % ------------------------------------------------------------
+            if ~exist('varName', 'var') | isnan(varName)
+                availableVariablesSize = size(availableVariables);
+                varIndexes = 1:availableVariablesSize(1);
+            else
+                % Check if the varName is ok
+                index = find(strcmp(availableVariables.output_name, varName));
+                if isempty(index)
+                    ME = MException('Regions:UnauthorizedVarName', ...
+                        sprintf('%s: varName %s not found in the ', ...
+                        'list of authorized outputnames in ', ...
+                        'ESPEnv.configurationOfVariables()',  ...
+                        mfilename(), varName));
+                    throw(ME)
+                else
+                    varIndexes = index;
+                end
+            end
+
+            % Current year (for file naming)
+            % ------------------------------
+            if ~exist('waterYearDate', 'var')
+                waterYearDate = WaterYearDate();
+            end
+            waterYear = waterYearDate.getWaterYear();
+            dateRange = waterYearDate.getDailyDatetimeRange();
+
+            % Projections and crop extent
+            % ---------------------------
+            % Convert matlab-obsolete RefMatrix to new class RasterReference matlab function
+            rasterReference = refmatToMapRasterReference(obj.RefMatrix, obj.getSizeInPixels());
+            rasterReference.ProjectedCRS = MODISsinusoidal();% RasterReprojection package
+            % NB mstruct of regions are wrong and cannot be used here
+
+            outputProjection = projcrs(obj.geotiffEPSG); % RasterReprojection package
+            pixelSize = obj.RefMatrix(2,1); %Size of pixel
+
+            [xLimit yLimit] = obj.getGeotiffExtentMinusCrop(Regions.geotiffEPSG);
+
+            % Generation
+            % ----------
+            % Start or connect to the local pool (parallelism)
+            espEnv.configParallelismPool();
+
+            parfor dateIdx=1:length(dateRange)
+                thisDatetime = dateRange(dateIdx);
+                mosaicFile = obj.espEnv.MosaicFile(obj, thisDatetime);
+                if ~isfile(mosaicFile)
+                    warning('%s: Missing mosaic file %s\n', mfilename(), ...
+                        mosaicFile);
+                        continue;
+                end
+
+                for varIdx=varIndexes
+                    % varName info
+                    % ------------
+                    % get the output name and units
+                    varNameInfos = availableVariables(varIdx, :);
+                    varName = varNameInfos.('output_name'){1};
+                    varDivisor = varNameInfos.('divisor');
+
+                    % Data load
+                    % ---------
+                    % NoData in mosaic files are represented by Variables.uint8NoData
+                    % or Variables.uint16NoData.
+                    units_field = sprintf('%s_units', varName);
+                    mosaicData = load(mosaicFile, varName);
+                    if ~isempty(mosaicData) && ...
+                        any(strcmp(fieldnames(mosaicData), varName))
+                        varData = mosaicData.(varName)(:, :);
+                    else
+                        warning('%s: No %s variable in %s\n', ...
+                            mfilename(), varName, mosaicFile);
+                        continue;
+                    end
+
+                    % Rescale variables to match web precision (eg 1 unit)
+                    % ----------------------------------------------------
+                    % Nb: divisor ~= 1 only for albedos
+                    if varDivisor ~= 1
+                        varData = single(varData)  / varDivisor;
+                        varData(varData == Variables.uint16NoData | isnan(varData)) = ...
+                            Variables.uint8NoData;
+                        varData = uint8(varData);
+                    end
+
+                    % Reprojection and geotiff writing
+                    % ------------
+                    % using RasterReprojection package with parameters:
+                    % - varData (A): input 2D raster
+                    % - rasterReference (InR): mapping raster reference of varData
+                    % - outputProjection (OutProj): projcrs projection object, indicates
+                    % the target projection for output
+                    % - pixelSize (pixelsize): 2-element vector specifying height and width
+                    % of output cells
+                    % - xLimit (Xlimit): vector of length 2: minimum & maximum
+                    %           of output x-coordinates (default is to cover extent of A)
+                    % - yLimit (YLimit): vector of length 2: minimum & maximum
+                    %           of output y-coordinates (default is to cover extent of A)
+                    [projectedVarData, RRB, fillvalue] = ...
+                            rasterReprojection(varData, ...
+                                rasterReference, ...
+                                'OutProj', outputProjection, ...
+                                'method', 'nearest', ...
+                                'pixelsize', pixelSize, ...
+                                'Xlimit', xLimit, ...
+                                'Ylimit', yLimit);
+
+                    outputDirectory2 = fullfile(outputDirectory, varName);
+                    if ~isdir(outputDirectory2)
+                        mkdir(outputDirectory2);
+                    end
+                    geotiffwrite(fullfile(outputDirectory2, ...
+                        [obj.regionName '_Terra_' datestr(thisDatetime,'yyyymmdd') ...
+                            '_' varName]), ...
+                        projectedVarData, ...
+                        RRB, ...
+                        'CoordRefSysCode', obj.geotiffEPSG, ...
+                        'TiffTags', struct('Compression', obj.geotiffCompression));
+
+                    % Generation of the no-processed layer which indicates the NaNs
+                    if strcmp(varName, 'snow_cover_days')
+                        notProcessedData = projectedVarData == Variables.uint16NoData;
+                        outputDirectory2 = fullfile(outputDirectory, 'notprocessed');
+                        if ~isdir(outputDirectory2)
+                            mkdir(outputDirectory2);
+                        end
+                        geotiffwrite(fullfile(outputDirectory2, ...
+                            [obj.regionName '_Terra_' datestr(thisDatetime,'yyyymmdd') ...
+                                '_notprocessed']), ...
+                            notProcessedData, ...
+                            RRB, ...
+                            'CoordRefSysCode', obj.geotiffEPSG, ...
+                            'TiffTags', struct('Compression', obj.geotiffCompression));
+                    end
+                end
+            end
+            t2 = toc;
+            fprintf('%s: Finished regional geotiffs generation and writing in %s seconds.\n', ...
+                mfilename(), num2str(roundn(t2, -2)));
+        end
 
         function writeStats(obj, historicalStats, ...
             currentStats, availableVariables, ...
@@ -368,6 +614,32 @@ classdef Regions
                         prc75 max year_to_date], '-append');
                 end
             end
+        end
+
+        function runWriteGeotiffs(obj, waterYearDate)
+            % Parameters
+            % ----------
+            % waterYearDate: waterYearDate, optional
+            %    Date of the run (today, or another day before if necessary)
+
+            % Dates
+            %%%%%%%
+            if ~exist('waterYearDate', 'var')
+                waterYearDate = WaterYearDate();
+            end
+            waterYear = waterYearDate.getWaterYear();
+
+            % Variables and output directory
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            variables = obj.espEnv.configurationOfVariables();
+            availableVariables = variables(find(variables.write_geotiffs == 1), :);
+            outputDirectory = fullfile(obj.espEnv.dirWith.VariablesGeotiff, ...
+                sprintf('ESPG_%d', obj.geotiffEPSG), ...
+                obj.geotiffCompression, ...
+                sprintf('WY%04d', waterYear));
+            [xLimit, yLimit] = obj.getGeotiffLimits();
+            obj.writeGeotiffs(availableVariables, outputDirectory, ...
+                NaN, waterYearDate, xLimit, yLimit);
         end
 
         function runWriteStats(obj, waterYearDate)
