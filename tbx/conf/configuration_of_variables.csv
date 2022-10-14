@@ -1,15 +1,15 @@
-name,input_name,output_name,calc_suffix_n_prefix,label,type,type_web,units_in_map,units_in_plot,divisor,nodata_value,min,max,write_stats_csv,write_geotiffs,comments
-comment,,,prefix or suffix of field calculated in runStatsForLinePlots(),Description (label) in Regions.writeStats(),,,,,,,,,,,
-,,albedo_clean_mu0,,,uint16,uint8,percent,percent,100,65535,0,100,0,0,
-,,albedo_observed_mu0,,,uint16,uint8,percent,percent,100,65535,0,100,0,0,
-Clean Snow Albedo,,albedo_clean_muZ,albedo,Median Regional Snow Albedo,uint16,uint8,percent,percent,100,65535,0,100,0,1,
-Snow Albedo,,albedo_observed_muZ,,,uint16,uint8,percent,percent,100,65535,0,100,1,1,
-Decrease in visible Albedo from Dust and Soot,DVT,deltavis,,,uint8,uint8,percent,percent,1,255,0,75,0,1,
-Snow Grain Size,GmT,grain_size,,,uint16,uint16,micrometers,micrometers,1,65535,10,1100,0,1,
-,GdT,drfs_grnsz,,,,,,,,,,,0,0,
-Snow Radiative Forcing,RFT,radiative_forcing,radiative_forcing,Median Regional Snow Radiative Forcing,uint16,uint16,Watts per square meter,Watts per square meter,1,65535,0,500,1,1,
-,SolAzimuth,solar_azimuth,,,uint16,uint16,degrees,degrees,1,,-180,180,0,0,check type and min max
-,SolZ,solar_zenith,,,uint16,uint16,,,1,,0,90,0,0,check type
-Snow Cover Days,,snow_cover_days,scd_sum,Snow Cover Days,uint16,uint16,days,days,1,65535,0,365,1,1,
-Snow Cover Percent,STc,snow_fraction,sca_area_km2,Total Snow Cover Area,uint8,uint8,percent,Area (thousands of square kilometers),1,255,0,100,1,1,
-Viewable Snow Cover Percent,STv,viewable_snow_fraction,,,uint8,uint8,percent,Area (thousands of square kilometers),1,255,0,100,0,1,
+name,input_name,output_name,calc_suffix_n_prefix,label,type,type_web,units_in_map,units_in_plot,divisor,nodata_value,min,max,write_stats_csv,write_geotiffs,comments,toto
+comment,,,prefix or suffix of field calculated in runStatsForLinePlots(),Description (label) in Regions.writeStats(),,,,,,,,,,,,
+,,albedo_clean_mu0,,,uint16,uint8,percent,percent,100,65535,0,100,0,0,,0
+,,albedo_observed_mu0,,,uint16,uint8,percent,percent,100,65535,0,100,0,0,,0
+Clean Snow Albedo,,albedo_clean_muZ,albedo,Median Regional Snow Albedo,uint16,uint8,percent,percent,100,65535,0,100,0,1,,1
+Snow Albedo,,albedo_observed_muZ,,,uint16,uint8,percent,percent,100,65535,0,100,1,1,,1
+Decrease in visible Albedo from Dust and Soot,DVT,deltavis,,,uint8,uint8,percent,percent,1,255,0,75,0,1,,1
+Snow Grain Size,GmT,grain_size,,,uint16,uint16,micrometers,micrometers,1,65535,10,1100,0,1,,1
+,GdT,drfs_grnsz,,,,,,,,,,,0,0,,0
+Snow Radiative Forcing,RFT,radiative_forcing,radiative_forcing,Median Regional Snow Radiative Forcing,uint16,uint16,Watts per square meter,Watts per square meter,1,65535,0,500,1,1,,1
+,SolAzimuth,solar_azimuth,,,uint16,uint16,degrees,degrees,1,,-180,180,0,0,check type and min max,0
+,SolZ,solar_zenith,,,uint16,uint16,,,1,,0,90,0,0,check type,0
+Snow Cover Days,,snow_cover_days,scd_sum,Snow Cover Days,uint16,uint16,days,days,1,65535,0,365,1,1,,1
+Snow Cover Percent,STc,snow_fraction,sca_area_km2,Total Snow Cover Area,uint8,uint8,percent,Area (thousands of square kilometers),1,255,0,100,1,1,,1
+Viewable Snow Cover Percent,STv,viewable_snow_fraction,,,uint8,uint8,percent,Area (thousands of square kilometers),1,255,0,100,0,1,,1

@@ -173,7 +173,7 @@ classdef Regions
                 %RasterReprojection package
                 
             [latlim,lonlim] = projinv(InS,xWorld,yWorld);
-            [x,y] = projfwd(OutS,latlim,lonlim);
+            [x,y] = projfwd(OutS, latlim, lonlim);
             xExtent = [min(x(:)) max(x(:))];
             yExtent = [min(y(:)) max(y(:))];  
         end
@@ -203,10 +203,15 @@ classdef Regions
                 obj.geotiffCrop.xLeft) / 2), ...
                 xExtent(2) - pixelSize / 2 - ((pixelSize * ...
                 obj.geotiffCrop.xRight) / 2)];
+            % Remark: There's no correction of xExtent(1) (left) by pixel / 2 as
+            % for the other faces of the raster.
+            % I speculated there's a minor issue in the RasterReprojection
+            % package that doesn't get the correct extent of the new raster at the
+            % left of the raster (extent calculated in getGeotiffExtent())
             xLimit = sort(xLimit);
             yLimit = [yExtent(1) + pixelSize / 2  + ((pixelSize * ...
                 obj.geotiffCrop.yBottom) / 2), ...
-               yExtent(2) + pixelSize/2 - ((pixelSize * ...
+               yExtent(2) - pixelSize / 2 - ((pixelSize * ...
                 obj.geotiffCrop.yTop) / 2)];
             yLimit = sort(yLimit);
         end
@@ -333,7 +338,7 @@ classdef Regions
                     ME = MException('Regions:UnauthorizedVarName', ...
                         sprintf('%s: varName %s not found in the ', ...
                         'list of authorized outputnames in ', ...
-                        'ESPEnv.configurationOfVariables()',  ...
+                        'ESPEnv.configurationOfVariables()\n',  ...
                         mfilename(), varName));
                     throw(ME)
                 else
@@ -375,11 +380,11 @@ classdef Regions
                         continue;
                 end
 
-                for varIdx=varIndexes
+                for varIdx=1:length(varIndexes)
                     % varName info
                     % ------------
                     % get the output name and units
-                    varNameInfos = availableVariables(varIdx, :);
+                    varNameInfos = availableVariables(varIndexes(varIdx), :);
                     varName = varNameInfos.('output_name'){1};
                     varDivisor = varNameInfos.('divisor');
 
@@ -631,15 +636,14 @@ classdef Regions
 
             % Variables and output directory
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            variables = obj.espEnv.configurationOfVariables();
-            availableVariables = variables(find(variables.write_geotiffs == 1), :);
+            confOfVar = obj.espEnv.configurationOfVariables();
+            availableVariables = confOfVar(find(confOfVar.write_geotiffs == 1), :);
             outputDirectory = fullfile(obj.espEnv.dirWith.VariablesGeotiff, ...
-                sprintf('ESPG_%d', obj.geotiffEPSG), ...
+                sprintf('EPSG_%d', obj.geotiffEPSG), ...
                 obj.geotiffCompression, ...
                 sprintf('WY%04d', waterYear));
-            [xLimit, yLimit] = obj.getGeotiffLimits();
             obj.writeGeotiffs(availableVariables, outputDirectory, ...
-                NaN, waterYearDate, xLimit, yLimit);
+                NaN, waterYearDate);
         end
 
         function runWriteStats(obj, waterYearDate)
