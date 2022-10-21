@@ -18,6 +18,34 @@ classdef Variables
                                     % spires in parBal package
     end
 
+    methods(Static)
+        function parforSaveFieldsOfStructInFile(filename, myStruct, appendFlag)
+            % Save fields of structure to bypass the Transparency violation error
+            % that occurs by calls to save and eval in the parfor loop
+            %
+            % Parameters
+            % ----------
+            % filename: array(char)
+            %   Filename where the data are saved.
+            % myStruct: struct
+            %   Struct with fields which values are to be saved
+            % appendFlag: bool
+            %   If true, the data are saved by append
+            % varargin: optional char
+            %   Names of the variables to be saved
+            fields = fieldnames(myStruct);
+            for fieldIdx = 1:length(fields)
+                fieldName = fields{fieldIdx};
+                eval([fieldName '=myStruct.(fieldName);']);
+                if appendFlag == false & fieldIdx == 1
+                    save(filename, fieldname)
+                else
+                    save(filename, fieldName, '-append');
+                end
+            end
+        end
+    end
+
     methods
         function obj = Variables(regions)
             % Constructor of Variables
@@ -165,5 +193,171 @@ classdef Variables
                 num2str(roundn(t2, -2)));
         end
 
+        function calcAlbedos(obj, waterYearDate)
+            % Calculates clean and observed albedos on flat surface (mu0)
+            % and on slopes (muZ) from snow_fraction, solar_zenith, solar_azimuth,
+            % grain_size, deltavis, topographic slopes and aspect variables.
+            % Updates the daily mosaic data files with the values.
+            % Fields calculated: albedo_clean_mu0, albedo_observed_mu0,
+            % albedo_clean_muZ, albedo_observed_muZ.
+            % Albedos are NaN when snow_fraction or grain_size are NaN.
+            %
+            % Parameters
+            % ----------
+            % waterYearDate: WaterYearDate object, optional
+            %   Date and range of days before over which calculation
+            %   should be carried out
+
+            tic;
+            fprintf('%s: Start albedos calculations\n', mfilename())
+
+            % 1. Initialization, dates, slopes, aspects
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            regions = obj.regions;
+            espEnv = regions.espEnv;
+            modisData = regions.modisData;
+
+            if ~exist('waterYearDate', 'var')
+                waterYearDate = WaterYearDate();
+            end
+            dateRange = waterYearDate.getDailyDatetimeRange();
+
+            topo = matfile(espEnv.topographyFile(regions));
+            slope = topo.S;
+            aspect = topo.A;
+
+            albedoNames = {'albedo_clean_mu0'; 'albedo_clean_muZ'; ...
+                'albedo_observed_mu0'; 'albedo_observed_muZ'};
+            confOfVar = espEnv.configurationOfVariables();
+            grainSizeConf = confOfVar(find( ...
+                        strcmp(confOfVar.output_name, 'grain_size')), :);
+
+            % 2. Update each monthly interpolated files for the full
+            % period by calculating albedos
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+            % Start or connect to the local pool (parallelism)
+            espEnv.configParallelismPool();
+
+            parfor dateIdx=1:length(dateRange)
+
+                % 2.a collection of albedo types, units, divisors
+                %    and min-max.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+                albedos = struct();
+                for albedoIdx=1:length(albedoNames)
+                    albedoName = albedoNames{albedoIdx};
+                    albedoConf = confOfVar(find( ...
+                        strcmp(confOfVar.output_name, albedoName)), :);
+                    albedos.([albedoName '_type']) = albedoConf.type;
+                    albedos.([albedoName '_units']) = albedoConf.units_in_map;
+                    albedos.([albedoName '_divisor']) = albedoConf.divisor;
+                    albedos.([albedoName '_min']) = albedoConf.min * albedoConf.divisor;
+                    albedos.([albedoName '_max']) = albedoConf.max * albedoConf.divisor;
+                    albedos.([albedoName '_nodata_value']) = albedoConf.nodata_value;
+                end
+
+                % 2.b. Loading of the monthly interpolation file
+                %      If snow_fraction is 0, set the grain_size
+                %      to NaN to get final albedos to NaN
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                errorStruct = struct();
+                mosaicFile = espEnv.MosaicFile(regions, dateRange(dateIdx));
+
+                if ~isfile(mosaicFile)
+                    warning('%s: Missing mosaic file %s\n', mfilename(), ...
+                        mosaicFile);
+                    continue;
+                end
+
+                mosaicData = load(mosaicFile, 'deltavis', 'grain_size', ...
+                    'snow_fraction', 'solar_azimuth', 'solar_zenith');
+                mosaicFieldnames = fieldnames(mosaicData);
+                for fieldIdx = 1:length(mosaicFieldnames)
+                    fieldname = mosaicFieldnames{fieldIdx};
+                    mosaicData.(fieldname) = cast(mosaicData.(fieldname), 'double');
+                    mosaicData.(fieldname)(mosaicData.snow_fraction == ...
+                        Variables.uint8NoData) = NaN;
+                end
+                fprintf('%s: Loading snow_fraction and other vars from %s\n', ...
+                        mfilename(), mosaicFile);
+                if isempty(mosaicData)
+                    warning('%s: No variables in %s\n', ...
+                        mfilename(), mosaicFile);
+                    continue;
+                end
+
+                % 2.c. Calculations of mu0 and muZ (cosinus of solar zenith)
+                % considering a flat surface (mu0) or considering slope and
+                % aspect (muZ)
+                % + cap of grain size to max value accepted by parBal.spires
+                % use of ParBal package: .sunslope and .spires_albedo.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                mu0 = cosd(mosaicData.solar_zenith);
+
+                % phi0: Normalize stored azimuths to expected azimuths
+                % stored data is assumed to be -180 to 180 with 0 at North
+                % expected data is assumed to be +ccw from South, -180 to 180
+                phi0 = 180. - mosaicData.solar_azimuth;
+                phi0(phi0 > 180) = phi0(phi0 > 180) - 360;
+
+                muZ = sunslope(mu0, phi0, slope, aspect);
+
+                grainSizeForSpires = mosaicData.grain_size;
+                grainSizeForSpires(grainSizeForSpires > ...
+                    obj.albedoMaxGrainSize) = obj.albedoMaxGrainSize;
+
+                % 2.d. Calculations of clean albedos, corrections to
+                % obtain observed albedos
+                % sanity check min-max, replacement for nodata and
+                % recast to type and save
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                albedos.albedo_clean_mu0 = spires_albedo(grainSizeForSpires, mu0, ...
+                    regions.atmosphericProfile);
+                albedos.albedo_clean_muZ = spires_albedo(grainSizeForSpires, muZ, ...
+                    regions.atmosphericProfile);
+
+                albedoObservedCorrection = (cast(mosaicData.deltavis, 'double') / ...
+                    Variables.albedoDeltavisScale) * ...
+                    Variables.albedoDownscaleFactor;
+
+                albedos.albedo_observed_mu0 = albedos.albedo_clean_mu0 - ...
+                    albedoObservedCorrection;
+                albedos.albedo_observed_muZ = albedos.albedo_clean_muZ - ...
+                    albedoObservedCorrection;
+
+                for albedoIdx=1:length(albedoNames)
+                    albedoName = albedoNames{albedoIdx};
+					albedos.(albedoName) = albedos.(albedoName) * ...
+						Variables.albedoScale;
+                    albedos.(albedoName)(mosaicData.grain_size == ...
+                        grainSizeConf.nodata_value) = 0;
+					albedos.(albedoName) = cast(albedos.(albedoName), ...
+                        albedos.([albedoName '_type']){1});
+
+                    if min(albedos.(albedoName), [], 'all') < albedos.([albedoName '_min']) ...
+                    || max(albedos.(albedoName), [], 'all') > albedos.([albedoName '_max'])
+                        errorStruct.identifier = 'Variables:RangeError';
+                        errorStruct.message = sprintf(...
+                            '%s: Calculated %s %s [%.3f,%.3f] out of bounds\n',...
+                            mfilename, regions.regionName, ...
+                            albedoName, [albedoName '_min'], [albedoName '_max']);
+                        error(errorStruct);
+                    end
+                    albedos.(albedoName)(isnan(mosaicData.grain_size)) = ...
+                        albedos.([albedoName '_nodata_value']);
+                end
+
+                % 2.e. Save albedos and params in Mosaic Files
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                obj.parforSaveFieldsOfStructInFile(mosaicFile, albedos, true);
+            end
+
+            t2 = toc;
+            fprintf('%s: Finished albedos update in %s seconds\n', ...
+                mfilename(), ...
+                num2str(roundn(t2, -2)));
+        end
     end
 end
