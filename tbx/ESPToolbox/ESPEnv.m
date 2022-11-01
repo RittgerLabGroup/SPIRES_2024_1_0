@@ -1,5 +1,5 @@
 classdef ESPEnv
-    % ESPEnv - environment for ESP data directories
+    % ESPEnv - environment for ESP data dirs and algorithms
     %   Directories with locations of various types of data needed for ESP
     properties
         colormapDir    % directory with color maps
@@ -22,6 +22,7 @@ classdef ESPEnv
              % by tile/year (.hdr/.dat, .tif)
         dirWith % struct with various STC pipeline directories
         parallelismConf   % struct with parameters for parallelism
+        STC            % STC algorithms
     end
     methods
         function obj = ESPEnv(varargin)
@@ -137,6 +138,10 @@ classdef ESPEnv
             else
                 obj.parallelismConf.jobStorageLocation = getenv('TMP');
             end
+
+            % Initialize default STC algorithm settings
+            obj.STC = STC();
+            
         end
 
         function S = configParallelismPool(obj, maxWorkers)
