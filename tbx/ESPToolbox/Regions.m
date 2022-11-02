@@ -30,6 +30,13 @@ classdef Regions
                         % Data to crop the geotiff reprojected raster for web use
         tileIds         % Names of the source tiles that are assembled in the Mosaic
                         % that constitute the upper level region.
+        thresholdsForPublicMosaic % table (thresholded_varname (char),
+                        % threshold_value (int), replaced_varname (char)
+                        % Minimum values of variables below which the data are
+                        % considered unreliable and shouldn't be released to public.
+                        % If the thresholded_varname < threshold_value then
+                        % the replaced_varname value is replaced by the value indicated
+                        % in the file configuration_of_variables
         modisData       % MODISData object, modis environment paths and methods
         STC             % STC thresholds
     end
@@ -103,10 +110,10 @@ classdef Regions
             obj.lowIllumination = mObj.lowIllumination;
             obj.atmosphericProfile = mObj.atmosphericProfile;
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
-            obj.geotiffCrop = mObj.geotiffCrop;
-            obj.tileIds = mObj.tileIds;
+            obj.geotiffCrop = mObj.geotiffCrop;   
             obj.STC = mObj.stc;
-
+            obj.tileIds = mObj.tileIds;
+            obj.thresholdsForPublicMosaic = mObj.thresholdsForPublicMosaic;
         end
 
         function elevations = getElevations(obj)
@@ -132,7 +139,7 @@ classdef Regions
                 fprintf("%s: Error reading elevation from %s\n", ...
                     mfilename(), fileName);
                 rethrow(e);
-            end                      
+            end
         end
 
         function [xExtent, yExtent] = getGeotiffExtent(obj, geotiffEPSG)
@@ -142,7 +149,7 @@ classdef Regions
             % in writeGeotiffs().
             % Code based on the code in RasterProjection package, script
             % util.parseReprojectionInput
-            % 
+            %
             % Parameters
             % ----------
             % geotiffEPSG: int.
@@ -169,21 +176,21 @@ classdef Regions
             OutS = outputProjection;
             [XIntrinsic, YIntrinsic] =...
                 meshgrid([1 InRR.RasterSize(2)],[1 InRR.RasterSize(1)]);
-            [xWorld, yWorld] = intrinsicToWorld(InRR, XIntrinsic, YIntrinsic); 
+            [xWorld, yWorld] = intrinsicToWorld(InRR, XIntrinsic, YIntrinsic);
                 %RasterReprojection package
-                
+
             [latlim,lonlim] = projinv(InS,xWorld,yWorld);
             [x,y] = projfwd(OutS, latlim, lonlim);
             xExtent = [min(x(:)) max(x(:))];
-            yExtent = [min(y(:)) max(y(:))];  
+            yExtent = [min(y(:)) max(y(:))];
         end
-        
+
         function [xLimit, yLimit] = getGeotiffExtentMinusCrop(obj, geotiffEPSG)
             % Returns two vector indicating the x-y limits of the geotiff
             % for the web, after projection, which actually contain data.
             % These limits are used to crop the geotiff
             % in writeGeotiffs().
-            % 
+            %
             % Parameters
             % ----------
             % geotiffEPSG: int.
@@ -195,10 +202,10 @@ classdef Regions
             %   Minimum & maximum of cropped projected x-coordinates
             % yLimit: [int int]
             %   Minimum & maximum of cropped projected y-coordinates
-            
+
             [xExtent, yExtent] = obj.getGeotiffExtent(geotiffEPSG);
-            pixelSize = obj.RefMatrix(2,1); %Size of 
-            
+            pixelSize = obj.RefMatrix(2,1); %Size of
+
             xLimit = [xExtent(1) + ((pixelSize * ...
                 obj.geotiffCrop.xLeft) / 2), ...
                 xExtent(2) - pixelSize / 2 - ((pixelSize * ...
@@ -231,7 +238,6 @@ classdef Regions
             % this upper-level regions obj
             tileNames = obj.tileIds;
             for tileIdx = 1:length(tileNames)
-
                 % FIXME:
                 % The value that is read from the tileID_mask files
                 % is a 1x1 cell array containing a 1x1 cell array
@@ -254,7 +260,6 @@ classdef Regions
                 % Override any default STC settings with values
                 % from the upper-level regions obj
                 regionsArray(tileIdx).STC = obj.STC;
-
             end
         end
 
@@ -305,6 +310,8 @@ classdef Regions
             % over a period up to a date to output directory.
             % The geotiff is cropped according geotiffCrop properties
             % of the regions object.
+            % The geotiffs are generated from Public Mosaics, which
+            % replace unreliable data from Mosaics by default values
             %
             % Parameters
             % ----------
@@ -325,6 +332,7 @@ classdef Regions
             tic;
             fprintf('%s: Start regional geotiffs generation and writing\n', mfilename());
             espEnv = obj.espEnv;
+            publicMosaic = PublicMosaic(obj);
 
             % instantiate the variable indexes on which to loop
             % ------------------------------------------------------------
@@ -351,7 +359,6 @@ classdef Regions
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
             end
-            waterYear = waterYearDate.getWaterYear();
             dateRange = waterYearDate.getDailyDatetimeRange();
 
             % Projections and crop extent
@@ -373,10 +380,10 @@ classdef Regions
 
             parfor dateIdx=1:length(dateRange)
                 thisDatetime = dateRange(dateIdx);
-                mosaicFile = obj.espEnv.MosaicFile(obj, thisDatetime);
-                if ~isfile(mosaicFile)
-                    warning('%s: Missing mosaic file %s\n', mfilename(), ...
-                        mosaicFile);
+                publicMosaicData = publicMosaic.getThresholdedData(thisDatetime);
+                if ~isempty(publicMosaicData)
+                    warning('%s: No Geotiff generation for %s\n', mfilename(), ...
+                        datestr(thisDatetime, 'yyyy-mm-dd'));
                         continue;
                 end
 
@@ -393,15 +400,7 @@ classdef Regions
                     % NoData in mosaic files are represented by Variables.uint8NoData
                     % or Variables.uint16NoData.
                     units_field = sprintf('%s_units', varName);
-                    mosaicData = load(mosaicFile, varName);
-                    if ~isempty(mosaicData) && ...
-                        any(strcmp(fieldnames(mosaicData), varName))
-                        varData = mosaicData.(varName)(:, :);
-                    else
-                        warning('%s: No %s variable in %s\n', ...
-                            mfilename(), varName, mosaicFile);
-                        continue;
-                    end
+                    varData = publicMosaicData.(varName);
 
                     % Rescale variables to match web precision (eg 1 unit)
                     % ----------------------------------------------------

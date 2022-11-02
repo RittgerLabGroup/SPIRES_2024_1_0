@@ -30,7 +30,7 @@ classdef WaterYearDate
             % ------
             % monthWindow: int.
             % the number of months separating start and endMonth
-            
+
             % Cap the start of the window to the first month of the waterYear
             if startMonth < WaterYearDate.waterYearFirstMonth & ...
                 endMonth >= WaterYearDate.waterYearFirstMonth
@@ -90,20 +90,20 @@ classdef WaterYearDate
         function [thisYear, thisMonth] = getYearMonthFromWaterYearNegativeMonth( ...
             waterYear, month)
             % Subtraction of the monthly window to dates lead to negative months. These
-            % months correspond to the part of the waterYear befor the start of the 
+            % months correspond to the part of the waterYear befor the start of the
             % calendar year. This function correct the negative months to their calendar
             % values and do the same for years.
             %
             % Parameters
             % ----------
-            % 
+            %
             % Return
             % ------
             % thisYear: int
             %   Calendar year
             % thisMonth: int
             %   Calendar month
-            
+
             %
             thisYear = waterYear;
             thisMonth = month;
@@ -150,7 +150,7 @@ classdef WaterYearDate
             monthWindow = obj.monthWindow;
             [thisYYYY, thisMM, thisDD] = ymd(obj.thisDatetime);
 
-            % 1. Cap the monthWindow to the starting month of the year (oct)            
+            % 1. Cap the monthWindow to the starting month of the year (oct)
             monthCountSinceWaterYearFirstMonth = ...
                 WaterYearDate.getMonthWindowFromMonths( ...
                     WaterYearDate.waterYearFirstMonth, thisMM);
