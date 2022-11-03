@@ -28,8 +28,9 @@ classdef Regions
         geotiffCrop     % Struct(xLeft (double), xRight (double), yTop (double),
                         % yBottom (double))
                         % Data to crop the geotiff reprojected raster for web use
+        tileIds         % Names of the source tiles that are assembled in the Mosaic
+                        % that constitute the upper level region.
         modisData       % MODISData object, modis environment paths and methods
-        STC             % STC thresholds
     end
     properties(Constant)
         % pixSize_500m = 463.31271653;
@@ -78,9 +79,6 @@ classdef Regions
             obj.espEnv = espEnv;
             obj.modisData = modisData;
 
-            % Initialize default STC threshold settings
-            obj.STC = STC();
-
             % Fetch the structure with the requested region information
             regionFile = fullfile(espEnv.regionMaskDir, ...
                 sprintf("%s.mat", obj.maskName));
@@ -105,6 +103,7 @@ classdef Regions
             obj.atmosphericProfile = mObj.atmosphericProfile;
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
             obj.geotiffCrop = mObj.geotiffCrop;
+            obj.tileIds = mObj.tileIds;
         end
         
         function elevations = getElevations(obj)
@@ -139,6 +138,18 @@ classdef Regions
             % Array of the number of rows and columns
             % (number of pixels on the vertical and horizontal axes)
             size1 = size(obj.indxMosaic);
+        end
+
+        function regionsArray = getTileRegions(obj)
+            % Return
+            % ------
+            % Array of the regions associated to the tiles that compose
+            % this upper-level regions obj
+            tileNames = obj.tileIds;
+            for tileIdx = 1:length(tileNames)
+                regionsArray(tileIdx) = Regions(tileNames{tileIdx}, ...
+                    [tileNames{tileIdx} '_mask'], obj.espEnv, obj.modisData);
+            end
         end
 
         function out = paddedBounds(obj, ...
