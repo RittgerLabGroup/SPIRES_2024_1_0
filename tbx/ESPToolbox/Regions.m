@@ -29,6 +29,7 @@ classdef Regions
                         % yBottom (double))
                         % Data to crop the geotiff reprojected raster for web use
         modisData       % MODISData object, modis environment paths and methods
+        STC             % STC thresholds
     end
     properties(Constant)
         % pixSize_500m = 463.31271653;
@@ -76,6 +77,9 @@ classdef Regions
             obj.regionName = regionName;
             obj.espEnv = espEnv;
             obj.modisData = modisData;
+
+            % Initialize default STC threshold settings
+            obj.STC = STC();
 
             % Fetch the structure with the requested region information
             regionFile = fullfile(espEnv.regionMaskDir, ...
