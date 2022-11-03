@@ -7,13 +7,15 @@ classdef Variables
 
     properties(Constant)
         uint8NoData = cast(255, 'uint8');
-        uint16NoData = cast(65535, 'uint16');                                        
+        uint16NoData = cast(65535, 'uint16');
         albedoScale = 10000.; % Factor to multiply albedo obtained from
                              % ParBal.spires_albedo
         albedoDeltavisScale = 100.; % Factor for deltavis in albedo_observed
                                     % calculations
         albedoDownscaleFactor = 0.63; % Factor for albedo_clean in albedo_observed
                                       % calculations
+        albedoMaxGrainSize = 1999;  % Max grain size accepted to calculate albedo
+                                    % spires in parBal package
     end
 
     methods
@@ -34,7 +36,7 @@ classdef Variables
             % Cover days are calculated if elevation and snow cover fraction
             % are above thresholds defined at the Regions level (attribute
             % snowCoverDayMins.
-            % Cover days doesn't include the days without snow fraction data.
+            % Cover days is NaN after the first day (included) without snow fraction data.
             %
             % Parameters
             % ----------
@@ -43,7 +45,7 @@ classdef Variables
             %   should be carried out
 
             tic;
-            fprintf('%s: Start snow_cover_days calculations', mfilename());
+            fprintf('%s: Start snow_cover_days calculations\n', mfilename());
             % 1. Initialization, elevation data, dates
             %    and collection of units and divisor for
             %    snow_cover_days
@@ -76,7 +78,7 @@ classdef Variables
             % interp data file of the month before), if the date range
             % doesn't begin in the first month of the wateryear
             % else 0
-            lastSnowCoverDays = 0;
+            lastSnowCoverDays = 0.;
 
             if month(dateRange(1)) ~= waterYearDate.waterYearFirstMonth
                 dateBefore = daysadd(dateRange(1) , -1);
@@ -84,19 +86,21 @@ classdef Variables
                     'SCAGDRFSSTC', dateBefore);
 
                 if isfile(STCFile)
-                    interpData = load(STCFile, 'snow_cover_days');
+                    STCData = load(STCFile, 'snow_cover_days');
                     fprintf('%s: Loading snow_cover_days from %s\n', ...
                             mfilename(), STCFile);
-                    if ~isempty(interpData) && ...
-                        any(strcmp(fieldnames(interpData), 'snow_cover_days'))
-                        lastSnowCoverDays = interpData.snow_cover_days(:, :, end);
+                    if ~isempty(STCData) && ...
+                        any(strcmp(fieldnames(STCData), 'snow_cover_days'))
+                        lastSnowCoverDays = STCData.snow_cover_days(:, :, end);
                     else
                         warning('%s: No snow_cover_days variable in %s\n', ...
                             mfilename(), STCFile);
+                        lastSnowCoverDays = NaN;
                     end
                 else
                     warning('%s: Missing interpolation file %s\n', mfilename(), ...
                         STCFile);
+                    lastSnowCoverDays = NaN;
                 end
             end
 
@@ -112,19 +116,21 @@ classdef Variables
                 if ~isfile(STCFile)
                     warning('%s: Missing interpolation file %s\n', mfilename(), ...
                         STCFile);
+                    lastSnowCoverDays = NaN;
                     continue;
                 end
 
-                interpData = load(STCFile, 'snow_fraction');
+                STCData = load(STCFile, 'snow_fraction');
                 fprintf('%s: Loading snow_fraction from %s\n', ...
                         mfilename(), STCFile);
-                if isempty(interpData)
+                if isempty(STCData)
                     warning('%s: No snow_fraction variable in %s\n', ...
                         mfilename(), STCFile);
+                    lastSnowCoverDays = NaN;
                     continue;
                 end
 
-                snowCoverFraction = interpData.snow_fraction;
+                snowCoverFraction = STCData.snow_fraction;
                 % 2.b. Below a certain elevation and fraction, the pixel is not
                 % considered covered by snow
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -137,10 +143,12 @@ classdef Variables
                 snowCoverFractionWithoutNaN = snowCoverFraction(:, :, :);
                 snowCoverFractionWithoutNaN(isnan(snowCoverFraction)) = 0;
                 logicalSnowCoverFraction = cast(logical(snowCoverFractionWithoutNaN), ...
-                    'double');
+                    'single');
                 logicalSnowCoverFraction(isnan(snowCoverFraction)) = NaN;
-                snow_cover_days = lastSnowCoverDays + ...
-                    cumsum(logicalSnowCoverFraction, 3);
+                snow_cover_days = repmat( ...
+                    lastSnowCoverDays, 1, 1, ...
+                    size(logicalSnowCoverFraction, 3) ...
+                    ) + cumsum(logicalSnowCoverFraction, 3);
                 lastSnowCoverDays = snow_cover_days(:, :, end);
                 save(STCFile, 'snow_cover_days', 'snow_cover_divisor', ...
                             'snow_cover_units', 'snow_cover_min_elevation', ...
@@ -151,5 +159,6 @@ classdef Variables
                 mfilename(), ...
                 num2str(roundn(t2, -2)));
         end
+
     end
 end
