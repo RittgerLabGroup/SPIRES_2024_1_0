@@ -186,9 +186,9 @@ classdef Regions
                 regionsArray(tileIdx).tileIds = ...
                     regionsArray(tileIdx).tileIds{1};
 
-           		% Override any default STC settings with values
-           		% from the upper-level regions obj
-           		regionsArray(tileIdx).STC = obj.STC;
+                % Override any default STC settings with values
+                % from the upper-level regions obj
+                regionsArray(tileIdx).STC = obj.STC;
 
             end
         end
