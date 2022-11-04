@@ -30,7 +30,15 @@ classdef Regions
                         % Data to crop the geotiff reprojected raster for web use
         tileIds         % Names of the source tiles that are assembled in the Mosaic
                         % that constitute the upper level region.
-        thresholdsForPublicMosaic % table (thresholded_varname (char),
+        thresholdsForMosaics % table (thresholded_varname (char),
+                        % threshold_value (int), replaced_varname (char)
+                        % Minimum values of variables below which the data are
+                        % considered unreliable and shouldn't be included in the
+                        % Mosaic files.
+                        % If the thresholded_varname < threshold_value then
+                        % the replaced_varname value is replaced by the value indicated
+                        % in the file configuration_of_variables
+        thresholdsForPublicMosaics % table (thresholded_varname (char),
                         % threshold_value (int), replaced_varname (char)
                         % Minimum values of variables below which the data are
                         % considered unreliable and shouldn't be released to public.
@@ -110,9 +118,10 @@ classdef Regions
             obj.lowIllumination = mObj.lowIllumination;
             obj.atmosphericProfile = mObj.atmosphericProfile;
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
-            obj.geotiffCrop = mObj.geotiffCrop;   
+            obj.geotiffCrop = mObj.geotiffCrop;
             obj.STC = mObj.stc;
             obj.tileIds = mObj.tileIds;
+            obj.thresholdsForMosaics = mObj.thresholdsForMosaics;
             obj.thresholdsForPublicMosaic = mObj.thresholdsForPublicMosaic;
         end
 

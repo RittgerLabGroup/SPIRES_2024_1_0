@@ -38,6 +38,8 @@ classdef Variables
             % snowCoverDayMins.
             % Cover days is NaN after the first day (included) without snow fraction data.
             %
+            % Called by runSnowTodayStep1.sh \ updateRegionMonthCubes.m \
+            % updateSTC_SCAGDRFSFor.m
             % Parameters
             % ----------
             % waterYearDate: waterYearDate object, optional

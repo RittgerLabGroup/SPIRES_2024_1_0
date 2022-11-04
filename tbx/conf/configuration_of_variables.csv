@@ -1,4 +1,4 @@
-name,input_name,output_name,calc_suffix_n_prefix,label,type_in_STC,type_in_mosaics,type,type_web,units_in_mosaics,units_in_map,units_in_plot,multiplicator_for_mosaics,divisor,nodata_value,public_data_value_for_unreliable,min,max,test_calc_albedos,test_calc_snow_cover_days,test_write_mosaic,write_geotiffs,write_mosaics,write_stats_csv,,,comments
+name,input_name,output_name,calc_suffix_n_prefix,label,type_in_STC,type_in_mosaics,type,type_web,units_in_mosaics,units_in_map,units_in_plot,multiplicator_for_mosaics,divisor,nodata_value,value_for_unreliable,min,max,test_calc_albedos,test_calc_snow_cover_days,test_write_mosaic,write_geotiffs,write_mosaics,write_stats_csv,,,comments
 comment,,,prefix or suffix of field calculated in runStatsForLinePlots(),Description (label) in Regions.writeStats(),,,,,,,,,,intmax(),,,,,,,,,,,,
 ,,albedo_clean_mu0,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,65535,0,100,0,0,0,0,0,0,,,
 ,,albedo_observed_mu0,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,65535,0,100,0,0,0,0,0,0,,,
