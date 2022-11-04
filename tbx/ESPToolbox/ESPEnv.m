@@ -66,8 +66,6 @@ classdef ESPEnv
                 'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
                 obj.MODICEDir = fullfile(path, 'modis', 'modice');
 
-                obj.regionMaskDir = fullfile(path, 'region_masks', 'v3');
-
                 % For ESP pipelines, set scratch locations
                 if strcmp(p.Results.hostName, 'CURCScratchAlpine')
                     path = fullfile('/scratch', 'alpine', ...
@@ -79,6 +77,7 @@ classdef ESPEnv
                 obj.modisElevationDir = fullfile(path, 'elevation');
                 obj.modisTopographyDir = fullfile(path, 'topography');
                 obj.shapefileDir = fullfile(path, 'shapefiles');
+                obj.regionMaskDir = fullfile(path, 'region_masks', 'v3');
 
                 % For ESP pipelines, set scratch locations
                 if strcmp(p.Results.hostName, 'CURCScratchAlpine')
