@@ -119,12 +119,17 @@ classdef ESPEnv
             end
 
             obj.parallelismConf.maxWorkers = 20;
+
             % Set JobStorageLocation to something that will be
             % unique for each slurm process id and put it on
             % local scratch so ~/.matlab/ doesn't grow indefinitely
+	    % Normally I would expect a non-empty SLURM_SCRATCH
+	    % to exist, but apparently randomly this is not the case.
             if ~isempty(getenv('SLURM_SCRATCH')) & ...
+	       isfolder(getenv('SLURM_SCRATCH') & ...
                 ~isempty(getenv('SLURM_ARRAY_JOB_ID'))
-                obj.parallelismConf.jobStorageLocation = fullfile(getenv('SLURM_SCRATCH'), ...
+                obj.parallelismConf.jobStorageLocation = ...
+                    fullfile(getenv('SLURM_SCRATCH'), ...
                     getenv('SLURM_ARRAY_JOB_ID'));
                 if ~isfolder(obj.parallelismConf.jobStorageLocation)
                     mkdir(obj.parallelismConf.jobStorageLocation)
