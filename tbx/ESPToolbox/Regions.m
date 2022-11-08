@@ -216,6 +216,11 @@ classdef Regions
 
         end
 
+	% FIXME: this method isn't really needed, a better
+	% alternative is for the caller to make a temporary structure
+	% with elements that should be saved to the output file, and
+	% then appending the output file with the structure, using the 
+	% -s option
 	function saveEnvironment(obj, outFilename)
 	    % Appends runtime environment variables to outFilename
 	    
