@@ -28,7 +28,10 @@ classdef Regions
         geotiffCrop     % Struct(xLeft (double), xRight (double), yTop (double),
                         % yBottom (double))
                         % Data to crop the geotiff reprojected raster for web use
+        tileIds         % Names of the source tiles that are assembled in the Mosaic
+                        % that constitute the upper level region.
         modisData       % MODISData object, modis environment paths and methods
+        STC             % STC thresholds
     end
     properties(Constant)
         % pixSize_500m = 463.31271653;
@@ -101,6 +104,25 @@ classdef Regions
             obj.atmosphericProfile = mObj.atmosphericProfile;
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
             obj.geotiffCrop = mObj.geotiffCrop;
+            obj.tileIds = mObj.tileIds;
+
+            % Initialize default STC threshold settings
+            obj.STC = STC();
+
+    	    % This values are not currently in the region mask
+    	    % files, but could be read from it instead if they
+    	    % are added there
+    	    %obj.STC = mObj.STC;
+
+    	    % Some mask files don't have these values set
+    	    % remove this block when they are all consistently
+    	    % set
+    	    if ~isstruct(obj.snowCoverDayMins)
+        		obj.snowCoverDayMins = struct( ...
+                    'minElevation', 800, ...
+                    'minSnowCoverFraction', 10);
+    	    end
+            
         end
         
         function elevations = getElevations(obj)
@@ -137,6 +159,40 @@ classdef Regions
             size1 = size(obj.indxMosaic);
         end
 
+        function regionsArray = getTileRegions(obj)
+            % Return
+            % ------
+            % Array of the regions associated to the tiles that compose
+            % this upper-level regions obj
+            tileNames = obj.tileIds;
+            for tileIdx = 1:length(tileNames)
+
+                % FIXME:
+                % The value that is read from the tileID_mask files
+                % is a 1x1 cell array containing a 1x1 cell array
+                % This indirection is causing problems downstream,
+                % this is a temporary fix to make it a 1x1 cell array
+                % containing the char that is the tileID
+                tileName = tileNames{tileIdx};
+                if iscell(tileName)
+                    tileName = tileName{1};
+                end
+
+                regionsArray(tileIdx) = Regions( tileName, ...
+                    [tileName '_mask'], ...
+                    obj.espEnv, obj.modisData);
+
+                % This can be removed when region_masks are fixed
+                regionsArray(tileIdx).tileIds = ...
+                    regionsArray(tileIdx).tileIds{1};
+
+                % Override any default STC settings with values
+                % from the upper-level regions obj
+                regionsArray(tileIdx).STC = obj.STC;
+
+            end
+        end
+
         function out = paddedBounds(obj, ...
                 regionNum, ...
                 padLongitudePcent, ...
@@ -159,6 +215,24 @@ classdef Regions
            out.bounds(2, 2) = out.bounds(2, 2) + padheight;
 
         end
+
+	% FIXME: this method isn't really needed, a better
+	% alternative is for the caller to make a temporary structure
+	% with elements that should be saved to the output file, and
+	% then appending the output file with the structure, using the 
+	% -s option
+	function saveEnvironment(obj, outFilename)
+	    % Appends runtime environment variables to outFilename
+	    
+	    % make a copy so variable references in save will work
+	    espEnv = obj.espEnv;
+	    modisData = obj.modisData;
+	    STC = obj.STC;
+	    save(outFilename, '-append', 'espEnv', 'modisData', 'STC');
+            fprintf("%s: Appended espEnv/modisData/STC to %s\n", ...
+                class(obj), outFilename);
+
+	end
 
         function writeStats(obj, historicalStats, ...
             currentStats, availableVariables, ...
@@ -325,7 +399,7 @@ classdef Regions
             end
 
             waterYear = waterYearDate.getWaterYear();
-            modisBeginWaterYear = modisData.beginWaterYear;
+            modisBeginWaterYear = obj.modisData.beginWaterYear;
             modisEndWaterYear = waterYear - 1;
 
             % Retrieval of aggregated data files

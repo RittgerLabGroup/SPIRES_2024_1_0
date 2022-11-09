@@ -1,5 +1,5 @@
 classdef ESPEnv
-    % ESPEnv - environment for ESP data directories
+    % ESPEnv - environment for ESP data dirs and algorithms
     %   Directories with locations of various types of data needed for ESP
     properties
         colormapDir    % directory with color maps
@@ -66,8 +66,6 @@ classdef ESPEnv
                 'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
                 obj.MODICEDir = fullfile(path, 'modis', 'modice');
 
-                obj.regionMaskDir = fullfile(path, 'region_masks', 'v3');
-
                 % For ESP pipelines, set scratch locations
                 if strcmp(p.Results.hostName, 'CURCScratchAlpine')
                     path = fullfile('/scratch', 'alpine', ...
@@ -79,6 +77,7 @@ classdef ESPEnv
                 obj.modisElevationDir = fullfile(path, 'elevation');
                 obj.modisTopographyDir = fullfile(path, 'topography');
                 obj.shapefileDir = fullfile(path, 'shapefiles');
+                obj.regionMaskDir = fullfile(path, 'region_masks', 'v3');
 
                 % For ESP pipelines, set scratch locations
                 if strcmp(p.Results.hostName, 'CURCScratchAlpine')
@@ -120,12 +119,17 @@ classdef ESPEnv
             end
 
             obj.parallelismConf.maxWorkers = 20;
+
             % Set JobStorageLocation to something that will be
             % unique for each slurm process id and put it on
             % local scratch so ~/.matlab/ doesn't grow indefinitely
+	    % Normally I would expect a non-empty SLURM_SCRATCH
+	    % to exist, but apparently randomly this is not the case.
             if ~isempty(getenv('SLURM_SCRATCH')) & ...
+	       isfolder(getenv('SLURM_SCRATCH')) & ...
                 ~isempty(getenv('SLURM_ARRAY_JOB_ID'))
-                obj.parallelismConf.jobStorageLocation = fullfile(getenv('SLURM_SCRATCH'), ...
+                obj.parallelismConf.jobStorageLocation = ...
+                    fullfile(getenv('SLURM_SCRATCH'), ...
                     getenv('SLURM_ARRAY_JOB_ID'));
                 if ~isfolder(obj.parallelismConf.jobStorageLocation)
                     mkdir(obj.parallelismConf.jobStorageLocation)
@@ -137,6 +141,7 @@ classdef ESPEnv
             else
                 obj.parallelismConf.jobStorageLocation = getenv('TMP');
             end
+
         end
 
         function S = configParallelismPool(obj, maxWorkers)
