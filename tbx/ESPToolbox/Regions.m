@@ -105,24 +105,8 @@ classdef Regions
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
             obj.geotiffCrop = mObj.geotiffCrop;
             obj.tileIds = mObj.tileIds;
+            obj.STC = mObj.stc;
 
-            % Initialize default STC threshold settings
-            obj.STC = STC();
-
-    	    % This values are not currently in the region mask
-    	    % files, but could be read from it instead if they
-    	    % are added there
-    	    %obj.STC = mObj.STC;
-
-    	    % Some mask files don't have these values set
-    	    % remove this block when they are all consistently
-    	    % set
-    	    if ~isstruct(obj.snowCoverDayMins)
-        		obj.snowCoverDayMins = struct( ...
-                    'minElevation', 800, ...
-                    'minSnowCoverFraction', 10);
-    	    end
-            
         end
         
         function elevations = getElevations(obj)

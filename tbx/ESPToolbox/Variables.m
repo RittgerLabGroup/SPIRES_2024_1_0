@@ -70,10 +70,8 @@ classdef Variables
             snow_cover_days_divisor = snowCoverConf.divisor;
 
             snow_cover_days_min_elevation = mins.minElevation;
-            % N.B. minSnowCoverFraction is actually percent
-            % convert it to fraction for use here
             snow_cover_days_min_snow_cover_fraction = ...
-                mins.minSnowCoverFraction / 100.;
+                mins.minSnowCoverFraction;
 
             % 1. Initial snowCoverDays
             %%%%%%%%%%%%%%%%%%%%%%%%%%
