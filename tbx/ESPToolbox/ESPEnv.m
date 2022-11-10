@@ -361,37 +361,6 @@ classdef ESPEnv
                 regions.regionName, platformName, ...
                 datestr(thisDatetime, 'yyyymmdd'), labelName));
         end
-        
-        function f = PublicMosaicFile(obj, regions, thisDatetime)
-            % Provides the filename of the daily mosaic data file with
-            % directory creation if dir doesn't exist
-            % 
-            modisData = regions.modisData;
-            myDir = sprintf('%s_%s', obj.dirWith.VariablesMatlab, ...
-                modisData.versionOf.VariablesMatlab);
-
-            %TODO: make this an optional input
-            platformName = 'Terra';
-
-            % use versionOf value for file labelName
-            % if it is not empty, prepend a period
-            labelName = modisData.versionOf.VariablesMatlab;
-            if ~isempty(labelName)
-                labelName = sprintf('.%s', labelName);
-            end
-
-            f = fullfile(myDir, ...
-                sprintf('v%03d', modisData.versionOf.MODISCollection), ...
-                sprintf('%s', regions.regionName), ...
-                datestr(thisDatetime, 'yyyy'));
-            if ~exist(f, 'dir')
-                mkdir(f);
-            end
-            f = fullfile(f, ...
-                sprintf('%s_%s_%s%s.mat', ...
-                regions.regionName, platformName, ...
-                datestr(thisDatetime, 'yyyymmdd'), labelName));
-        end
 
         function f = SummarySnowFile(obj, MData, regionName, ...
             partitionName, startYr, stopYr)
