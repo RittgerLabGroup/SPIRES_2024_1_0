@@ -122,7 +122,7 @@ classdef Regions
             obj.STC = mObj.stc;
             obj.tileIds = mObj.tileIds;
             obj.thresholdsForMosaics = mObj.thresholdsForMosaics;
-            obj.thresholdsForPublicMosaic = mObj.thresholdsForPublicMosaic;
+            obj.thresholdsForPublicMosaics = mObj.thresholdsForPublicMosaics;
         end
 
         function elevations = getElevations(obj)

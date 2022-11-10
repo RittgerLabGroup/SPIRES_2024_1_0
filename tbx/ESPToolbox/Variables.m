@@ -72,8 +72,7 @@ classdef Variables
             snow_cover_days_divisor = snowCoverConf.divisor;
 
             snow_cover_days_min_elevation = mins.minElevation;
-            snow_cover_days_min_snow_cover_fraction = ...
-                mins.minSnowCoverFraction;
+            snow_cover_days_min_snow_cover_fraction = mins.minSnowCoverFraction;
 
             % 1. Initial snowCoverDays
             %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -155,11 +154,13 @@ classdef Variables
                     size(logicalSnowCoverFraction, 3) ...
                     ) + cumsum(logicalSnowCoverFraction, 3);
                 lastSnowCoverDays = snow_cover_days(:, :, end);
+
                 save(STCFile, 'snow_cover_days', ...
                     'snow_cover_days_divisor', ...
                     'snow_cover_days_units', ...
                     'snow_cover_days_min_elevation', ...
                     'snow_cover_days_min_snow_cover_fraction', '-append');
+
             end
             t2 = toc;
             fprintf('%s: Finished snow cover days update in %s seconds\n', ...
