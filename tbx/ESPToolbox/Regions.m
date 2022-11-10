@@ -353,10 +353,10 @@ classdef Regions
             parfor dateIdx=1:length(dateRange)
                 thisDatetime = dateRange(dateIdx);
                 publicMosaicData = publicMosaic.getThresholdedData(thisDatetime);
-                if ~isempty(publicMosaicData)
+                if isempty(fieldnames(publicMosaicData))
                     warning('%s: No Geotiff generation for %s\n', mfilename(), ...
                         datestr(thisDatetime, 'yyyy-mm-dd'));
-                        continue;
+                    continue;
                 end
 
                 for varIdx=1:length(varIndexes)
@@ -372,6 +372,7 @@ classdef Regions
                     % NoData in mosaic files are represented by Variables.uint8NoData
                     % or Variables.uint16NoData.
                     units_field = sprintf('%s_units', varName);
+                    varData = [];
                     varData = publicMosaicData.(varName);
 
                     % Rescale variables to match web precision (eg 1 unit)
