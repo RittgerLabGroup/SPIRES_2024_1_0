@@ -247,24 +247,10 @@ classdef Regions
             % this upper-level regions obj
             tileNames = obj.tileIds;
             for tileIdx = 1:length(tileNames)
-                % FIXME:
-                % The value that is read from the tileID_mask files
-                % is a 1x1 cell array containing a 1x1 cell array
-                % This indirection is causing problems downstream,
-                % this is a temporary fix to make it a 1x1 cell array
-                % containing the char that is the tileID
                 tileName = tileNames{tileIdx};
-                if iscell(tileName)
-                    tileName = tileName{1};
-                end
-
-                regionsArray(tileIdx) = Regions( tileName, ...
+                regionsArray(tileIdx) = Regions(tileName, ...
                     [tileName '_mask'], ...
                     obj.espEnv, obj.modisData);
-
-                % This can be removed when region_masks are fixed
-                regionsArray(tileIdx).tileIds = ...
-                    regionsArray(tileIdx).tileIds{1};
 
                 % Override any default STC settings with values
                 % from the upper-level regions obj
