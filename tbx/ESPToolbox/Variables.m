@@ -66,11 +66,12 @@ classdef Variables
             variables = espEnv.configurationOfVariables();
             snowCoverConf = variables(find( ...
                 strcmp(variables.output_name, 'snow_cover_days')), :);
-            snow_cover_units = snowCoverConf.units_in_map;
-            snow_cover_divisor = snowCoverConf.divisor;
+            snow_cover_days_units = snowCoverConf.units_in_map;
+            snow_cover_days_divisor = snowCoverConf.divisor;
 
-            snow_cover_min_elevation = mins.minElevation;
-            snow_cover_min_snow_cover_fraction = mins.minSnowCoverFraction;
+            snow_cover_days_min_elevation = mins.minElevation;
+            snow_cover_days_min_snow_cover_fraction = ...
+                mins.minSnowCoverFraction;
 
             % 1. Initial snowCoverDays
             %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -134,9 +135,11 @@ classdef Variables
                 % 2.b. Below a certain elevation and fraction, the pixel is not
                 % considered covered by snow
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                snowCoverFraction(snowCoverFraction < ...
-                    snow_cover_min_snow_cover_fraction) = 0;
-                snowCoverFraction(elevationData < snow_cover_min_elevation) = 0;
+                snowCoverFraction(...
+                    snowCoverFraction < ...
+                    snow_cover_days_min_snow_cover_fraction) = 0;
+                snowCoverFraction(...
+                    elevationData < snow_cover_days_min_elevation) = 0;
 
                 % 2.c. Cumulated snow cover days calculation and save
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -150,9 +153,11 @@ classdef Variables
                     size(logicalSnowCoverFraction, 3) ...
                     ) + cumsum(logicalSnowCoverFraction, 3);
                 lastSnowCoverDays = snow_cover_days(:, :, end);
-                save(STCFile, 'snow_cover_days', 'snow_cover_divisor', ...
-                            'snow_cover_units', 'snow_cover_min_elevation', ...
-                            'snow_cover_min_snow_cover_fraction', '-append');
+                save(STCFile, 'snow_cover_days', ...
+                    'snow_cover_days_divisor', ...
+                    'snow_cover_days_units', ...
+                    'snow_cover_days_min_elevation', ...
+                    'snow_cover_days_min_snow_cover_fraction', '-append');
             end
             t2 = toc;
             fprintf('%s: Finished snow cover days update in %s seconds\n', ...
