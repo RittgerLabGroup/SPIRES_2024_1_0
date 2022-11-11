@@ -75,7 +75,7 @@ classdef Variables
             snow_cover_days_min_snow_cover_fraction = mins.minSnowCoverFraction;
 
             % 1. Initial snowCoverDays
-            %%%%%%%%%%%%%%%%%%%%%%%%%%
+            %-------------------------
             % Taken from the day preceding the date range (in the monthly
             % interp data file of the month before), if the date range
             % doesn't begin in the first month of the wateryear
@@ -108,10 +108,10 @@ classdef Variables
 
             % 2. Update each monthly interpolated files for the full
             % period by calculating snow_cover_days from snow_fractions
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %----------------------------------------------------------
             for monthDayIdx=1:numberOfMonths
                 % 2.a. Loading of the monthly interpolation file
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %-----------------------------------------------
                 STCFile = espEnv.SCAGDRFSFile(regions, ...
                     'SCAGDRFSSTC', dateRange(monthDayIdx));
 
@@ -135,7 +135,7 @@ classdef Variables
                 snowCoverFraction = STCData.snow_fraction;
                 % 2.b. Below a certain elevation and fraction, the pixel is not
                 % considered covered by snow
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %--------------------------------------------------------------
                 snowCoverFraction(...
                     snowCoverFraction < ...
                     snow_cover_days_min_snow_cover_fraction) = 0;
@@ -143,7 +143,7 @@ classdef Variables
                     elevationData < snow_cover_days_min_elevation) = 0;
 
                 % 2.c. Cumulated snow cover days calculation and save
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %----------------------------------------------------
                 snowCoverFractionWithoutNaN = snowCoverFraction(:, :, :);
                 snowCoverFractionWithoutNaN(isnan(snowCoverFraction)) = 0;
                 logicalSnowCoverFraction = cast(logical(snowCoverFractionWithoutNaN), ...
@@ -187,7 +187,7 @@ classdef Variables
             fprintf('%s: Start albedos calculations\n', mfilename())
 
             % 1. Initialization, dates, slopes, aspects
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %------------------------------------------
             regions = obj.regions;
             espEnv = regions.espEnv;
             modisData = regions.modisData;
@@ -207,7 +207,7 @@ classdef Variables
 
             % 2. Update each daily mosaic files for the full
             % period by calculating albedos
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %-----------------------------------------------
 
             % Start or connect to the local pool (parallelism)
             espEnv.configParallelismPool();
@@ -216,7 +216,7 @@ classdef Variables
 
                 % 2.a collection of albedo types, units, divisors
                 %    and min-max.
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %------------------------------------------------
                 % NB: could have been set outside loop, but since we use a struct
                 % within a parloop, it should stay her so as to not trigger transparency
                 % error.
@@ -234,10 +234,10 @@ classdef Variables
                     albedos.([albedoName '_nodata_value']) = albedoConf.nodata_value;
                 end
 
-                % 2.b. Loading of the monthly interpolation file
+                % 2.b. Loading the daily file
                 %      If snow_fraction is 0, set the grain_size
                 %      to NaN to get final albedos to NaN
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %-----------------------------------------------
                 errorStruct = struct();
                 mosaicFile = espEnv.MosaicFile(regions, dateRange(dateIdx));
 
@@ -278,7 +278,7 @@ classdef Variables
                 % aspect (muZ)
                 % + cap of grain size to max value accepted by parBal.spires
                 % use of ParBal package: .sunslope and .spires_albedo.
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                    
+                %-----------------------------------------------------------                    
                 mu0 = cosd(mosaicData.solar_zenith);
 
                 % phi0: Normalize stored azimuths to expected azimuths
@@ -297,7 +297,7 @@ classdef Variables
                 % obtain observed albedos
                 % sanity check min-max, replacement for nodata and
                 % recast to type and save
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %---------------------------------------------------
                 albedos.albedo_clean_mu0 = spires_albedo(grainSizeForSpires, mu0, ...
                     regions.atmosphericProfile);
                 albedos.albedo_clean_muZ = spires_albedo(grainSizeForSpires, muZ, ...
@@ -334,7 +334,7 @@ classdef Variables
                 end
 
                 % 2.e. Save albedos and params in Mosaic Files
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %---------------------------------------------
                 Tools.parforSaveFieldsOfStructInFile(mosaicFile, albedos, 'append');
             end
 
