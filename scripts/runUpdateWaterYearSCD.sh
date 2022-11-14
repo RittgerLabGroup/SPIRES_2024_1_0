@@ -134,8 +134,8 @@ rm -rf $TMPDIR
 
 # Stop the stopwatch and report elapsed time
 elapsedSeconds=$SECONDS
-TZ=UTC0 printf '${PROGNAME}: Duration: %(%H:%M:%S)T\n' "$elapsedSeconds"
+duration=$(TZ=UTC0 printf 'Duration: %(%H:%M:%S)T\n' "$elapsedSeconds")
 
 thisDate=$(date)
-echo "${PROGNAME}: Done on hostname=$thisHost on $thisDate"
+echo "${PROGNAME}: Done on hostname=$thisHost on $thisDate [${duration}]"
 
