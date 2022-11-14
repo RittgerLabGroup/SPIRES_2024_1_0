@@ -252,9 +252,12 @@ classdef Regions
                     [tileName '_mask'], ...
                     obj.espEnv, obj.modisData);
 
-                % Override any default STC settings with values
-                % from the upper-level regions obj
+                % Override any default STC or snowCoverDayMins
+                % settings with values from the upper-level regions obj
                 regionsArray(tileIdx).STC = obj.STC;
+                regionsArray(tileIdx).snowCoverDayMins = ...
+                    obj.snowCoverDayMins;
+
             end
         end
 
