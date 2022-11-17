@@ -135,7 +135,7 @@ tight_subplot: https://??
 
 A working version of wget is required to run fetch routines from JPL.
 
-## Annual Maintenance for upgrading Snow Today statistics files
+## Annual Maintenance for upgrading Snow Today statistics files for complete historical record
 
 The SnowToday plots expect to make "in Context" statistics relative
 to the date of the current data. This requires the annual statistics files
@@ -149,49 +149,106 @@ The procedure for doing this is:
 
    See runSnowTodayStep0.sh
 
-2) Use any of the holes that have been filled in in Step 1) to
-   update the monthly data cubes for the latest period, likely
+   This will fill any holes in the mod09ga/modscag/moddrfs archive on
+   the archive location on PetaLibrary.  No changes are made to scratch.
+
+2) Do the scratch shuffle TO scratch for the dates/tiles you plan to process.
+   For the full record, do historical for 2000-2018 and nrt for 2018-current year:
+
+   e.g. in oct 2022, do:
+
+   cd scripts
+   for type in mod09ga/historical modscag/historical moddrfs/historical; do
+   for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
+   ./scratchShuffle.sh -b 2000 -e 2018 TO ${type} $t;
+   done;
+   done
+
+   for type in mod09ga/NRT modscag/NRT moddrfs/NRT; do
+   for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
+   ./scratchShuffle.sh -b 2018 -e 2022 TO ${type} $t;
+   done;
+   done
+
+   This will make a mirrored copy of required inputs on scratch.
+   
+3) Update the monthly data cubes for the latest period, likely
    Oct of last year through Sep of this year. This needs to be
-   done in 2 sets: first, update all the Raw Month cubes
+   done in 2 sets: first, update all the Raw Month cubes.
 
    See runUpdateRawMonthCubes.sh for each tile needed, for last year 10-12
    and this year 1-9. Use sbatch options for --job-name and --array.
-   This updates tile-specific Raw monthly data cubes.
+   This updates tile-specific Raw monthly data cubes:
 
-   Only after all the Raw months are updated, do the STC
-   Gap/Interp updates.  These are the ones that do a month window
-   on either side of the month being processed, so 
-      
-   See runUpdateSTCMonthCubes.sh for each tile needed, for last year 10-12
-   and this year 1-8. Don't worry about Sept, since the restarted pipeline
-   will do Sept. Use sbatch options for --job-name and --array.
-   This updates tile-specific Gap and Interp monthly data cubes.
-
-   It appears that these jobs often crash with out-of-memory errors when
-   they are set up for more than 3-month batchs. So consider doing these
-   runs in Quarterly batches of no more than 3 months. When the
-   oom errors happen, I re-run them and they never recur on the
-   same tile/time.
+   e.g. to update Raw month cubes, for WY2022, do:
    
-   Notes from HMA 2000-2022 updates: timeouts happen a lot, when
-   the cube is re-run with a longer --time value, it will usually
-   finish in less than the original time.
+   for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
+   sbatch --job-name=Raw-${t} --array=2021 ./runUpdateRawMonthCubes.sh -L v2023.0 ${t} 10 12;
+   done
+   for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
+   sbatch --job-name=Raw-${t} --array=2022 ./runUpdateRawMonthCubes.sh -L v2023.0 ${t} 1 9;
+   done
 
-3) Update the multi-variable mosaics for the new period
+   Once all the Raw months are updated, do the STC Gap/Interp updates. The Gap/Interp
+   cubes use a month window on either side of the month being processed.
+      
+   See runUpdateSTCMonthCubes.sh for each tile needed, for last year 10-12 and
+   this year 1-9. Don't worry about Oct of this year, since the restarted
+   pipeline will do Oct. Use sbatch options for --job-name and --array.  This
+   updates tile-specific Gap and Interp monthly data cubes:
 
-   Turn off Step3 processing, and use runSnowTodayStep2.sh for this
+   e.g. to update Gap/STC month cubes for water year 2022, do:
 
-   HMA notes from 2022: The Indus mosaics all ran in < 2hours save one that
-   took 2.5 hours. Used runUpdateMosaic.sh with regionNames set to tileIDs
-   for "multivariate" (mosaic) files by tile.
+   for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
+   sbatch --job-name=STC-${t} --array=2021 ./runUpdateSTCMonthCubes.sh -L v2023.0 ${t} 10 12;
+   sbatch --job-name=STC-${t} --array=2022 ./runUpdateSTCMonthCubes.sh -L v2023.0 ${t} 1 9
+   done
 
-4) Update the long-term statistics for 2001-current year
+   Sometimes these jobs crash with out-of-memory errors when they are set up for
+   12-month batchs. If this happens, take a look at how much completed and
+   decide whether you can restart with monthstart set to the first month
+   that needs to run for any of the tiles
 
+   When the oom errors happen, I re-run them and they never recur on the
+   same tile/time, so I can't predict when this will occur.
+   
+   Another potential error is timeouts (less on alpine than on the old summit
+   nodes). When the cube is re-run with a longer --time value, it will usually
+   finish in less than the original time. So this is another condition that I
+   cannot predict or reliably repeat.
+
+4) Once an entire water year (oct-sep) is available as STC cubes for a complete
+   region, update the STC cubes with cumulative snow-covered-days:
+
+   For the "westernUS" region:
+   
+   reg=westernUS;
+   sbatch --job-name=SCD-${reg} --array=2022 ./runUpdateWaterYearSCD.sh -L v2023.0 ${reg}
+   
+5) Once you have all STC cubes updated for a given period, and updated with
+   cumulative SCD, update the multi-variable mosaics for the new period
+
+   Use runUpdateMosaic for this.
+   reg=westernUS;
+   sbatch --job-name=Mos-${reg} --array=2022 ./runUpdateMosaic.sh -L v2023.0 ${reg}
+
+6) Once you have all the initial mosaic files for a given water year (starts in Oct),
+   update the cumulative snow_cover_days (SCD) variables in all the new files:
+
+7) Update the long-term statistics for 2001-current year
+
+   For current year= 2022:
+   
    See runSnowTodayStep3Historical.sh.
    In Oct 2021, 2 hours was enough for array 10 and 12, but array 11
    timed out. Ran it again, it needed 3 hours.
 
-5) re-start the daily pipeline
+5) All of the above steps have been done on scratch, which expires in 3 months.
+   Do the scratchShuffle FROM scratch to PetaLibrary so that you don't lose all
+   your work!
+
+5) re-start the daily pipeline. Each step of the daily pipeline will do the
+   scratchShuffle TO/FROM only for the data that it needs and then what it produces.
 
 ## Fetching data for a new set of tiles
 
