@@ -57,7 +57,7 @@ classdef Mosaic
 
             % Start or connect to the local pool (parallelism)
             % Trial and error: this process is a real memory pig
-            espEnv.configParallelismPool(3);
+            espEnv.configParallelismPool(6);
 
             parfor monthDatetimeIdx = 1:length(monthRange)
             %for monthDatetimeIdx = 1:length(monthRange)
@@ -223,7 +223,6 @@ classdef Mosaic
                 % 2.6. Thresholding
                 %------------------
                 thresholds = regions.thresholdsForMosaics;
-                fields = fieldnames(mosaicDataForAllDays);
                 for thresholdId = 1:size(thresholds, 1)
                     thresholdedVarname = thresholds{thresholdId, 'thresholded_varname'}{1};
                     thresholdValue = thresholds{thresholdId, 'threshold_value'};
@@ -232,11 +231,9 @@ classdef Mosaic
                         find(strcmp(availableVariables.output_name, replacedVarname)), ...
                         'value_for_unreliable'};
 
-                    if any(strcmp(fields, replacedVarname))
-                        mosaicDataForAllDays.(replacedVarname) ...
-                            (mosaicDataForAllDays.(thresholdedVarname) ...
-                            < thresholdValue) = valueForUnreliableData;
-                    end
+                    mosaicDataForAllDays.(replacedVarname) ...
+			(mosaicDataForAllDays.(thresholdedVarname) ...
+                        < thresholdValue) = valueForUnreliableData;
                 end
                 
                 % 2.7. Generate and write the daily Mosaic Files
