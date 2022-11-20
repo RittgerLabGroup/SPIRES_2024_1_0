@@ -375,6 +375,23 @@ classdef ESPEnv
                 region.maskName));
         end
 
+        function f = SummaryCsvDir(obj, region)
+            % SummaryCsvDir returns the dir with csv versions of statistics summary file
+            myDir = sprintf('%s_%s', obj.dirWith.RegionalStatsCsv, ...
+                region.modisData.versionOf.RegionalStatsCsv);
+
+            f = fullfile(myDir, ...
+                sprintf('v%03d', region.modisData.versionOf.MODISCollection), ...
+                region.regionName);
+        end
+
+        function f = SummaryCsvFile(obj, region, idx, outDir, varName, waterYear)
+	    % This filename for csv stats summary files is expected by the front-end
+	    fileName = sprintf('SnowToday_%s_%s_WY%04d_yearToDate.csv', ...
+                region.ShortName{idx}, varName, waterYear);                	       
+            f = fullfile(outDir, fileName);
+        end
+
         function f = SnowTodayFile(obj, MData, ...
             regionName, ...
             shortName, ...

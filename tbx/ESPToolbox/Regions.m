@@ -352,9 +352,9 @@ classdef Regions
             % ----------
             % Start or connect to the local pool (parallelism)
             % This processing tends to be a memory hog, with each worker
-	    % needing as much as 70GB memory.
+    	    % needing as much as 70GB memory.
             % So, plan to run this system on alpine with 32 tasks in order
-	    % to get all the memory on the node, and and limit workers here 
+    	    % to get all the memory on the node, and and limit workers here
             espEnv.configParallelismPool(3);
 
             parfor dateIdx=1:length(dateRange)
@@ -538,10 +538,8 @@ classdef Regions
 
                     % File
                     % ----
-                    fileName = sprintf('SnowToday_%s_%s_WY%4d_yearToDate.csv', ...
-                        obj.ShortName{subRegionIdx}, varName, waterYear);
-                    fileName = fullfile(outputDirectory, ...
-                        fileName);
+                    fileName = obj.espEnv.SummaryCsvFile(obj, ...
+                        subRegionIdx, outputDirectory, varName, waterYear);
                     [path, ~, ~] = fileparts(fileName);
                     if ~isfolder(path)
                         mkdir(path);
@@ -653,14 +651,14 @@ classdef Regions
             modisEndWaterYear = waterYear - 1;
 
             % Retrieval of aggregated data files
-            historicalSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-                obj.regionName, obj.maskName, modisBeginWaterYear, modisEndWaterYear);
+            historicalSummaryFile = obj.espEnv.SummarySnowFile(obj, ...
+                modisBeginWaterYear, modisEndWaterYear);
             historicalStats = load(historicalSummaryFile);
             fprintf('%s: Reading historical stats from %s\n', mfilename(), ...
                 historicalSummaryFile);
 
-            currentSummaryFile = obj.espEnv.SummarySnowFile(obj.modisData, ...
-                obj.regionName, obj.maskName, waterYear, waterYear);
+            currentSummaryFile = obj.espEnv.SummarySnowFile(obj, ...
+                waterYear, waterYear);
             currentStats = load(currentSummaryFile);
             fprintf('%s: Reading current WY stats from %s\n', mfilename(), ...
                 currentSummaryFile);
@@ -669,15 +667,13 @@ classdef Regions
             %-------------------------------
             variables = obj.espEnv.configurationOfVariables();
             availableVariables = variables(find(variables.write_stats_csv == 1), :);
-            outputDirectory = fullfile(obj.espEnv.dirWith.RegionalStatsCsv, ...
-                sprintf('WY%04d', waterYear));
+            outputDirectory = obj.espEnv.SummaryCsvDir(obj);
             if ~isdir(outputDirectory)
                 mkdir(outputDirectory);
             end
 
-            obj.writeStats(historicalStats, ...
-                currentStats, availableVariables, outputDirectory, ...
-                NaN, NaN, waterYearDate);
+            obj.writeStats(historicalStats, currentStats, ...
+		availableVariables, outputDirectory, NaN, NaN, waterYearDate);
         end 
     end
 
