@@ -179,14 +179,12 @@ classdef Regions
             % NB mstruct of regions are wrong and cannot be used here
 
             outputProjection = projcrs(geotiffEPSG);
-            pixelSize = obj.RefMatrix(2,1); %Size of pixel
             InRR = rasterReference;
             InS = InRR.ProjectedCRS;
             OutS = outputProjection;
             [XIntrinsic, YIntrinsic] =...
                 meshgrid([1 InRR.RasterSize(2)],[1 InRR.RasterSize(1)]);
             [xWorld, yWorld] = intrinsicToWorld(InRR, XIntrinsic, YIntrinsic);
-                %RasterReprojection package
 
             [latlim,lonlim] = projinv(InS,xWorld,yWorld);
             [x,y] = projfwd(OutS, latlim, lonlim);
@@ -280,7 +278,7 @@ classdef Regions
         end
 
         function writeGeotiffs(obj, availableVariables, ...
-            outputDirectory, varName, waterYearDate)
+            outputDirectory, lastDateOnly, varName, waterYearDate)
             % Write the geotiffs of the upper level region
             % over a period up to a date to output directory.
             % The geotiff is cropped according geotiffCrop properties
@@ -295,6 +293,8 @@ classdef Regions
             %        can be aggregated in statistics.
             % outputDirectory: Str
             %        Directory where the files are written
+            % lastDateOnly: boolean, true for only last date, otherwise
+            %        loop for all days to date
             % varName: str, Optional
             %         name of the variable on which the stats are aggregated
             %         e.g. albedo_clean_muZ, albedo_observed_muZ, snow_fraction
@@ -311,7 +311,7 @@ classdef Regions
 
             % instantiate the variable indexes on which to loop
             % ------------------------------------------------------------
-            if ~exist('varName', 'var') | isnan(varName)
+            if ~exist('varName', 'var') || isnan(varName)
                 availableVariablesSize = size(availableVariables);
                 varIndexes = 1:availableVariablesSize(1);
             else
@@ -334,7 +334,13 @@ classdef Regions
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
             end
-            dateRange = waterYearDate.getDailyDatetimeRange();
+
+            if lastDateOnly
+                mosaic = Mosaic(obj);
+                dateRange = mosaic.getMostRecentMosaicDt(waterYearDate);
+            else
+                dateRange = waterYearDate.getDailyDatetimeRange();
+            end
 
             % Projections and crop extent
             % ---------------------------
@@ -346,7 +352,7 @@ classdef Regions
             outputProjection = projcrs(obj.geotiffEPSG); % RasterReprojection package
             pixelSize = obj.RefMatrix(2,1); %Size of pixel
 
-            [xLimit yLimit] = obj.getGeotiffExtentMinusCrop(Regions.geotiffEPSG);
+            [xLimit, yLimit] = obj.getGeotiffExtentMinusCrop(Regions.geotiffEPSG);
 
             % Generation
             % ----------
@@ -355,9 +361,10 @@ classdef Regions
     	    % needing as much as 70GB memory.
             % So, plan to run this system on alpine with 32 tasks in order
     	    % to get all the memory on the node, and and limit workers here
-            espEnv.configParallelismPool(3);
+            %espEnv.configParallelismPool(3);
 
-            parfor dateIdx=1:length(dateRange)
+            %parfor dateIdx=1:length(dateRange)
+            for dateIdx=1:length(dateRange)
                 thisDatetime = dateRange(dateIdx);
                 publicMosaicData = publicMosaic.getThresholdedData(thisDatetime);
                 if isempty(fieldnames(publicMosaicData))
@@ -406,22 +413,24 @@ classdef Regions
                     % - yLimit (YLimit): vector of length 2: minimum & maximum
                     %           of output y-coordinates (default is to cover extent of A)
                     [projectedVarData, RRB, fillvalue] = ...
-                            rasterReprojection(varData, ...
-                                rasterReference, ...
-                                'OutProj', outputProjection, ...
-                                'method', 'nearest', ...
-                                'pixelsize', pixelSize, ...
-                                'Xlimit', xLimit, ...
-                                'Ylimit', yLimit);
+                        rasterReprojection(varData, ...
+                        rasterReference, ...
+                        'OutProj', outputProjection, ...
+                        'method', 'nearest', ...
+                        'pixelsize', pixelSize, ...
+                        'Xlimit', xLimit, ...
+                        'Ylimit', yLimit);
 
-                    outputDirectory2 = fullfile(outputDirectory, varName);
+        		    % Set up output directories by day 
+                    % This will make transfers to NSIDC easier
+                    outputDirectory2 = fullfile(outputDirectory, ...
+            			datestr(thisDatetime, 'yyyymmdd'));
                     if ~isfolder(outputDirectory2)
                         mkdir(outputDirectory2);
                     end
-                    outFilename = fullfile(outputDirectory2, ...
-                            [obj.regionName '_Terra_' ...
-                            datestr(thisDatetime,'yyyymmdd') ...
-                            '_' varName]);
+                    outFilename = obj.espEnv.SnowTodayGeotiffFile(...
+                        obj, outputDirectory2, 'Terra', thisDatetime, ...
+                        varName);
                     geotiffwrite(outFilename, ...
                         projectedVarData, ...
                         RRB, ...
@@ -432,22 +441,17 @@ classdef Regions
                     % Generation of the no-processed layer which indicates the NaNs
                     if strcmp(varName, 'snow_cover_days')
                         notProcessedData = projectedVarData == Variables.uint16NoData;
-                        outputDirectory2 = fullfile(outputDirectory, 'notprocessed');
-                        if ~isdir(outputDirectory2)
-                            mkdir(outputDirectory2);
-                        end
-                        outFilename = fullfile(outputDirectory2, ...
-                            [obj.regionName '_Terra_' ...
-                            datestr(thisDatetime,'yyyymmdd') ...
-                            '_notprocessed']);
+            			outFilename = obj.espEnv.SnowTodayGeotiffFile(...
+                            obj, outputDirectory2, 'Terra', thisDatetime, ...
+                            'notprocessed');
                         geotiffwrite(outFilename, ...
-            			    notProcessedData, ...
+               			    notProcessedData, ...
                             RRB, ...
                             'CoordRefSysCode', obj.geotiffEPSG, ...
                             'TiffTags', ...
                             struct('Compression', obj.geotiffCompression));
-            			fprintf('%s: Wrote %s\n', mfilename(), ...
-                            outFilename);
+               			fprintf('%s: Wrote %s\n', mfilename(), ...
+                			outFilename);
 
                     end
                 end
@@ -491,7 +495,7 @@ classdef Regions
             % instantiate the region and variable indexes on which to loop
             % ------------------------------------------------------------
 
-            if ~exist('subRegionIndex', 'var') | isnan(subRegionIndex)
+            if ~exist('subRegionIndex', 'var') || isnan(subRegionIndex)
                 size1 = size(obj.ShortName);
                 countOfSubRegions = size1(1, 1);
                 subRegionIndexes = 1:countOfSubRegions;
@@ -499,7 +503,7 @@ classdef Regions
                 subRegionIndexes = subRegionIndex;
             end
 
-            if ~exist('varName', 'var') | isnan(varName)
+            if ~exist('varName', 'var') || isnan(varName)
                 availableVariablesSize = size(availableVariables);
                 varIndexes = 1:availableVariablesSize(1);
             else
@@ -607,9 +611,11 @@ classdef Regions
             end
         end
 
-        function runWriteGeotiffs(obj, waterYearDate)
+        function runWriteGeotiffs(obj, lastDateOnly, waterYearDate)
             % Parameters
             % ----------
+            % lastDateOnly: true to process date of waterYearDate object,
+            %    otherwise do complete water year to date
             % waterYearDate: waterYearDate, optional
             %    Date of the run (today, or another day before if necessary)
 
@@ -623,15 +629,11 @@ classdef Regions
             % Variables and output directory
             %-------------------------------
             confOfVar = obj.espEnv.configurationOfVariables();
-            availableVariables = confOfVar(find(confOfVar.write_geotiffs == 1), :);
-            baseDir = sprintf('%s_%s', obj.espEnv.dirWith.VariablesGeotiff, ...
-                obj.modisData.versionOf.VariablesGeotiff);
-            outputDirectory = fullfile( baseDir, ...
-                sprintf('EPSG_%d', obj.geotiffEPSG), ...
-                obj.geotiffCompression, ...
-                sprintf('WY%04d', waterYear));
+            availableVariables = confOfVar(...
+                find(confOfVar.write_geotiffs == 1), :);
+            outputDirectory = obj.espEnv.SnowTodayGeotiffDir(obj);
             obj.writeGeotiffs(availableVariables, outputDirectory, ...
-                NaN, waterYearDate);
+                lastDateOnly, NaN, waterYearDate);
         end
 
         function runWriteStats(obj, waterYearDate)
@@ -667,8 +669,8 @@ classdef Regions
             %-------------------------------
             variables = obj.espEnv.configurationOfVariables();
             availableVariables = variables(find(variables.write_stats_csv == 1), :);
-            outputDirectory = obj.espEnv.SummaryCsvDir(obj);
-            if ~isdir(outputDirectory)
+            outputDirectory = obj.espEnv.SummaryCsvDir(obj, waterYearDate);
+            if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
 

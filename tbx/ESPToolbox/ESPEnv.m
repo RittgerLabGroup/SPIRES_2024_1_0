@@ -375,20 +375,43 @@ classdef ESPEnv
                 region.maskName));
         end
 
-        function f = SummaryCsvDir(obj, region)
+        function f = SummaryCsvDir(obj, region, waterYearDate)
             % SummaryCsvDir returns the dir with csv versions of statistics summary file
             myDir = sprintf('%s_%s', obj.dirWith.RegionalStatsCsv, ...
                 region.modisData.versionOf.RegionalStatsCsv);
 
             f = fullfile(myDir, ...
                 sprintf('v%03d', region.modisData.versionOf.MODISCollection), ...
-                region.regionName);
+                region.regionName, ...
+		sprintf('WY%04d', waterYearDate.getWaterYear()));
         end
 
         function f = SummaryCsvFile(obj, region, idx, outDir, varName, waterYear)
 	    % This filename for csv stats summary files is expected by the front-end
 	    fileName = sprintf('SnowToday_%s_%s_WY%04d_yearToDate.csv', ...
                 region.ShortName{idx}, varName, waterYear);                	       
+            f = fullfile(outDir, fileName);
+        end
+
+        function f = SnowTodayGeotiffDir(obj, region)
+
+            myDir = sprintf('%s_%s', obj.dirWith.VariablesGeotiff, ...
+                region.modisData.versionOf.VariablesGeotiff);
+
+            f = fullfile(myDir, ...
+                sprintf('v%03d', region.modisData.versionOf.MODISCollection), ...
+                region.regionName, ...
+                sprintf('EPSG_%d', region.geotiffEPSG), ...
+                region.geotiffCompression);
+
+        end
+
+        function f = SnowTodayGeotiffFile(obj, region, outDir, platformName, ...
+	    Dt, varName)
+	    % This filename for geotiffs is expected by the front-end
+	    fileName = sprintf('%s_%s_%s_%s.tif', ...
+                region.regionName, platformName, datestr(Dt, 'yyyymmdd'), ...
+                varName);                	       
             f = fullfile(outDir, fileName);
         end
 

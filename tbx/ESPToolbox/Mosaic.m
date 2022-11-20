@@ -279,5 +279,22 @@ classdef Mosaic
             availableVariables = confOfVar(find(confOfVar.write_mosaics == 1), :);
             obj.writeFiles(waterYearDate, availableVariables);
         end
+
+    	function Dt = getMostRecentMosaicDt(obj, waterYearDate)
+    	    % Gets the most recent mosaic file in this water year, or
+            % NaT if no mosaic file is found
+
+    	    Dt = NaT;
+    	    dateRange = waterYearDate.getDailyDatetimeRange();
+    	    for i=length(dateRange):-1:1
+        		mosaicFilename = obj.regions.espEnv.MosaicFile(...
+                    obj.regions, dateRange(i));
+        		if isfile(mosaicFilename)
+        		    Dt = dateRange(i);
+        		    break;
+        		end
+    	    end
+
+    	end
     end
 end 
