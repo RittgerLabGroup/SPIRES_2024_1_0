@@ -3,7 +3,7 @@ comment,,,prefix or suffix of field calculated in runStatsForLinePlots(),Descrip
 ,,albedo_clean_mu0,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,0,0,0,,,
 ,,albedo_observed_mu0,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,0,0,0,,,
 Clean Snow Albedo,,albedo_clean_muZ,albedo,Median Regional Snow Albedo,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,1,0,0,,,
-Snow Albedo,,albedo_observed_muZ,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,1,0,1,,,
+Snow Albedo,,albedo_observed_muZ,albedo,Median Regional Snow Albedo,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,1,0,1,,,
 Decrease in visible Albedo from Dust and Soot,DVT,deltavis,,,single,uint8,uint8,uint8,percent,percent,percent,1,1,255,255,255,255,0,75,1,0,1,1,1,0,,,
 Snow Grain Size,GmT,grain_size,,,single,uint16,uint16,uint16,microns,micrometers,micrometers,1,1,65535,65535,65535,65535,10,1100,1,0,1,1,1,0,,,
 ,GdT,drfs_grnsz,,,single,uint16,uint16,uint16,microns,micrometers,micrometers,1,1,65535,65535,65535,65535,10,1100,0,0,1,0,1,0,,,check min max and units
