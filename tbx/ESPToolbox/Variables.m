@@ -14,6 +14,8 @@ classdef Variables
                                     % calculations
         albedoDownscaleFactor = 0.63; % Factor for albedo_clean in albedo_observed
                                       % calculations
+        albedoMinGrainSize = 1;  % Min grain size accepted to calculate albedo
+                                    % spires in parBal package
         albedoMaxGrainSize = 1999;  % Max grain size accepted to calculate albedo
                                     % spires in parBal package
     end
@@ -203,7 +205,7 @@ classdef Variables
 
             albedoNames = {'albedo_clean_mu0'; 'albedo_clean_muZ'; ...
                 'albedo_observed_mu0'; 'albedo_observed_muZ'};
-            confOfVar = espEnv.configurationOfVariables();                        
+            confOfVar = espEnv.configurationOfVariables();
 
             % 2. Update each daily mosaic files for the full
             % period by calculating albedos
@@ -235,9 +237,11 @@ classdef Variables
                 end
 
                 % 2.b. Loading the daily file
-                %      If snow_fraction is 0, set the grain_size
-                %      to NaN to get final albedos to NaN
-                %-----------------------------------------------
+                % If snow_fraction is 0, set the grain_size
+                %  to NaN to get final albedos to NaN
+                % convert all variables to double (and NaN) for
+                % parBal package
+                %----------------------------------------------
                 errorStruct = struct();
                 mosaicFile = espEnv.MosaicFile(regions, dateRange(dateIdx));
 
@@ -255,23 +259,6 @@ classdef Variables
                     continue;
                 end
 
-
-                % Find and save nodata locations for variables that
-                % spires albedo will use; be conservative and take the
-                % union of all NaN locations
-                noData = load(mosaicFile, ...
-                    'solar_azimuth_nodata_value', ...
-                    'solar_zenith_nodata_value', ...
-        		    'grain_size_nodata_value', ...
-        		    'deltavis_nodata_value');
-                nans = mosaicData.solar_zenith == noData.solar_zenith_nodata_value;
-                nans = nans ...
-                    | mosaicData.solar_azimuth == noData.solar_azimuth_nodata_value;
-        		nans = nans ...
-                    | mosaicData.grain_size == noData.grain_size_nodata_value;
-        		nans = nans ...
-                    | mosaicData.deltavis == noData.deltavis_nodata_value;
-
                 mosaicFieldnames = fieldnames(mosaicData);
                 for fieldIdx = 1:length(mosaicFieldnames)
                     fieldname = mosaicFieldnames{fieldIdx};
@@ -279,6 +266,10 @@ classdef Variables
                         continue;
                     end
                     mosaicData.(fieldname) = cast(mosaicData.(fieldname), 'double');
+                    varInfos = confOfVar(find( ...
+                        strcmp(confOfVar.output_name, fieldname)), :);
+                    mosaicData.(fieldname)(mosaicData.(fieldname) == ...
+                        varInfos.nodata_value) = NaN;
                     mosaicData.(fieldname)(mosaicData.snow_fraction == ...
                         Variables.uint8NoData) = NaN;
                 end
@@ -286,7 +277,7 @@ classdef Variables
                 mosaicData.(fieldname) = cast(mosaicData.(fieldname), 'double');
                 mosaicData.(fieldname)(mosaicData.snow_fraction == ...
                     Variables.uint8NoData) = NaN;
-                    
+
                 fprintf('%s: Loading snow_fraction and other vars from %s\n', ...
                         mfilename(), mosaicFile);
 
@@ -295,34 +286,31 @@ classdef Variables
                 % aspect (muZ)
                 % + cap of grain size to max value accepted by parBal.spires
                 % use of ParBal package: .sunslope and .spires_albedo.
-                % spires_albedo needs no data values to be NaNs
-                %----------------------------------------------------------- 
+                %-----------------------------------------------------------
                 mu0 = cosd(mosaicData.solar_zenith);
-                mu0(nans) = NaN;
 
                 % phi0: Normalize stored azimuths to expected azimuths
                 % stored data is assumed to be -180 to 180 with 0 at North
-                % expected data is assumed to be +ccw from South, -180 to 180 
+                % expected data is assumed to be +ccw from South, -180 to 180
                 phi0 = 180. - mosaicData.solar_azimuth;
                 phi0(phi0 > 180) = phi0(phi0 > 180) - 360;
-                phi0(nans) = NaN;
 
                 muZ = sunslope(mu0, phi0, slope, aspect);
 
                 grainSizeForSpires = mosaicData.grain_size;
                 grainSizeForSpires(grainSizeForSpires > ...
                     obj.albedoMaxGrainSize) = obj.albedoMaxGrainSize;
+                grainSizeForSpires(grainSizeForSpires < ...
+                    obj.albedoMinGrainSize) = obj.albedoMinGrainSize;
 
                 % 2.d. Calculations of clean albedos, corrections to
                 % obtain observed albedos
                 % sanity check min-max, replacement for nodata and
                 % recast to type and save
                 %---------------------------------------------------
-                albedos.albedo_clean_mu0 = spires_albedo(...
-                    grainSizeForSpires, mu0, ...
+                albedos.albedo_clean_mu0 = spires_albedo(grainSizeForSpires, mu0, ...
                     regions.atmosphericProfile);
-                albedos.albedo_clean_muZ = spires_albedo(...
-                    grainSizeForSpires, muZ, ...
+                albedos.albedo_clean_muZ = spires_albedo(grainSizeForSpires, muZ, ...
                     regions.atmosphericProfile);
 
                 albedoObservedCorrection = (cast(mosaicData.deltavis, 'double') / ...
@@ -338,9 +326,6 @@ classdef Variables
                     albedoName = albedoNames{albedoIdx};
 					albedos.(albedoName) = albedos.(albedoName) * ...
 						Variables.albedoScale;
-                    albedos.(albedoName)(isnan(mosaicData.grain_size)) = 0;
-					albedos.(albedoName) = cast(albedos.(albedoName), ...
-                        albedos.([albedoName '_type']));
 
                     if min(albedos.(albedoName), [], 'all') < albedos.([albedoName '_min']) ...
                     || max(albedos.(albedoName), [], 'all') > albedos.([albedoName '_max'])
@@ -351,15 +336,17 @@ classdef Variables
                             albedoName, [albedoName '_min'], [albedoName '_max']);
                         error(errorStruct);
                     end
-                    albedos.(albedoName)(isnan(mosaicData.grain_size)) = ...
+                    albedos.(albedoName)(isnan(albedos.(albedoName)) | ...
+                        isnan(mosaicData.snow_fraction) | ...
+                        mosaicData.snow_fraction == 0) = ...
                         albedos.([albedoName '_nodata_value']);
+                    albedos.(albedoName) = cast(albedos.(albedoName), ...
+                        albedos.([albedoName '_type']));
                 end
 
                 % 2.e. Save albedos and params in Mosaic Files
                 %---------------------------------------------
                 Tools.parforSaveFieldsOfStructInFile(mosaicFile, albedos, 'append');
-                fprintf('%s: saved albedo to %s\n', mfilename(), ...
-                    mosaicFile);
             end
 
             t2 = toc;
