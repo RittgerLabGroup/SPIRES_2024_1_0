@@ -166,6 +166,9 @@ classdef WaterYearDate
             firstDate = datetime(firstYear, firstMonth, obj.monthFirstDay, ...
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
+            if firstDate > obj.thisDatetime %when monthWindow == 0
+                firstDate = obj.thisDatetime;
+            end
 
             dateRange = firstDate:obj.thisDatetime;
         end
