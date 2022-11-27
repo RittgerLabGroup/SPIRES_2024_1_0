@@ -10,6 +10,6 @@ Snow Grain Size,GmT,grain_size,,,single,uint16,uint16,uint16,microns,micrometers
 Snow Radiative Forcing,RFT,radiative_forcing,radiative_forcing,Median Regional Snow Radiative Forcing,single,uint16,uint16,uint16,W/m^2,Watts per square meter,Watts per square meter,1,1,65535,65535,65535,65535,0,500,1,0,1,1,1,1,,,
 ,SolAzimuth,solar_azimuth,,,int16,int16,int16,int16,degrees,degrees,degrees,1,1,32767,32767,32767,32767,-180,180,1,0,1,0,1,0,,,check type and min max
 ,SolZ,solar_zenith,,,uint8,uint8,uint8,uint8,,,,1,1,255,255,255,255,0,90,1,0,1,0,1,0,,,check type
-Snow Cover Days,,snow_cover_days,scd_sum,Snow Cover Days,single,uint16,uint16,uint16,days,days,days,1,1,65535,65535,65535,65535,0,365,1,0,1,1,1,1,,,
+Snow Cover Days,,snow_cover_days,scd_sum,Snow Cover Days,single,uint16,uint16,uint16,days,days,days,1,1,65535,65535,0,0,0,365,1,0,1,1,1,1,,,
 Snow Cover Percent,STc,snow_fraction,sca_area_km2,Total Snow Cover Area,single,uint8,uint8,uint8,percent,percent,Area (thousands of square kilometers),100,1,255,255,0,0,0,100,1,1,1,1,1,1,,,
 Viewable Snow Cover Percent,STv,viewable_snow_fraction,,,single,uint8,uint8,uint8,percent,percent,Area (thousands of square kilometers),100,1,255,255,0,0,0,100,1,0,1,1,1,0,,,
