@@ -57,7 +57,7 @@ classdef Mosaic
 
             % Start or connect to the local pool (parallelism)
             % Trial and error: this process is a real memory pig
-            espEnv.configParallelismPool(6);
+            espEnv.configParallelismPool(5);
 
             parfor monthDatetimeIdx = 1:length(monthRange)
             %for monthDatetimeIdx = 1:length(monthRange)
