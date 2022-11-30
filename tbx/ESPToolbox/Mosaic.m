@@ -57,10 +57,9 @@ classdef Mosaic
 
             % Start or connect to the local pool (parallelism)
             % Trial and error: this process is a real memory pig
-            espEnv.configParallelismPool(6);
+            espEnv.configParallelismPool(5);
 
             parfor monthDatetimeIdx = 1:length(monthRange)
-            %for monthDatetimeIdx = 1:length(monthRange)
                 % 2.1. Initialize the parfor variables
                 %------------------------------------
                 monthDatetime = monthRange(monthDatetimeIdx);
@@ -279,5 +278,22 @@ classdef Mosaic
             availableVariables = confOfVar(find(confOfVar.write_mosaics == 1), :);
             obj.writeFiles(waterYearDate, availableVariables);
         end
+
+    	function Dt = getMostRecentMosaicDt(obj, waterYearDate)
+    	    % Gets the datetime of the most recent mosaic file 
+	    % in this water year, or NaT if no mosaic file is found
+
+    	    Dt = NaT;
+    	    dateRange = waterYearDate.getDailyDatetimeRange();
+    	    for i=length(dateRange):-1:1
+        	mosaicFilename = obj.regions.espEnv.MosaicFile( ...
+                    obj.regions, dateRange(i));
+        	if isfile(mosaicFilename)
+        	    Dt = dateRange(i);
+        	    break;
+        	end
+    	    end
+
+    	end
     end
 end 
