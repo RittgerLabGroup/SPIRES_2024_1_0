@@ -14,8 +14,13 @@
 # Caller can override this with regionName
 #SBATCH --job-name SCD-regionName
 #SBATCH --time=01:00:00
-# Caller should override this if numTiles is not 5
-#SBATCH --ntasks-per-node=5
+# Trial and error: memory requirements are large,
+# this might need to change max number of tiles that
+# can be processed this way
+# Data for 5 westernUS tiles for WY=2001-2021 took
+# up to 28 GB memory per tile/year
+# matlab job uses parfor with nTiles workers
+#SBATCH --ntasks-per-node=32
 #SBATCH --nodes=1
 #SBATCH --partition=amilan
 #SBATCH --account=ucb-general
@@ -129,8 +134,8 @@ rm -rf $TMPDIR
 
 # Stop the stopwatch and report elapsed time
 elapsedSeconds=$SECONDS
-TZ=UTC0 printf '${PROGNAME}: Duration: %(%H:%M:%S)T\n' "$elapsedSeconds"
+duration=$(TZ=UTC0 printf 'Duration: %(%H:%M:%S)T\n' "$elapsedSeconds")
 
 thisDate=$(date)
-echo "${PROGNAME}: Done on hostname=$thisHost on $thisDate"
+echo "${PROGNAME}: Done on hostname=$thisHost on $thisDate [${duration}]"
 

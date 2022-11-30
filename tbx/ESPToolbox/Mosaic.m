@@ -56,9 +56,11 @@ classdef Mosaic
             monthRange = waterYearDate.getMonthlyFirstDatetimeRange();
 
             % Start or connect to the local pool (parallelism)
-            espEnv.configParallelismPool();
+            % Trial and error: this process is a real memory pig
+            espEnv.configParallelismPool(6);
 
             parfor monthDatetimeIdx = 1:length(monthRange)
+            %for monthDatetimeIdx = 1:length(monthRange)
                 % 2.1. Initialize the parfor variables
                 %------------------------------------
                 monthDatetime = monthRange(monthDatetimeIdx);
@@ -141,8 +143,12 @@ classdef Mosaic
                     tileData.lr(tileId, :) = [tileData.sizes(tileId, :) 1] * ...
                         squeeze(tileData.RefMatrices(tileId, :, :));
 
-                    mosaicData.mindays(tileId) = {tileSTCData.mindays};
-                    mosaicData.zthresh(tileId) = {tileSTCData.zthresh};
+                    % This indirection is due to matfile 7.3 limitation
+                    % It won't allow us to directly index into 
+                    % structure fields
+                    thisSTC = tileSTCData.STC;
+                    mosaicData.mindays(tileId) = {thisSTC.mindays};
+                    mosaicData.zthresh(tileId) = {thisSTC.zthresh};
                 end
 
                 mosaicData.RefMatrix = zeros(3,2);
@@ -226,8 +232,8 @@ classdef Mosaic
                         'value_for_unreliable'};
 
                     mosaicDataForAllDays.(replacedVarname) ...
-                        (mosaicDataForAllDays.(thresholdedVarname) < thresholdValue) ...
-                            = valueForUnreliableData;
+			(mosaicDataForAllDays.(thresholdedVarname) ...
+                        < thresholdValue) = valueForUnreliableData;
                 end
                 
                 % 2.7. Generate and write the daily Mosaic Files
@@ -247,6 +253,8 @@ classdef Mosaic
                     % another function (in our Tools package).
                     Tools.parforSaveFieldsOfStructInFile(mosaicFile, ...
                         mosaicData, 'new_file');
+                    fprintf('%s: Saved mosaic data to %s\n', mfilename(), ...
+                        mosaicFile);
                 end
             end % end parfor
             t2 = toc;
@@ -269,7 +277,7 @@ classdef Mosaic
             %------------------
             confOfVar = espEnv.configurationOfVariables();
             availableVariables = confOfVar(find(confOfVar.write_mosaics == 1), :);
-            writeMosaicFiles(waterYearDate, availableVariables);
+            obj.writeFiles(waterYearDate, availableVariables);
         end
     end
 end 
