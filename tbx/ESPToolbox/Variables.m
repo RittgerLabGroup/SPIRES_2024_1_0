@@ -241,6 +241,13 @@ classdef Variables
                 %  to NaN to get final albedos to NaN
                 % convert all variables to double (and NaN) for
                 % parBal package
+		% Since Mosaic files are stored as int and the ParBal functions
+		% use floats as input arguments, we 
+		% 1. cast the Mosaic data to the float type and 
+		%    replace no_data_value by NaNs, 
+		% 2. use the ParBal functions, and then
+		% 3. replace the albedo NaNs by no_data_value and cast 
+		%    the albedos to integers.
                 %----------------------------------------------
                 errorStruct = struct();
                 mosaicFile = espEnv.MosaicFile(regions, dateRange(dateIdx));
@@ -258,7 +265,6 @@ classdef Variables
                         mfilename(), mosaicFile);
                     continue;
                 end
-
 
                 % Find and save nodata locations for variables that
                 % spires albedo will use; be conservative and take the

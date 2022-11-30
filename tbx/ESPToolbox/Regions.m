@@ -353,7 +353,7 @@ classdef Regions
             % This processing tends to be a memory hog, with each worker
             % needing as much as 70GB memory.
             % So, plan to run this system on alpine with 32 tasks in order
-            % to get all the memory on the node, and and limit workers here
+            % to get all the memory on the node, and then limit workers here
             espEnv.configParallelismPool(3);
 
             parfor dateIdx=1:length(dateRange)

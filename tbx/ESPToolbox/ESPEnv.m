@@ -386,10 +386,10 @@ classdef ESPEnv
 		sprintf('WY%04d', waterYearDate.getWaterYear()));
         end
 
-        function f = SummaryCsvFile(obj, region, idx, outDir, varName, waterYear)
+        function f = SummaryCsvFile(obj, region, subRegionIdx, outDir, varName, waterYear)
 	    % This filename for csv stats summary files is expected by the front-end
 	    fileName = sprintf('SnowToday_%s_%s_WY%04d_yearToDate.csv', ...
-                region.ShortName{idx}, varName, waterYear);                	       
+                region.ShortName{subRegionIdx}, varName, waterYear);                	       
             f = fullfile(outDir, fileName);
         end
 
@@ -407,10 +407,10 @@ classdef ESPEnv
         end
 
         function f = SnowTodayGeotiffFile(obj, region, outDir, platformName, ...
-	    Dt, varName)
+	    thisDatetime, varName)
 	    % This filename for geotiffs is expected by the front-end
 	    fileName = sprintf('%s_%s_%s_%s.tif', ...
-                region.regionName, platformName, datestr(Dt, 'yyyymmdd'), ...
+                region.regionName, platformName, datestr(thisDatetime, 'yyyymmdd'), ...
                 varName);                	       
             f = fullfile(outDir, fileName);
         end
