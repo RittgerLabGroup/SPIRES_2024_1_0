@@ -50,19 +50,29 @@ The user of this toolbox will need to have a license to run:
 To check that these are installed in your version of Matlab:
 
 1. [Connect to the Matlab GUI from a viz node](#matlab-gui)
-2. In the GUI, go to ...
+2. In the GUI Command Window, check for currently installed Toolboxes with the 'ver' command:
+```
+>> stuff = matlab.addons.installedAddons
+```
+this will populate a table with names and versions of all currently installed Toolboxes. In the Workspace Window, you can click on it to sort/see it.
+
+3. To install a Toolbox:
+   - in the GUI top nav "AddOns->Manage AddOns"
+   - in Add-On Manager window, top right, "Get Add-Ons"
+   - in the Add-On Explorer window, search for the toolbox you want
+   - click "Add" and follow prompts (you will need to create a CU Mathworks account for this to work)
 
 ### Other Required Matlab packages
 
 Go to the location where you have installed the esp repository and install the
 following packages from github:
 
-1. ParBal (git@github.com:edwardbair/ParBal.git) - for albedo calculations
-2. plotboxpos (https://github.com/kakearney/plotboxpos-pkg.git) - for plotting routines
-3. RasterReprojection (https://github.com/DozierJeff/RasterReprojection.git) - for
-   reprojecting raster images
+1. ParBal, for albedo calculations:
+   - git clone git@github.com:edwardbair/ParBal.git
+2. RasterReprojection, for reprojecting raster images:
+   - git clone git@github.com:DozierJeff/RasterReprojection.git
 
-These packages are assumed to be installed in the same location as "esp".  This
+These packages are assumed to be installed in the same location as "esp" (as sibling directories to your clone of "esp").  This
 is controlled from the pathdef.m file.
 
 ### Define symlink for pathdef.m file
@@ -85,13 +95,15 @@ ln -s pathdef_esp_dev_R2021b.m pathdef.m
 >>> path
 ```
 
-and confirm that...
+and confirm that the output includes your installed locations of ParBal and RasterReprojection.
 
 ### System dependencies
 
 A working version of wget is required to run fetch routines from JPL.
 
-To install wget...
+In the past I have had to install my own copy of wget, but it looks like the current Alpine system already has it configured.
+
+If we find that wget is not available to you, we should contact rc-help@colorado.edu
 
 ## Operational Notes
 
@@ -207,8 +219,6 @@ To test a new Toolbox release:
 2.  Check and remove any previous Toolbox paths from the matlab path.
 3.  Double-click the new .mltbx file to add it to the path.
 
-## Run Requirements:
-
 ## For development only: Running matlab with a release-specific pathdef.m
 
 The pathdef.m will be specific to a version of matlab, I have
@@ -265,10 +275,10 @@ tight_subplot: https://??
 
 1. In your Web browser, connect to ondemand.rc.colorado.edu and authorize with identikey
 2. Top nav, go to "Interactive Apps"→"Core Desktop"
-3. Ask for node/cores, leave account blank to use default, (default is ucb-general)
+3. Ask for hours/cores, leave account blank to use default, (default is ucb-general)
 4. Once in the core desktop, open the Terminal app (small icon near the top left) (you are now on a viz node; you cannot schedule jobs on non-viz clusters directly from here, but you can do so from a login node, so next step is to ssh to login node)
-5. Open a connection to a login node: ssh login.rc.colorado.edu
-6. Request a Summit or Alpine or Blanca interactive node with, for e.g.:
+5. Open a connection to a login node: ssh -X login.rc.colorado.edu and authorize with identikey
+6. Request an Alpine interactive node with, for e.g.:
 ```
 ml slurm/alpine
 salloc --nodes=1 --time=04:00:00 --ntasks=20 --mem=50G --partition=amilan --account=ucb-general
@@ -278,7 +288,7 @@ salloc --nodes=1 --time=04:00:00 --ntasks=20 --mem=50G --partition=amilan --acco
 ```
 ssh -X $SLURM_NODELIST
 ```
-8. On the interactive node, set up to start matlab:
+8. On the interactive node, set up to start matlab (you may need to mkdir the directory you are using for TMP and TMPDIR here):
 ```
 ml matlab/R2021b
 export TMP=/scratch/alpine/${USER}/.matlabTmp
@@ -287,7 +297,7 @@ cd /projects/${USER}/Documents/MATLAB/esp
 matlab
 ```
 
-(You can define this set of commands as an alias in your .bashrc file)
+(You can define these little sets of commands as aliases in your .bashrc file)
 The Matlab GUI should open up on the Core Desktop and be more responsive than other remote connections are.
 
 ## Annual Maintenance for upgrading Snow Today statistics files for complete historical record
