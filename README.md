@@ -144,6 +144,20 @@ sbatch ./runSnowTodayStep0.sh -L <LABEL>
 
 For WY2023, the current operational pipeline LABEL is "v2023.0"
 
+### STC Pipeline Flowcharts
+
+Flowcharts are managed lucidchart.com, available to anyone with access to the NSIDC group license.  When a chart must be changed, Publish it as a single page image, png, screen quality, and the links here should update automatically.
+
+[Step0](https://lucid.app/publicSegments/view/cf39be50-0b9e-453e-a572-8616dd94cf29/image.png) fetches date from JPL to our Petalibrary archive.
+
+[Step1](https://lucid.app/publicSegments/view/6f3526f7-6b0c-43e8-878e-c565b77ff596/image.png) updates monthly raw/gap/stc cubes for [thisMonth-2, thisMonth].
+
+[Step2](https://lucid.app/publicSegments/view/cdc7144f-52c0-45c2-9eab-58c8d83371d2/image.png) updates daily multivariate mosaics for [thisMonth-2, thisMonth].
+
+[Step3](https://lucid.app/publicSegments/view/a22598f5-ab9e-4b0c-a14f-c574d66ff5a5/image.png) updates regional (westernUS/States/HUC2) statistics, makes .csv versions and makes geotiffs of most recent day processed for all variables.
+
+[Step4](https://lucid.app/publicSegments/view/a8596fbf-9d1a-4081-b375-3be2e7f396f4/image.png) pushes .csv statistics and most recent geotiffs to NSIDC.
+
 ## Development Notes
 
 To create a new version of the Toolbox:
