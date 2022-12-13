@@ -49,7 +49,7 @@ The user of this toolbox will need to have a license to run:
 
 To check that these are installed in your version of Matlab:
 
-1. Connect to the Matlab GUI from a viz node (see instructions below)
+1. [Connect to the Matlab GUI from a viz node](#matlab-gui)
 2. In the GUI, go to ...
 
 ### Other Required Matlab packages
@@ -78,7 +78,7 @@ ln -s pathdef_esp_dev_R2021b.m pathdef.m
 
 ### Test installation and dependencies
 
-1. Connect to the Matlab GUI from a viz node (see instructions below)
+1. [Connect to the Matlab GUI from a viz node](#matlab-gui)
 2. At the command window, type
 
 ```
@@ -246,7 +246,8 @@ MTL_parser: https://www.mathworks.com/matlabcentral/fileexchange/39073-landsat-m
 tight_subplot: https://??
    for producing nice plots
 
-## Running the Matlab GUI on a CURC viz node
+<a name="matlab-gui"></a>
+## Running Matlab GUI
 
 1. In your Web browser, connect to ondemand.rc.colorado.edu and authorize with identikey
 2. Top nav, go to "Interactive Apps"→"Core Desktop"
