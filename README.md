@@ -29,10 +29,12 @@ To install the ESPToolbox:
 In the meantime, the alternative is to clone the esp repository to your
 /projects/$USER/ directory like this:
 
+```
 cd /projects/$USER
 mkdir -p Documents/MATLAB
 cd Documents/MATLAB
 git clone git@github.com:mjbrodzik/esp.git
+```
 
 This will clone the project to the directory "esp".
 
@@ -42,8 +44,8 @@ This will clone the project to the directory "esp".
 
 The user of this toolbox will need to have a license to run:
 
-Financial Toolbox
-Mapping Toolbox
+* Financial Toolbox
+* Mapping Toolbox
 
 To check that these are installed in your version of Matlab:
 
