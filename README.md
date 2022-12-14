@@ -107,6 +107,45 @@ If we find that wget is not available to you, we should contact rc-help@colorado
 
 ## Operational Notes
 
+### The "scratch shuffle"
+
+The STC pipeline is an I/O-intensive process that produces several versions of
+data files at each step in the process:
+
+1. The original input files from JPL are organized as daily MODIS tiles with
+MOD09GA reflectances, MODSCAG output and MODDRFS output
+
+2. "intermediary" files are monthly space-time MODIS tile cubes for 3 levels of
+aggregation: so-called "raw", "gap" and "stc"
+
+3. "variables" files are potentially multi-tile, daily mosaics, with
+spatially-temporally complete layers of multiple variables, including
+snow/rock/veg fraction and derived variables like radiative forcing and albedo;
+"variables" files can be .mat format, and can also include geotiff renderings of
+specific variables.
+
+4. "regional_stats" files are statistics derived from variables files, and can
+represent a long multi-year time series, or just the statistics for a single
+water year
+
+Our authoritative archive for all of these data is /pl/active/rittget_esp/.
+This PetaLibrary storage is robust and reliable, but access times make
+performance very slow.  As we have worked with the operational system, a review
+of the PetaLibrary performance led the RC-help staff to recommend that we do our
+daily processing on scratch storage. Scratch storage is temporary space and
+should not be used for reliable long-term storage. Files are automatically set
+to age off after residing on scratach for 90 days. The advantage to scratch is
+that it is fast: processing times for the STC pipeline take only 10-20% of wall
+time that they did when using petalibrary locations for data files.
+
+I have designed what I call the "scratch shuffle" to handle the transfer of only
+those files needed as input for each step (by tile/year/type) from PetaLibrary
+to the user's scratch space, and then for transfer of only those new files
+produced in that step back from scratch to PetaLibrary.  This has been tested
+since November 2022, and is a new concept for this year's processing.  Each of
+the flowcharts has gray arrows with general indications of what is needed for
+the scratch shuffle to work for each step.
+
 ### Testing the Pipeline
 
 The pipeline can be tested by using the -t option.  This will do the complete
