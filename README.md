@@ -40,6 +40,17 @@ This will clone the project to the directory "esp".
 
 ## Install dependencies
 
+### Define symlink for pathdef.m file
+
+The system can be configured to run with different versions of Matlab. This is
+controlled with a symlink that sets your processing to point the version you
+plan to run.  The current system is tested for Matlab R2021b, so do this:
+
+```
+cd /projects/${USER}/Documents/MATLAB/esp
+ln -s pathdef_esp_dev_R2021b.m pathdef.m
+```
+
 ### Required Matlab toolboxes
 
 The user of this toolbox will need to have a license to run:
@@ -50,13 +61,24 @@ The user of this toolbox will need to have a license to run:
 To check that these are installed in your version of Matlab:
 
 1. [Connect to the Matlab GUI from a viz node](#matlab-gui)
-2. In the GUI Command Window, check for currently installed Toolboxes with the 'ver' command:
+
+2. In the GUI Command Window, check for currently installed Toolboxes with the
+'ver' command:
+
+```
+>> ver
+```
+
+3. I think that the standard CURC matlab does activate these Toolboxes, but if
+you find that you need to install some others, another way to get addon details is:
+
 ```
 >> stuff = matlab.addons.installedAddons
 ```
+
 this will populate a table with names and versions of all currently installed Toolboxes. In the Workspace Window, you can click on it to sort/see it.
 
-3. To install a Toolbox:
+3. To install a new Toolbox:
    - in the GUI top nav "AddOns->Manage AddOns"
    - in Add-On Manager window, top right, "Get Add-Ons"
    - in the Add-On Explorer window, search for the toolbox you want
@@ -75,17 +97,6 @@ following packages from github:
 These packages are assumed to be installed in the same location as "esp" (as sibling directories to your clone of "esp").  This
 is controlled from the pathdef.m file.
 
-### Define symlink for pathdef.m file
-
-The system can be configured to run with different versions of Matlab. This is
-controlled with a symlink that sets your processing to point the version you plan to run.
-The current system is tested for Matlab R2021b, so do this:
-
-```
-cd /projects/${USER}/Documents/MATLAB/esp
-ln -s pathdef_esp_dev_R2021b.m pathdef.m
-```
-
 ### Test installation and dependencies
 
 1. [Connect to the Matlab GUI from a viz node](#matlab-gui)
@@ -101,9 +112,11 @@ and confirm that the output includes your installed locations of ParBal and Rast
 
 A working version of wget is required to run fetch routines from JPL.
 
-In the past I have had to install my own copy of wget, but it looks like the current Alpine system already has it configured.
+In the past I have had to install my own copy of wget, but it looks like the
+current Alpine system already has it configured.
 
-If we find that wget is not available to you, we should contact rc-help@colorado.edu
+If we find that wget is not available to you, we should contact
+rc-help@colorado.edu for their recommendation on how to get it installed.
 
 ## Operational Notes
 
