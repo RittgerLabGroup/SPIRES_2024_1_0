@@ -43,8 +43,9 @@ This will clone the project to the directory "esp".
 ### Define symlink for pathdef.m file
 
 The system can be configured to run with different versions of Matlab. This is
-controlled with a symlink that sets your processing to point the version you
-plan to run.  The current system is tested for Matlab R2021b, so do this:
+controlled with a symlink that sets your processing to point to the version you
+plan to run. The current system is tested for Matlab R2021b, so do this before 
+you run Matlab (either directly or through the bash scripts) for the first time:
 
 ```
 cd /projects/${USER}/Documents/MATLAB/esp
@@ -69,7 +70,7 @@ To check that these are installed in your version of Matlab:
 >> ver
 ```
 
-3. I think that the standard CURC matlab does activate these Toolboxes, but if
+3. [OPTIONAL] I think that the standard CURC matlab does activate these Toolboxes, but if
 you find that you need to install some others, another way to get addon details is:
 
 ```
@@ -78,7 +79,7 @@ you find that you need to install some others, another way to get addon details 
 
 this will populate a table with names and versions of all currently installed Toolboxes. In the Workspace Window, you can click on it to sort/see it.
 
-3. To install a new Toolbox:
+3. [OPTIONAL] To install a new Toolbox:
    - in the GUI top nav "AddOns->Manage AddOns"
    - in Add-On Manager window, top right, "Get Add-Ons"
    - in the Add-On Explorer window, search for the toolbox you want
@@ -158,6 +159,21 @@ produced in that step back from scratch to PetaLibrary.  This has been tested
 since November 2022, and is a new concept for this year's processing.  Each of
 the flowcharts has gray arrows with general indications of what is needed for
 the scratch shuffle to work for each step.
+
+### File permissions
+
+The pipeline will be reading and writing data on /pl/active/rittger_esp/. Anyone running the
+pipeline should be a member of Karl Rittger's shared group: kari0458grp. The group sticky-bit for this
+PetaLibrary location is set to kari0458grp, so files that you create/change should always be owned by kari0458grp (and
+therefore accessible to the rest of us.
+
+In addition, you should have your umask set to group read/write.  If your umask is not set to 0002, please
+add this in your .bashrc:
+
+```
+umask u=rwx,g=rwx,o=rx
+```
+After setting this, calling umask at the command line should return 0002.
 
 ### Testing the Pipeline
 
