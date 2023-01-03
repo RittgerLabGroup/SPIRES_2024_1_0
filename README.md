@@ -162,18 +162,30 @@ the scratch shuffle to work for each step.
 
 ### File permissions
 
-The pipeline will be reading and writing data on /pl/active/rittger_esp/. Anyone running the
-pipeline should be a member of Karl Rittger's shared group: kari0458grp. The group sticky-bit for this
-PetaLibrary location is set to kari0458grp, so files that you create/change should always be owned by kari0458grp (and
-therefore accessible to the rest of us.
+The pipeline will be reading and writing data on /pl/active/rittger_esp/. Anyone
+running the pipeline should be a member of Karl Rittger's shared group:
+kari0458grp. The group sticky-bit for this PetaLibrary location is set to
+kari0458grp, so files that you create/change should always be owned by
+kari0458grp (and therefore accessible to the rest of us.
 
-In addition, you should have your umask set to group read/write.  If your umask is not set to 0002, please
-add this in your .bashrc:
+In addition, you should have your umask set to group read/write.  If your umask
+is not set to 0002, please add this in your .bashrc:
 
 ```
 umask u=rwx,g=rwx,o=rx
 ```
 After setting this, calling umask at the command line should return 0002.
+
+### ssh key for transfers to NSIDC
+
+Step4 of the pipeline will copy required .csv/.tif files and a required TRIGGER
+file to an NSIDC location where ops looks for new data. The copy is accomplished
+using scp and an ssh key called "id_rsa_snowToday". A new operational user must
+obtain this ssh key pair in order for the scp to work successfully. The key pair
+should be stored in the user's ~/.ssh/ directory on research computing, with the
+private key (id_rsa_snowToday) set to permissions 600, and the public key
+(id_rsa_snowToday.pub) set to permissions 644. Possession of the ssh key pair
+should be the only requirement to push the data to NSIDC.
 
 ### Testing the Pipeline
 
