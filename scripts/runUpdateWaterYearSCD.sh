@@ -111,10 +111,10 @@ cd "${thisScriptDir}/../"
 SECONDS=0
 
 #Make a unique temporary directory for matlab job storage
-myTmpDir=/scratch/alpine/${USER}/slurmTmp/$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID
-mkdir -p $myTmpDir
-export TMPDIR=$myTmpDir
-export TMP=$myTmpDir
+tmpDir=/scratch/alpine/${USER}/.matlabTmp/alpine-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID
+mkdir -p $tmpDir
+export TMPDIR=$tmpDir
+export TMP=$tmpDir
 
 matlab -nodesktop -nodisplay -r "clear; "\
 "try; "\
