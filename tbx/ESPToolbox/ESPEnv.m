@@ -438,18 +438,41 @@ classdef ESPEnv
         end
 
         function [files, haveDaysPerMonth, expectedDaysPerMonth] = ...
-            rawFilesFor3months(obj, MData, regionName, yr, mm)
+            rawFilesFor3months(obj, MData, regionName, yr, mm, monthPosition)
             % RawFilesFor3months returns MOD09/SCAGDRFS cubes surrounding
             % this month
 
             regions = Regions(regionName, [regionName '_mask'], obj, MData);
 
-            % Look for cubes for previous and subsequent month
             thisMonthDt = datetime(yr, mm, 1);
-            priorMonthDt = thisMonthDt - calmonths(1:1);
-            nextMonthDt = thisMonthDt + calmonths(1:1);
 
-            Dts = [priorMonthDt, thisMonthDt, nextMonthDt];
+	    if strcmp(monthPosition, 'centered')
+
+                % Look for cubes for previous and subsequent month
+		priorMonthDt = thisMonthDt - calmonths(1:1);
+		nextMonthDt = thisMonthDt + calmonths(1:1);
+		Dts = [priorMonthDt, thisMonthDt, nextMonthDt];
+
+	    elseif strcmp(monthPosition, 'trailing')
+
+                % Look for cubes for 2 previous months 
+		% (make thisMonth the "trailing" month)
+		priorMonth2Dt = thisMonthDt - (2 * calmonths(1:1));
+		priorMonth1Dt = thisMonthDt - calmonths(1:1);
+		Dts = [priorMonth2Dt, priorMonth1Dt, thisMonthDt];
+
+	    else
+                errorStruct.identifier = ...
+                    'rawFilesFor3months:InvalidMonthPosition';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid monthPosition=%s, ' ...
+	             'should be centered or training.'], ...
+		    mfilename(), monthPosition);
+                error(errorStruct);
+	    end
+            fprintf('%s: %s: monthPosition=%s\n', ...
+                mfilename(), datestr(thisMonthDt), monthPosition);
+
             nMonths = length(Dts);
             expectedDaysPerMonth = zeros(nMonths, 1);
             haveDaysPerMonth = zeros(nMonths, 1);
@@ -471,7 +494,7 @@ classdef ESPEnv
 
                 if ~isfile(mod09file) || ~isfile(scagfile)
 
-                    % Either prev or next cubes might be missing, but
+                    % Other months might be missing, but
                     % there must be cubes for this month to continue
                     if thisMonthDt == Dts(i)
                         errorStruct.identifier = ...
