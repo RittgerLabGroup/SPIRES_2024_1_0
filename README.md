@@ -236,6 +236,45 @@ sbatch ./runSnowTodayStep0.sh -L <LABEL>
 
 For WY2023, the current operational pipeline LABEL is "v2023.0"
 
+### Updating the ESPToolbox with a new release
+
+When the developer pushes a new ESPToolbox software release to Github,
+they should notify the operator to update the operational system with
+a specific merge and pull request number.
+
+The operator can then follow these steps:
+
+1. Wait for the current day's processing to complete.
+
+2. Cancel the job that is scheduled to tomorrow morning (the new job
+will schedule another one):
+
+```
+scancel <jobID>
+```
+
+3. Pull the latest changes (usually from the master branch) to your cloned
+installation on CURC.  Assuming your local clone is on the master branch:
+
+```
+cd /projects/${USER}/Documents/MATLAB/esp
+git pull
+git status
+git log -n 1
+```
+
+The git status output should tell you that you are on the master branch. The git
+log command should say something like "Merge pull request #xxx from <BRANCHNAME>"
+that should match what the developer has just pushed.
+
+4. Re-start today's operational pipeline over from the beginning:
+
+```
+cd /projects/${USER}/Documents/MATLAB/esp/scripts
+ml slurm/alpine
+sbatch ./runSnowTodayStep0.sh -L v2023.0
+```
+
 ### STC Pipeline Flowcharts
 
 Flowcharts are managed lucidchart.com, available to anyone with access to the NSIDC group license.  When a chart must be changed, Publish it as a single page image, png, screen quality, and the links here should update automatically.
