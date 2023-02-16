@@ -164,9 +164,9 @@ the scratch shuffle to work for each step.
 
 The pipeline will be reading and writing data on /pl/active/rittger_esp/. Anyone
 running the pipeline should be a member of Karl Rittger's shared group:
-kari0458grp. The group sticky-bit for this PetaLibrary location is set to
-kari0458grp, so files that you create/change should always be owned by
-kari0458grp (and therefore accessible to the rest of us.
+kari0458grp. The group "special" bit (gsid) for this PetaLibrary location is
+turned on, so files that you create/change should always be owned by kari0458grp
+(and therefore accessible to the rest of us).
 
 In addition, you should have your umask set to group read/write.  If your umask
 is not set to 0002, please add this in your .bashrc:
@@ -174,7 +174,11 @@ is not set to 0002, please add this in your .bashrc:
 ```
 umask u=rwx,g=rwx,o=rx
 ```
-After setting this, calling umask at the command line should return 0002.
+
+After setting this, calling umask at the command line should return 0002, and when you make a new file or directory, it should be g+rw.
+
+The scratchShuffle bash scripts will call rsync with file permissions options
+that make the destination g+rw and owned by kari0458grp.
 
 ### ssh key for transfers to NSIDC
 
