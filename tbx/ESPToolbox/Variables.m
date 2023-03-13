@@ -8,7 +8,7 @@ classdef Variables
     properties(Constant)
         uint8NoData = cast(255, 'uint8');
         uint16NoData = cast(65535, 'uint16');
-        albedoScale = 10000.; % Factor to multiply albedo obtained from
+        albedoScale = 100.; % Factor to multiply albedo obtained from
                              % ParBal.spires_albedo
         albedoDeltavisScale = 100.; % Factor for deltavis in albedo_observed
                                     % calculations
@@ -231,23 +231,23 @@ classdef Variables
                     albedos.([albedoName '_type']) = albedoConf.type{1};
                     albedos.([albedoName '_units']) = albedoConf.units_in_map{1};
                     albedos.([albedoName '_divisor']) = albedoConf.divisor;
-                    albedos.([albedoName '_min']) = albedoConf.min * albedoConf.divisor;
-                    albedos.([albedoName '_max']) = albedoConf.max * albedoConf.divisor;
+                    albedos.([albedoName '_min']) = albedoConf.min;
+                    albedos.([albedoName '_max']) = albedoConf.max;
                     albedos.([albedoName '_nodata_value']) = albedoConf.nodata_value;
                 end
 
                 % 2.b. Loading the daily file
-                % If snow_fraction is 0, set the grain_size
+                % If snow_fraction is 0 or NaN, set the variables
                 %  to NaN to get final albedos to NaN
                 % convert all variables to double (and NaN) for
                 % parBal package
-		% Since Mosaic files are stored as int and the ParBal functions
-		% use floats as input arguments, we 
-		% 1. cast the Mosaic data to the float type and 
-		%    replace no_data_value by NaNs, 
-		% 2. use the ParBal functions, and then
-		% 3. replace the albedo NaNs by no_data_value and cast 
-		%    the albedos to integers.
+                % Since Mosaic files are stored as int and the ParBal functions
+                % use floats as input arguments, we 
+                % 1. cast the Mosaic data to the float type and 
+                %    replace no_data_value by NaNs, 
+                % 2. use the ParBal functions, and then
+                % 3. replace the albedo NaNs by no_data_value and cast 
+                %    the albedos to integers.
                 %----------------------------------------------
                 errorStruct = struct();
                 mosaicFile = espEnv.MosaicFile(regions, dateRange(dateIdx));
@@ -266,40 +266,29 @@ classdef Variables
                     continue;
                 end
 
-                % Find and save nodata locations for variables that
-                % spires albedo will use; be conservative and take the
-                % union of all NaN locations
-                noData = load(mosaicFile, ...
-                    'solar_azimuth_nodata_value', ...
-                    'solar_zenith_nodata_value', ...
-        		    'grain_size_nodata_value', ...
-        		    'deltavis_nodata_value');
-                nans = mosaicData.solar_zenith == noData.solar_zenith_nodata_value;
-                nans = nans ...
-                    | mosaicData.solar_azimuth == noData.solar_azimuth_nodata_value;
-        		nans = nans ...
-                    | mosaicData.grain_size == noData.grain_size_nodata_value;
-        		nans = nans ...
-                    | mosaicData.deltavis == noData.deltavis_nodata_value;
-
                 mosaicFieldnames = fieldnames(mosaicData);
+                nans = zeros(size(mosaicData.snow_fraction), 'uint8');
                 for fieldIdx = 1:length(mosaicFieldnames)
                     fieldname = mosaicFieldnames{fieldIdx};
+                    mosaicData.(fieldname) = cast(mosaicData.(fieldname), 'double');
                     if strcmp(fieldname, 'snow_fraction')
                         continue;
-                    end
-                    mosaicData.(fieldname) = cast(mosaicData.(fieldname), 'double');
+                    end                    
                     varInfos = confOfVar(find( ...
-                        strcmp(confOfVar.output_name, fieldname)), :);
+                        strcmp(confOfVar.output_name, fieldname)), :);                                        
+                    nans = nans | mosaicData.(fieldname) == varInfos.nodata_value;
                     mosaicData.(fieldname)(mosaicData.(fieldname) == ...
                         varInfos.nodata_value) = NaN;
                     mosaicData.(fieldname)(mosaicData.snow_fraction == ...
-                        Variables.uint8NoData) = NaN;
+                        Variables.uint8NoData | mosaicData.snow_fraction == 0) = NaN;
                 end
+                % Set to NaN of snow_fraction should be done after the other variables.
                 fieldname = 'snow_fraction';
-                mosaicData.(fieldname) = cast(mosaicData.(fieldname), 'double');
+                varInfos = confOfVar(find( ...
+                        strcmp(confOfVar.output_name, fieldname)), :);
+                nans = nans | mosaicData.(fieldname) == varInfos.nodata_value;
                 mosaicData.(fieldname)(mosaicData.snow_fraction == ...
-                    Variables.uint8NoData) = NaN;
+                    Variables.uint8NoData | mosaicData.snow_fraction == 0) = NaN;
 
                 fprintf('%s: Loading snow_fraction and other vars from %s\n', ...
                         mfilename(), mosaicFile);
@@ -364,9 +353,7 @@ classdef Variables
                             albedoName, [albedoName '_min'], [albedoName '_max']);
                         error(errorStruct);
                     end
-                    albedos.(albedoName)(isnan(albedos.(albedoName)) | ...
-                        isnan(mosaicData.snow_fraction) | ...
-                        mosaicData.snow_fraction == 0) = ...
+                    albedos.(albedoName)(isnan(albedos.(albedoName))) = ...
                         albedos.([albedoName '_nodata_value']);
                     albedos.(albedoName) = cast(albedos.(albedoName), ...
                         albedos.([albedoName '_type']));
