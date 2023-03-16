@@ -18,6 +18,10 @@ classdef MODISData
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
         beginWaterYear = 2001;
+        startDatetimeWhenNrtReceived = datetime(2018, 12, 220); 
+            % Date when new modis nrt files started to be received from JPL 
+            % (after historic files). Determine where Step0 Modis files are stored
+            % either under historic folder or nrt folder.
     end
 
     methods         % public methods
@@ -279,7 +283,6 @@ classdef MODISData
                         S.filenames.(nameFields{i})(idx);
                 end
             end
-
         end
 
         function S = tileSubsetCoords(...
