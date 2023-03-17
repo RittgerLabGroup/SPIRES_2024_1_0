@@ -4,10 +4,10 @@ comment,,,prefix or suffix of field calculated in runStatsForLinePlots(),Descrip
 ,,albedo_observed_mu0,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,0,0,0,,,,
 Clean Snow Albedo,,albedo_clean_muZ,albedo,Median Regional Snow Albedo,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,1,0,0,,,,
 Snow Albedo,,albedo_observed_muZ,albedo,Median Regional Snow Albedo,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,1,0,1,,,,
-Decrease in visible Albedo from Dust and Soot,DVT,deltavis,,,single,uint8,uint8,uint8,percent,percent,percent,1,1,255,255,255,255,0,75,1,0,1,1,1,0,1,deltavis,,
+Decrease in visible Albedo from Dust and Soot,DVT,deltavis,,,single,uint8,uint8,uint8,percent,percent,percent,1,1,255,255,255,255,0,75,1,0,1,1,1,0,1,deltavis,moddrfs,
 Snow Grain Size,GmT,grain_size,,,single,uint16,uint16,uint16,microns,micrometers,micrometers,1,1,65535,65535,65535,65535,10,1100,1,0,1,1,1,0,1,grain_size,modscag,
 ,GdT,drfs_grnsz,,,single,uint16,uint16,uint16,microns,micrometers,micrometers,1,1,65535,65535,65535,65535,10,1100,0,0,1,0,1,0,1,drf.grnsz,moddrfs,check min max and units
-Snow Radiative Forcing,RFT,radiative_forcing,radiative_forcing,Median Regional Snow Radiative Forcing,single,uint16,uint16,uint16,W/m^2,Watts per square meter,Watts per square meter,1,1,65535,65535,65535,65535,0,500,1,0,1,1,1,1,1,forcing,,
+Snow Radiative Forcing,RFT,radiative_forcing,radiative_forcing,Median Regional Snow Radiative Forcing,single,uint16,uint16,uint16,W/m^2,Watts per square meter,Watts per square meter,1,1,65535,65535,65535,65535,0,500,1,0,1,1,1,1,1,forcing,moddrfs,
 ,SolAzimuth,solar_azimuth,,,int16,int16,int16,int16,degrees,degrees,degrees,1,1,32767,32767,32767,32767,-180,180,1,0,1,0,1,0,,,,check type and min max
 ,SolZ,solar_zenith,,,uint8,uint8,uint8,uint8,,,,1,1,255,255,255,255,0,90,1,0,1,0,1,0,,,,check type
 Snow Cover Days,,snow_cover_days,scd_sum,Snow Cover Days,single,uint16,uint16,uint16,days,days,days,1,1,65535,65535,0,0,0,365,1,0,1,1,1,1,,,,
