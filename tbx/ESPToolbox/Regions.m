@@ -310,7 +310,7 @@ classdef Regions
 
             % instantiate the variable indexes on which to loop
             % ------------------------------------------------------------
-            if ~exist('varName', 'var') || strcmp(varName, '')
+            if ~exist('varName', 'var') || isnan(varName)
                 availableVariablesSize = size(availableVariables);
                 varIndexes = 1:availableVariablesSize(1);
             else
@@ -481,7 +481,7 @@ classdef Regions
                 subRegionIndexes = subRegionIndex;
             end
 
-            if ~exist('varName', 'var') || strcmp(varName, '')
+            if ~exist('varName', 'var') || isnan(varName)
                 availableVariablesSize = size(availableVariables);
                 varIndexes = 1:availableVariablesSize(1);
             else
