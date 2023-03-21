@@ -310,14 +310,16 @@ classdef Regions
 
             % instantiate the variable indexes on which to loop
             % ------------------------------------------------------------
-            if ~exist('varName', 'var') || isnan(varName)
+            % NB: I put varName(1) because || operator works only if the two members
+            % have the same number of elements (matlab specific). Same in WriteStats.
+            if ~exist('varName', 'var') || isnan(varName(1))
                 availableVariablesSize = size(availableVariables);
                 varIndexes = 1:availableVariablesSize(1);
             else
                 % Check if the varName is ok
                 index = find(strcmp(availableVariables.output_name, varName));
                 if isempty(index)
-                    ME = MException('Regions:UnauthorizedVarName', ...
+                    ME = MException('Regions:WriteGeotiffs_UnauthorizedVarName', ...
                         sprintf('%s: varName %s not found in the ', ...
                         'list of authorized outputnames in ', ...
                         'ESPEnv.configurationOfVariables()\n',  ...
@@ -481,14 +483,14 @@ classdef Regions
                 subRegionIndexes = subRegionIndex;
             end
 
-            if ~exist('varName', 'var') || isnan(varName)
+            if ~exist('varName', 'var') || isnan(varName(1))
                 availableVariablesSize = size(availableVariables);
                 varIndexes = 1:availableVariablesSize(1);
             else
                 % Check if the varName is ok
                 index = find(strcmp(availableVariables.output_name, varName));
                 if isempty(index)
-                    ME = MException('WriteStats_UnauthorizedVarName', ...
+                    ME = MException('Regions:WriteStats_UnauthorizedVarName', ...
                         '%s: varName %s not found in the ', ...
                         'list of authorized outputnames in ', ...
                         'ESPEnv.configurationOfVariables()',  mfilename(), varName);
