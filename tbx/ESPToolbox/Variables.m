@@ -214,7 +214,7 @@ classdef Variables
             % Start or connect to the local pool (parallelism)
             espEnv.configParallelismPool();
 
-            for dateIdx=1:length(dateRange)
+            parfor dateIdx=1:length(dateRange)
 
                 % 2.a collection of albedo types, units, divisors
                 %    and min-max.
