@@ -6,6 +6,14 @@ classdef STC < handle
         % Various thresholds used in STC processing
         % (calling routine is indicated in parentheses)
 
+        % allowable data ranges of values (rovs) for SCAGDRFS variables
+        % values are 2-valued: [min max] range of values, 
+        % any inputs outside these ranges are set to nodata in raw cubes
+        % (readSCAGDRFSday, from mosaicTilesDATpad, from
+        % mosaicSubsetSCAGDRFS)
+        rovDV % units percent
+        rovRF % units W/m2
+
         % minimum days available in the 3-month period
         % for temporal interpolation to be done on a pixel
         % (FillZero3, from Filter_SCAGDRFS)
@@ -28,15 +36,15 @@ classdef STC < handle
         zthresh
 
         % Canopy adjustment thresholds
-	% minSnowForVegAdjust - snow threshold (0.0 and 1.0) 
-	%    below which we will not do a canopy adjustment, since that would 
-	%    unrealistically increase snow
-	% canopyToTrunkRatio - ratio used limit fSCA to a maximum value in
-	%    heavily forested areas, typical ROV is 0.01 - 0.05
-	% minZForNonForestedAdjust - elevation (m) threshold above which
-	%    non-forested areas will be linearly increased
-	% nonForestedScaleFactor - fraction to use for linear interpolation
-	%    to bump Sgap and SgapV a little higher in non-forested locations
+    	% minSnowForVegAdjust - snow threshold (0.0 and 1.0)
+    	%    below which we will not do a canopy adjustment, since that would
+    	%    unrealistically increase snow
+    	% canopyToTrunkRatio - ratio used limit fSCA to a maximum value in
+    	%    heavily forested areas, typical ROV is 0.01 - 0.05
+    	% minZForNonForestedAdjust - elevation (m) threshold above which
+    	%    non-forested areas will be linearly increased
+    	% nonForestedScaleFactor - fraction to use for linear interpolation
+    	%    to bump Sgap and SgapV a little higher in non-forested locations
         % (Filter_SCAGDRFS)
         minZForNonForestedAdjust
         nonForestedScaleFactor
@@ -54,6 +62,12 @@ classdef STC < handle
             % Initializes thresholds to operational defaults
 
             p = inputParser;
+
+            defaultRovDV = [ 0 50 ];
+            addOptional(p, 'rovDV', defaultRovDV);
+
+            defaultRovRF = [ 0 300 ];
+            addOptional(p, 'rovRF', defaultRovRF);
 
             defaultMindays = 10;
             addOptional(p, 'mindays', defaultMindays);
@@ -73,6 +87,8 @@ classdef STC < handle
             p.KeepUnmatched = false;
             parse(p, varargin{:});
 
+            obj.set_rovDV(p.Results.rovDV);
+            obj.set_rovRF(p.Results.rovRF);
             obj.set_mindays(p.Results.mindays);
     	    obj.set_sthresh(p.Results.sthreshForGS, p.Results.sthreshForRF);
             obj.set_zthresh(p.Results.zthresh);
@@ -107,6 +123,42 @@ classdef STC < handle
                 errorStruct.identifier = 'STC:IOError';
                 errorStruct.message = sprintf(...
                     '%s: sthresh should be fraction\n', mfilename());
+                error(errorStruct);
+            end
+
+        end
+
+        function set_rovDV(obj, rovDV)
+
+            % DeltaVis units percent
+            checkRovDV = @(x) length(x) == 2 & ...
+                all(0 <= x) & all(x <= 100);
+
+            if checkRovDV(rovDV)
+                obj.rovDV = rovDV;
+            else
+                errorStruct.identifier = 'STC:IOError';
+                errorStruct.message = sprintf(...
+                    '%s: rovDV should have 2 items in [0 100]\n', ...
+                    mfilename());
+                error(errorStruct);
+            end
+
+        end
+
+        function set_rovRF(obj, rovRF)
+
+            % Radiative Forcing units W/m^2
+            checkRovRF = @(x) length(x) == 2 & ...
+                all(0 <= x) & all(x <= 400);
+
+            if checkRovRF(rovRF)
+                obj.rovRF = rovRF;
+            else
+                errorStruct.identifier = 'STC:IOError';
+                errorStruct.message = sprintf(...
+                    '%s: rovRF should have 2 items in [0 400]\n', ...
+                    mfilename());
                 error(errorStruct);
             end
 
