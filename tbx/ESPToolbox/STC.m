@@ -14,6 +14,12 @@ classdef STC < handle
         rovDV % units percent
         rovRF % units W/m2
 
+        % viewable snow fraction (0.0-1.0) below which GS/DV/RF will
+        % be set to NaN in the FillNaN3 function at the beginning of
+        % temporal filtering
+        % (FillNaN, from Filter_SCAGDRFS)
+        minViewableSCAForFillNaN
+
         % minimum days available in the 3-month period
         % for temporal interpolation to be done on a pixel
         % (FillZero3, from Filter_SCAGDRFS)
@@ -69,6 +75,10 @@ classdef STC < handle
             defaultRovRF = [ 0 300 ];
             addOptional(p, 'rovRF', defaultRovRF);
 
+            defaultMinViewableSCAForFillNaN = 0.3;
+            addOptional(p, 'minViewableSCAForFillNaN', ...
+                defaultMinViewableSCAForFillNaN);
+
             defaultMindays = 10;
             addOptional(p, 'mindays', defaultMindays);
 
@@ -90,9 +100,27 @@ classdef STC < handle
             obj.set_rovDV(p.Results.rovDV);
             obj.set_rovRF(p.Results.rovRF);
             obj.set_mindays(p.Results.mindays);
+            obj.set_minViewableSCAForFillNaN(...
+                p.Results.minViewableSCAForFillNaN);
     	    obj.set_sthresh(p.Results.sthreshForGS, p.Results.sthreshForRF);
             obj.set_zthresh(p.Results.zthresh);
             obj.set_canopyAdj(p.Results.canopyAdj);
+
+        end
+
+        function set_minViewableSCAForFillNaN(obj, fraction)
+
+            checkFraction = @(x) 0 <= x & x < 1.0;
+
+            if checkFraction(fraction)
+                obj.minViewableSCAForFillNaN = fraction;
+            else
+                errorStruct.identifier = 'STC:IOError';
+                errorStruct.message = sprintf(...
+                    '%s: minViewableSCAForFillNaN should be in [0 1.0]\n', ...
+                    mfilename());
+                error(errorStruct);
+            end
 
         end
 
