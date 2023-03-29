@@ -6,13 +6,21 @@ classdef STC < handle
         % Various thresholds used in STC processing
         % (calling routine is indicated in parentheses)
 
-        % allowable data ranges of values (rovs) for SCAGDRFS variables
-        % values are 2-valued: [min max] range of values, 
+        % allowable data ranges of values (rovs) for input (raw)
+        % SCAGDRFS variables: [min max] range of values, 
         % any inputs outside these ranges are set to nodata in raw cubes
         % (readSCAGDRFSday, from mosaicTilesDATpad, from
         % mosaicSubsetSCAGDRFS)
-        rovDV % units percent
-        rovRF % units W/m2
+        rawRovDV % units percent
+        rawRovRF % units W/m2
+
+        % allowable data ranges of values (rovs) for temporal
+	    % interpolation of SCAGDRFS variables
+        % [min max] range of values 
+        % spline interpolation will be allowed to "ring" to these limits
+        % (FillCubeDate)
+        temporalRovDV % units percent
+        temporalRovRF % units W/m2
 
         % minimum days available in the 3-month period
         % for temporal interpolation to be done on a pixel
@@ -64,11 +72,17 @@ classdef STC < handle
 
             p = inputParser;
 
-            defaultRovDV = [ 0 50 ];
-            addOptional(p, 'rovDV', defaultRovDV);
+            defaultRawRovDV = [ 0 50 ];
+            addOptional(p, 'rawRovDV', defaultRawRovDV);
 
-            defaultRovRF = [ 0 300 ];
-            addOptional(p, 'rovRF', defaultRovRF);
+            defaultRawRovRF = [ 0 375 ];
+            addOptional(p, 'rawRovRF', defaultRawRovRF);
+
+            defaultTemporalRovDV = [ 0 70 ];
+            addOptional(p, 'temporalRovDV', defaultTemporalRovDV);
+
+            defaultTemporalRovRF = [ 0 500 ];
+            addOptional(p, 'temporalRovRF', defaultTemporalRovRF);
 
             defaultMindays = 10;
             addOptional(p, 'mindays', defaultMindays);
@@ -88,8 +102,10 @@ classdef STC < handle
             p.KeepUnmatched = false;
             parse(p, varargin{:});
 
-            obj.set_rovDV(p.Results.rovDV);
-            obj.set_rovRF(p.Results.rovRF);
+            obj.set_rawRovDV(p.Results.rawRovDV);
+            obj.set_rawRovRF(p.Results.rawRovRF);
+            obj.set_temporalRovDV(p.Results.temporalRovDV);
+            obj.set_temporalRovRF(p.Results.temporalRovRF);
             obj.set_mindays(p.Results.mindays);
     	    obj.set_sthresh(p.Results.sthreshForGS, p.Results.sthreshForRF);
             obj.set_zthresh(p.Results.zthresh);
@@ -129,36 +145,72 @@ classdef STC < handle
 
         end
 
-        function set_rovDV(obj, rovDV)
+        function set_rawRovDV(obj, rov)
 
             % DeltaVis units percent
-            checkRovDV = @(x) length(x) == 2 & ...
+            checkRov = @(x) length(x) == 2 & ...
                 all(0 <= x) & all(x <= 100);
 
-            if checkRovDV(rovDV)
-                obj.rovDV = rovDV;
+            if checkRov(rov)
+                obj.rawRovDV = rov;
             else
                 errorStruct.identifier = 'STC:IOError';
                 errorStruct.message = sprintf(...
-                    '%s: rovDV should have 2 items in [0 100]\n', ...
+                    '%s: rawRovDV should have 2 items in [0 100]\n', ...
                     mfilename());
                 error(errorStruct);
             end
 
         end
 
-        function set_rovRF(obj, rovRF)
+        function set_rawRovRF(obj, rov)
 
             % Radiative Forcing units W/m^2
-            checkRovRF = @(x) length(x) == 2 & ...
-                all(0 <= x) & all(x <= 400);
+            checkRov = @(x) length(x) == 2 & ...
+                all(0 <= x) & all(x <= 500);
 
-            if checkRovRF(rovRF)
-                obj.rovRF = rovRF;
+            if checkRov(rov)
+                obj.rawRovRF = rov;
             else
                 errorStruct.identifier = 'STC:IOError';
                 errorStruct.message = sprintf(...
-                    '%s: rovRF should have 2 items in [0 400]\n', ...
+                    '%s: rawRovRF should have 2 items in [0 500]\n', ...
+                    mfilename());
+                error(errorStruct);
+            end
+
+        end
+
+        function set_temporalRovDV(obj, rov)
+
+            % DeltaVis units percent
+            checkRov = @(x) length(x) == 2 & ...
+                all(0 <= x) & all(x <= 100);
+
+            if checkRov(rov)
+                obj.temporalRovDV = rov;
+            else
+                errorStruct.identifier = 'STC:IOError';
+                errorStruct.message = sprintf(...
+                    '%s: temporalRovDV should have 2 items in [0 100]\n', ...
+                    mfilename());
+                error(errorStruct);
+            end
+
+        end
+
+        function set_temporalRovRF(obj, rov)
+
+            % Radiative Forcing units W/m^2
+            checkRov = @(x) length(x) == 2 & ...
+                all(0 <= x) & all(x <= 500);
+
+            if checkRov(rov)
+                obj.temporalRovRF = rov;
+            else
+                errorStruct.identifier = 'STC:IOError';
+                errorStruct.message = sprintf(...
+                    '%s: temporalRovRF should have 2 items in [0 500]\n', ...
                     mfilename());
                 error(errorStruct);
             end
