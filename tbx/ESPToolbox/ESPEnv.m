@@ -22,6 +22,8 @@ classdef ESPEnv
              % by tile/year (.hdr/.dat, .tif)
         dirWith % struct with various STC pipeline directories
         parallelismConf   % struct with parameters for parallelism
+        myConfigurationOfVariables  % Table storing the parameters for each variable
+            % at different steps of the process Step1, Step2, etc ...
     end
     methods
         function obj = ESPEnv(varargin)
@@ -142,6 +144,7 @@ classdef ESPEnv
                 obj.parallelismConf.jobStorageLocation = getenv('TMP');
             end
 
+            obj.myConfigurationOfVariables = obj.configurationOfVariables();
         end
 
         function S = configParallelismPool(obj, maxWorkers)
