@@ -1,9 +1,9 @@
 name,input_name,output_name,calc_suffix_n_prefix,label,type_in_STC,type_in_mosaics,type,type_web,units_in_mosaics,units_in_map,units_in_plot,multiplicator_for_mosaics,divisor,nodata_value,nodata_value_web,value_for_unreliable,value_for_unreliable_web,min,max,test_calc_albedos,test_calc_snow_cover_days,test_write_mosaic,write_geotiffs,write_mosaics,write_stats_csv,,,comments
 comment,,,prefix or suffix of field calculated in runStatsForLinePlots(),Description (label) in Regions.writeStats(),,,,,,,,,,intmax(),,,,,,,,,,,,,,
-,,albedo_clean_mu0,,,single,uint8,uint8,uint8,percent,percent,percent,1,100,65535,65535,65535,65535,0,100,0,0,0,0,0,0,,,
-,,albedo_observed_mu0,,,single,uint8,uint8,uint8,percent,percent,percent,1,100,65535,65535,65535,65535,0,100,0,0,0,0,0,0,,,
-Clean Snow Albedo,,albedo_clean_muZ,albedo,Median Regional Snow Albedo,single,uint8,uint8,uint8,percent,percent,percent,1,100,65535,65535,65535,65535,0,100,0,0,0,1,0,0,,,
-Snow Albedo,,albedo_observed_muZ,albedo,Median Regional Snow Albedo,single,uint8,uint8,uint8,percent,percent,percent,1,100,65535,65535,65535,65535,0,100,0,0,0,1,0,1,,,
+,,albedo_clean_mu0,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,0,0,0,,,
+,,albedo_observed_mu0,,,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,0,0,0,,,
+Clean Snow Albedo,,albedo_clean_muZ,albedo,Median Regional Snow Albedo,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,1,0,0,,,
+Snow Albedo,,albedo_observed_muZ,albedo,Median Regional Snow Albedo,single,uint16,uint16,uint8,percent,percent,percent,1,100,65535,255,65535,255,0,100,0,0,0,1,0,1,,,
 Decrease in visible Albedo from Dust and Soot,DVT,deltavis,,,single,uint8,uint8,uint8,percent,percent,percent,1,1,255,255,255,255,0,75,1,0,1,1,1,0,,,
 Snow Grain Size,GmT,grain_size,,,single,uint16,uint16,uint16,microns,micrometers,micrometers,1,1,65535,65535,65535,65535,10,1100,1,0,1,1,1,0,,,
 ,GdT,drfs_grnsz,,,single,uint16,uint16,uint16,microns,micrometers,micrometers,1,1,65535,65535,65535,65535,10,1100,0,0,1,0,1,0,,,check min max and units
