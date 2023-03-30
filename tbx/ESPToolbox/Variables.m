@@ -231,8 +231,8 @@ classdef Variables
                     albedos.([albedoName '_type']) = albedoConf.type{1};
                     albedos.([albedoName '_units']) = albedoConf.units_in_map{1};
                     albedos.([albedoName '_divisor']) = albedoConf.divisor;
-                    albedos.([albedoName '_min']) = albedoConf.min;
-                    albedos.([albedoName '_max']) = albedoConf.max;
+                    albedos.([albedoName '_min']) = albedoConf.min * albedoConf.divisor;
+                    albedos.([albedoName '_max']) = albedoConf.max * albedoConf.divisor;
                     albedos.([albedoName '_nodata_value']) = albedoConf.nodata_value;
                 end
 
@@ -342,7 +342,7 @@ classdef Variables
                 for albedoIdx=1:length(albedoNames)
                     albedoName = albedoNames{albedoIdx};
 					albedos.(albedoName) = albedos.(albedoName) * ...
-						Variables.albedoScale;
+						Variables.albedoScale * albedoConf.divisor;
 
                     if min(albedos.(albedoName), [], 'all') < albedos.([albedoName '_min']) ...
                     || max(albedos.(albedoName), [], 'all') > albedos.([albedoName '_max'])
