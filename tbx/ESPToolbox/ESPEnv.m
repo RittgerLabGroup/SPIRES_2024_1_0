@@ -231,7 +231,7 @@ classdef ESPEnv
 
             f = dir(fullfile(myDir, '*_*Y*.mat'));
         end
-
+        
         function f = MOD09File(obj, MData, regionName, yr, mm)
             % MOD09File returns the name of a monthly MOD09 cubefile
             % if versionOf value is not empty, use underscore separator
@@ -363,6 +363,54 @@ classdef ESPEnv
                 sprintf('%s_%s_%s%s.mat', ...
                 regions.regionName, platformName, ...
                 datestr(thisDatetime, 'yyyymmdd'), labelName));
+        end
+
+        function filename = Step0ModisFilename(obj, region, myDate, varName)
+            % Parameters
+            % ----------
+            % source: char. 
+            %   JPL source of the file: 'mod09ga', 'moddrfs', 'modscag'.
+            % modisData: MODISData object.
+            % region: Regions object. 
+            %   Should be a tile region since JPL files are received only for tiles. 
+            %   E.g. region of 'h08v04' tile.
+            % myDate: datetime.
+            % varName: char.
+            %   Name of the variable. E.g. 'snow_fraction'.
+            %
+            % Return
+            % ------
+            % Full filename of the daily file received from JPL for the tile and 
+            %   variable, accessible from the /scratch/alpine/user directory.
+            %   If the file has not been received or doesn't exist, return ''
+            modisData = region.modisData;
+            regionName = region.regionName;
+            varConf = obj.myConfigurationOfVariables(find( ...
+                strcmp(obj.myConfigurationOfVariables.output_name, varName)), :);
+            if ~strcmp(varName, 'mod09ga')
+                sourceVarName = [varConf.modis_source_name{1} '.dat'];
+                source = varConf.modis_source{1};
+            else % hdf mod09GA files having reflectance and solar data
+                sourceVarName = 'hdf';
+                source = 'mod09ga';
+            end
+            historicFolderName = 'historic';
+            if myDate >= modisData.startDatetimeWhenNrtReceived
+                historicFolderName = 'NRT';
+            end
+
+            directory = fullfile(modisData.alternateDir, source, historicFolderName, ...
+                sprintf('v%03d', modisData.versionOf.MODISCollection), ...
+                regionName, sprintf('%04d', year(myDate)));
+            searchFilename = sprintf('MOD09GA.A%04d%03d.%s.*.*.%s', ...
+                    year(myDate), day(myDate, 'dayofyear'), regionName, ...
+                    sourceVarName);
+            fileStruct = dir(fullfile(directory, searchFilename));
+            if isempty(fileStruct)
+                filename = '';
+            else
+                filename = fullfile(directory, fileStruct.name);
+            end                
         end
 
         function f = SummarySnowFile(obj, region, startYr, stopYr)
