@@ -409,7 +409,7 @@ classdef ESPEnv
             if isempty(fileStruct)
                 filename = '';
             else
-                filename = fullfile(directory, fileStruct.name);
+                filename = fullfile(directory, fileStruct(end).name);
             end                
         end
 
