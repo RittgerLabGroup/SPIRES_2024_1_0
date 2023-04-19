@@ -18,6 +18,16 @@ classdef Variables
                                     % spires in parBal package
         albedoMaxGrainSize = 1999;  % Max grain size accepted to calculate albedo
                                     % spires in parBal package
+        dataStatus = ...
+            struct(observed = intmax('uint8'), ...
+                unavailable = 10, ...
+                cloudyOrOther = 20, ...
+                highSolarZenith = 30,
+                temporary = 0); % possible values
+            % for the viewable_snow_fraction_status variable to indicate 
+            % observed and reliable/unobserved/interpolated data.
+        highSolarZenith = 67.5; % solar zenith value above which the observed data is
+            % considered unreliable.            
     end
 
     methods
