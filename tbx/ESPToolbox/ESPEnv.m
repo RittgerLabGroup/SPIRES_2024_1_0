@@ -22,8 +22,18 @@ classdef ESPEnv
              % by tile/year (.hdr/.dat, .tif)
         dirWith % struct with various STC pipeline directories
         parallelismConf   % struct with parameters for parallelism
+        myConf         % struct(variable = Table). Pointing to tables that stores 
+            % the parameters for variables
+            % for each variable at different steps of the process Step1, Step2, etc ...
         myConfigurationOfVariables  % Table storing the parameters for each variable
             % at different steps of the process Step1, Step2, etc ...
+        topPath % char. Path hosting all files necessary for the run of the project.
+    end
+    properties(Constant)
+        configurationFilenames = struct( ...
+            variable = 'configuration_of_variables.csv');
+        defaultHostName = 'CURCScratchAlpine';
+        defaultTopPath = fullfile('/scratch/alpine/', getenv('USER'));
     end
     methods
         function obj = ESPEnv(varargin)
@@ -36,11 +46,33 @@ classdef ESPEnv
             defaultHostName = 'CURCScratchAlpine';
             validHostNames = {'CURC', 'CURCScratchAlpine'};
             checkHostName = @(x) any(validatestring(x, validHostNames));
-            addOptional(p, 'hostName', defaultHostName, ...
+            addOptional(p, 'hostName', obj.defaultHostName, ...
             checkHostName);
+            addOptional(p, 'topPath', obj.defaultTopPath);
 
             p.KeepUnmatched = false;
             parse(p, varargin{:});
+            obj.topPath = p.Results.topPath;
+            
+            
+            % Load configuration files (paths of ancillary data files, 
+            % thresholds / region / variable configuration data.
+            [thisFilepath, ~, ~] = fileparts(mfilename('fullpath'));            
+            parts = split(thisFilepath, filesep);            
+            thisFilepath = join(parts(1:end-1), filesep); % 1 level up
+            obj.confDir = fullfile(thisFilepath{1}, 'conf');
+            confLabels = fieldnames(obj.configurationFilenames);
+            for confLabelIdx = 1:length(confLabels)
+                confLabel = confLabels{confLabelIdx};
+                fprintf('%s: Load %s configuration\n', mfilename(), confLabel);
+                tmp = ...
+                    readtable(fullfile(obj.confDir, ...
+                    obj.configurationFilenames.(confLabel)), 'Delimiter', ',');
+                tmp([1],:) = []; % delete comment line
+                obj.myConf.(confLabel) = tmp;
+            end
+            obj.myConfigurationOfVariables = obj.configurationOfVariables(); 
+                % @deprecated. replaced by obj.myConf.variable.
 
             if contains(p.Results.hostName, 'CURC')
                 % Default path is relative to this file, 2 levels up
@@ -53,7 +85,6 @@ classdef ESPEnv
                 obj.colormapDir = fullfile(path, 'colormaps');
                 obj.mappingDir = fullfile(path, 'mapping');
                 obj.extentDir = fullfile(path, 'StudyExtents');
-                obj.confDir = fullfile(path, 'conf');
 
                 % For top-level stuff, paths are on PetaLibrary
                 path = fullfile('/pl', 'active', 'rittger_esp');
@@ -143,8 +174,6 @@ classdef ESPEnv
             else
                 obj.parallelismConf.jobStorageLocation = getenv('TMP');
             end
-
-            obj.myConfigurationOfVariables = obj.configurationOfVariables();
         end
 
         function S = configParallelismPool(obj, maxWorkers)
