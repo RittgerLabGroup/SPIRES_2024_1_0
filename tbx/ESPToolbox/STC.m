@@ -69,7 +69,13 @@ classdef STC < handle
 
         function obj = STC(varargin)
             % Initializes thresholds to operational defaults
-
+            % Parameters
+            % ----------
+            % stcStruct: struct. Optional. Contains all field-values necessary to
+            %   create a STC object. Note that the stcStruct parameter values prevail
+            %   over other parameter value input as individual parameters, if parameter
+            %   name and stcStruct fieldname are identic. SIER_289
+            
             p = inputParser;
 
             defaultRawRovDV = [ 0 50 ];
@@ -99,9 +105,34 @@ classdef STC < handle
             defaultCanopyAdj = [ 800 0.08 0.07 0.08 ];
             addOptional(p, 'canopyAdj', defaultCanopyAdj);
 
+            addOptional(p, 'stcStruct', struct());
+            addOptional(p, 'minZForNonForestedAdjust', 800); % dirty SIER_289
+            addOptional(p, 'nonForestedScaleFactor', 0.08);
+            addOptional(p, 'minSnowForVegAdjust', 0.07);
+            addOptional(p, 'canopyToTrunkRatio', 0.08);
+
             p.KeepUnmatched = false;
             parse(p, varargin{:});
-
+            
+            stcStruct = p.Results.stcStruct;
+            stcStructFieldnames = fieldnames(stcStruct);
+            if ismember('minZForNonForestedAdjust', stcStructFieldnames) && ...
+                ismember('nonForestedScaleFactor', stcStructFieldnames) && ...
+                ismember('minSnowForVegAdjust', stcStructFieldnames) && ...
+                ismember('canopyToTrunkRatio', stcStructFieldnames)
+                stcStruct.canopyAdj = [stcStruct.minZForNonForestedAdjust, ...
+                    stcStruct.nonForestedScaleFactor, ...
+                    stcStruct.minSnowForVegAdjust, ...
+                    stcStruct.canopyToTrunkRatio];
+                stcStruct = rmfield(stcStruct, 'minZForNonForestedAdjust');
+                stcStruct = rmfield(stcStruct, 'nonForestedScaleFactor');
+                stcStruct = rmfield(stcStruct, 'minSnowForVegAdjust');
+                stcStruct = rmfield(stcStruct, 'canopyToTrunkRatio');
+            end
+            for fieldIdx = 1:length(stcStructFieldnames)
+                p.Results.(stcStructFieldnames(fieldIdx)) = ...
+                    stcStruct.(stcStructFieldnames(fieldIdx));
+            end
             obj.set_rawRovDV(p.Results.rawRovDV);
             obj.set_rawRovRF(p.Results.rawRovRF);
             obj.set_temporalRovDV(p.Results.temporalRovDV);
@@ -112,7 +143,6 @@ classdef STC < handle
             obj.set_canopyAdj(p.Results.canopyAdj);
 
         end
-
         function set_mindays(obj, mindays)
 
             % limit to 3 months

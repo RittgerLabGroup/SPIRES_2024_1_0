@@ -118,8 +118,8 @@ classdef Regions
             obj.lowIllumination = mObj.lowIllumination;
             obj.atmosphericProfile = mObj.atmosphericProfile;
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
-            obj.geotiffCrop = mObj.geotiffCrop;
-            obj.STC = mObj.stc;
+            obj.geotiffCrop = mObj.geotiffCrop;            
+            obj.STC = STC(mObj.stcStruct); % SIER_289
             obj.tileIds = mObj.tileIds;
             obj.thresholdsForMosaics = mObj.thresholdsForMosaics;
             obj.thresholdsForPublicMosaics = mObj.thresholdsForPublicMosaics;
