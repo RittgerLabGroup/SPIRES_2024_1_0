@@ -446,7 +446,7 @@ The procedure for doing this is:
    e.g. in oct 2022, do:
 
    cd scripts
-   for type in mod09ga/historical modscag/historical moddrfs/historical; do
+   for type in mod09ga/historic modscag/historic moddrfs/historic; do
    for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
    ./scratchShuffle.sh -b 2000 -e 2018 TO ${type} $t;
    done;
