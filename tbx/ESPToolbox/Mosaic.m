@@ -150,7 +150,7 @@ classdef Mosaic
                     mosaicData.zthresh(tileId) = {thisSTC.zthresh};
                 end
 
-                mosaicData.stcStruct = struct(region.STC); % SIER_289
+                mosaicData.stcStruct = struct(regions.STC); % SIER_289
                 mosaicData.RefMatrix = zeros(3,2);
                 mosaicData.RefMatrix(3, 1) = min(tileData.RefMatrices(:, 3, 1));
                 mosaicData.RefMatrix(2, 1) = tileData.RefMatrices(1, 2, 1); % pixel size

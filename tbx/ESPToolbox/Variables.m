@@ -68,7 +68,9 @@ classdef Variables
             %    and collection of units and divisor
             %---------------------------------------------------------------------------
             tic;
-            fprintf('%s: Start days_without_observation calculations\n', mfilename());
+            baseVarName = 'viewable_snow_fraction_status';
+            aggregateVarName = 'days_without_observation';
+            fprintf('%s: Start %s calculations\n', mfilename(), aggregateVarName);
             
             region = obj.region;
             espEnv = region.espEnv;
@@ -81,9 +83,10 @@ classdef Variables
 
             thisVarConf = espEnv.myConf.variable(find( ...
                 strcmp(espEnv.myConf.variable.output_name, ...
-                    'days_without_observation')), :);
-            days_without_observation_units = thisVarConf.units_in_map{1};
-            days_without_observation_divisor = thisVarConf.divisor;
+                    aggregateVarName)), :);
+            mosaicData = struct();
+            mosaicData.([aggregateVarName '_units']) = thisVarConf.units_in_map{1};
+            mosaicData.([aggregateVarName '_divisor']) = thisVarConf.divisor;
 
             % 1. Initial daysWithoutObservation.
             %---------------------------------------------------------------------------
@@ -91,30 +94,32 @@ classdef Variables
             % modaic data file of the day before), if the date range
             % doesn't begin in the first month of the wateryear
             % else 0.
-            lastDaysWithoutObservation = 0;
+            lastDaysWithoutObservation = zeros(region.getSizeInPixels(), 'single');
             if dateRange(1) ~= waterYearDate.getFirstDatetimeOfWaterYear()
                 thisDatetime = daysadd(dateRange(1) , -1); % date before.
                 dataFilePath = espEnv.MosaicFile(region, thisDatetime);
-
-                if isfile(dataFilePath)
-                    data = load(dataFilePath, 'days_without_observation');
-                    fprintf('%s: Loading days_without_observation from %s\n', ...
-                            mfilename(), dataFilePath);
-                    if ~isempty(data) && ...
-                        any(strcmp(fieldnames(data), 'days_without_observation'))
-                        lastDaysWithoutObservation = data.days_without_observation;
+                unavailableDataFlag = false;
+                if ~isfile(dataFilePath)
+                    unavailableDataFlag = true;
+                else
+                    data = load(dataFilePath, aggregateVarName);
+                    fprintf('%s: Loading %s from %s\n', ...
+                            mfilename(), aggregateVarName, dataFilePath);
+                    if isempty(data) | ...
+                        ~ismember(aggregateVarName, fieldnames(data))
+                        unavailableDataFlag = true;
+                    else
+                        lastDaysWithoutObservation = cast(data.days_without_observation, 'single');
+                            % Don't forget that in mosaics type is not single.
                         lastDaysWithoutObservation( ...
                             lastDaysWithoutObservation == thisVarConf.nodata_value) ...
                             = NaN;
-                    else
-                        warning('%s: No days_without_observation variable in %s\n', ...
-                            mfilename(), dataFilePath);
-                        lastDaysWithoutObservation = NaN;
                     end
-                else
-                    warning('%s: Missing file %s\n', mfilename(), ...
-                        dataFilePath);
-                    lastDaysWithoutObservation = NaN;
+                end
+                if unavailableFlag
+                    warning('%s: Missing file or no %s variable in %s\n', ...
+                        mfilename(), aggregateVarName, dataFilePath);
+                    lastDaysWithoutObservation = NaN(region.getSizeInPixels(), 'single');
                 end
             end
 
@@ -127,48 +132,44 @@ classdef Variables
                 %-----------------------------------------------
                 dataFilePath = espEnv.MosaicFile(region, dateRange(thisDateIdx));
 
+                unavailableDataFlag = false;
                 if ~isfile(dataFilePath)
-                    warning('%s: Missing file %s\n', mfilename(), ...
-                        dataFilePath);
-                    lastDaysWithoutObservation = NaN;
-                    continue;
+                    unavailableDataFlag = true; 
+                else
+                    data = load(dataFilePath, baseVarName);
+                    fprintf('%s: Loading %s from %s\n', ...
+                            mfilename(), baseVarName, dataFilePath);                    
+                    if isempty(data) | ...
+                        ~ismember(baseVarName, fieldnames(data))
+                        unavailableDataFlag = true;
+                    end
                 end
-
-                data = load(dataFilePath, 'viewable_snow_fraction_status');
-                fprintf('%s: Loading viewable_snow_fraction_status from %s\n', ...
-                        mfilename(), dataFilePath);
-                if isempty(data)
-                    warning('%s: No viewable_snow_fraction_status variable in %s\n', ...
-                        mfilename(), dataFilePath);
-                    lastDaysWithoutObservation = NaN;
-                    continue;
+                if unavailableDataFlag
+                    warning('%s: Missing file or no %s variable in %s\n', ... 
+                        mfilename(), baseVarName, dataFilePath);
+                    lastDaysWithoutObservation = NaN(region.getSizeInPixels(), 'single');
+                else
+                    % 2.b. If viewable_snow_fraction_status equals certain values,
+                    % the pixel doesn't have reliable observations and was interpolated.
+                    % Therefore we increase the counter of days without observations
+                    % otherwise we reset it to zero.
+                    %-----------------------------------------------------------------------
+                    isObserved = ~ismember(data.(baseVarName), ...
+                        obj.dataStatusForNoObservation);
+                    lastDaysWithoutObservation(isObserved) = 0;
+                    lastDaysWithoutObservation(~isObserved) = ...
+                        lastDaysWithoutObservation(~isObserved) + 1;
                 end
-
-                % 2.b. If viewable_snow_fraction_status equals certain values,
-                % the pixel doesn't have reliable observations and was interpolated.
-                % Therefore we increase the counter of days without observations
-                % otherwise we reset it to zero.
-                %-----------------------------------------------------------------------
-                isObserved = ~ismember(data.viewable_snow_fraction_status, ...
-                    obj.dataStatusForNoObservation);
-                lastDaysWithoutObservation(isObserved) = 0;
-                lastDaysWithoutObservation(~isObserved) = ...
-                    lastDaysWithoutObservation(~isObserved) + 1;
-                
-                days_without_observation = lastDaysWithoutObservation;
-                days_without_observation(isnan(days_without_observation)) = ...
+                lastDaysWithoutObservation(isnan(lastDaysWithoutObservation)) = ...
                     thisVarConf.nodata_value;
-                days_without_observation = cast(days_without_observation, ...
+                mosaicData.(aggregateVarName) = cast(lastDaysWithoutObservation, ...
                     thisVarConf.type_in_mosaics{1});
-                data_status_for_no_observation = obj.dataStatusForNoObservation;
-                save(dataFilePath, 'days_without_observation', ...
-                    'days_without_observation_divisor', ...
-                    'days_without_observation_units', ...
-                    'data_status_for_no_observation', '-append');
+                mosaicData.data_status_for_no_observation = obj.dataStatusForNoObservation;
+                save(dataFilePath, '-struct', 'mosaicData', '-append');
             end
             t2 = toc;
-            fprintf('%s: Finished days_without_observation update in %s seconds\n', ...
-                mfilename(), ...
+            fprintf('%s: Finished %s update in %s seconds\n', ...
+                mfilename(), aggregateVarName, ...
                 num2str(roundn(t2, -2)));
         end
         function calcSnowCoverDays(obj, waterYearDate)
@@ -272,7 +273,7 @@ classdef Variables
                     continue;
                 end
 
-                snowCoverFraction = STCData.snow_fraction;
+                snowCoverFraction = STCData.snow_fraction; % type 'single' in STCCubde
                 % 2.b. Below a certain elevation and fraction, the pixel is not
                 % considered covered by snow
                 %--------------------------------------------------------------
