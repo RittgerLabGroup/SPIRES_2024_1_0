@@ -16,3 +16,5 @@ Viewable Snow Cover Percent,STv,viewable_snow_fraction,,,single,uint8,uint8,uint
 ,,vegetation_fraction,,,,,uint8,,,,,,,,,,,,,,,,,,,1,vegetation_fraction,modscag,
 ,,rock_fraction,,,,,uint8,,,,,,,,,,,,,,,,,,,1,rock_fraction,modscag,
 ,,other_fraction,,,,,uint8,,,,,,,,,,,,,,,,,,,1,other_fraction,modscag,
+,viewable_snow_fraction_status,viewable_snow_fraction_status,,Mask observed / interpolated,uint8,uint8,uint8,uint8,w/o units,w/o units,w/o units,1,1,0,0,0,0,0,255,0,0,1,0,1,0,0,,,"not to indicate in mosaicSubsetSCAGDRFS, but we do insert in raw files"
+,,days_without_observation,,Number of days without observation,uint16,uint16,uint16,uint16,days,days,days,1,1,65535,65535,65535,65535,0,366,0,0,0,0,0,0,0,,,"Not to indicate in write_mosaics, but we do insert after generating the Mosaic "
