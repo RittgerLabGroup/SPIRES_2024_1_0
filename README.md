@@ -397,7 +397,7 @@ tight_subplot: https://??
 ## Running Matlab GUI
 
 1. In your Web browser, connect to ondemand.rc.colorado.edu and authorize with identikey
-2. Top nav, go to "Interactive Apps"→"Core Desktop"
+2. Top nav, go to "Interactive Apps""Core Desktop"
 3. Ask for hours/cores, leave account blank to use default, (default is ucb-general)
 4. Once in the core desktop, open the Terminal app (small icon near the top left) (you are now on a viz node; you cannot schedule jobs on non-viz clusters directly from here, but you can do so from a login node, so next step is to ssh to login node)
 5. Open a connection to a login node: ssh -X login.rc.colorado.edu and authorize with identikey
@@ -423,7 +423,8 @@ matlab
 (You can define these little sets of commands as aliases in your .bashrc file)
 The Matlab GUI should open up on the Core Desktop and be more responsive than other remote connections are.
 
-## Annual Maintenance for upgrading Snow Today statistics files for complete historical record
+## Annual Maintenance for upgrading Snow Today statistics files for complete
+   historical record
 
 The SnowToday plots expect to make "in Context" statistics relative
 to the date of the current data. This requires the annual statistics files
@@ -445,22 +446,32 @@ The procedure for doing this is:
 
    e.g. in oct 2022, do:
 
+   ```
    cd scripts
    for type in mod09ga/historic modscag/historic moddrfs/historic; do
    for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
    ./scratchShuffle.sh -b 2000 -e 2018 TO ${type} $t;
    done;
    done
+   ```
 
+   ```
    for type in mod09ga/NRT modscag/NRT moddrfs/NRT; do
    for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
    ./scratchShuffle.sh -b 2018 -e 2022 TO ${type} $t;
    done;
    done
+   ```
 
+   As time proceeds to later years, change the -e yyyy end data for NRT
+   shuffles.
+   
    This will make a mirrored copy of required inputs on scratch.
    
-3) Update the monthly data cubes for the latest period, likely
+3a) ***For annual maintenance, when you you only have to update the most
+    recent water year of Raw/Gap/STC cubes:***   
+
+   Update the monthly data cubes for the latest period, likely
    Oct of last year through Sep of this year. This needs to be
    done in 2 sets: first, update all the Raw Month cubes.
 
@@ -469,13 +480,15 @@ The procedure for doing this is:
    This updates tile-specific Raw monthly data cubes:
 
    e.g. to update Raw month cubes, for WY2022, do:
-   
+
+   ```
    for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
    sbatch --job-name=Raw-${t} --array=2021 ./runUpdateRawMonthCubes.sh -L v2023.0 ${t} 10 12;
    done
    for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
    sbatch --job-name=Raw-${t} --array=2022 ./runUpdateRawMonthCubes.sh -L v2023.0 ${t} 1 9;
    done
+   ```
 
    Once all the Raw months are updated, do the STC Gap/Interp updates. The Gap/Interp
    cubes use a month window on either side of the month being processed.
@@ -487,10 +500,12 @@ The procedure for doing this is:
 
    e.g. to update Gap/STC month cubes for water year 2022, do:
 
+   ```
    for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
    sbatch --job-name=STC-${t} --array=2021 ./runUpdateSTCMonthCubes.sh -L v2023.0 ${t} 10 12;
    sbatch --job-name=STC-${t} --array=2022 ./runUpdateSTCMonthCubes.sh -L v2023.0 ${t} 1 9
    done
+   ```
 
    Sometimes these jobs crash with out-of-memory errors when they are set up for
    12-month batchs. If this happens, take a look at how much completed and
@@ -505,27 +520,98 @@ The procedure for doing this is:
    finish in less than the original time. So this is another condition that I
    cannot predict or reliably repeat.
 
-4) Once an entire water year (oct-sep) is available as STC cubes for a complete
-   region, update the STC cubes with cumulative snow-covered-days:
+3b) ***For complete re-creation of entire history of Raw/Gap/STC:***
 
-   For the "westernUS" region:
-   
-   reg=westernUS;
-   sbatch --job-name=SCD-${reg} --array=2022 ./runUpdateWaterYearSCD.sh -L v2023.0 ${reg}
-   
-5) Once you have all STC cubes updated for a given period, and updated with
-   cumulative SCD, update the multi-variable mosaics for the new period
+   Once again, you must complete all the Raw cubes before beginning the Gap/STC cubes.
+   Most years will be month 1-12, with year 2000 having 2-12 and the most recent year
+   you are processing begin 1-<currentMonth>.
 
+   See runUpdateRawMonthCubes.sh for each tile needed, use sbatch options for
+   --job-name and --array.  This updates tile-specific Raw monthly data cubes:
+
+   e.g. if today is April 2023, to update historic Raw month cubes, do all months,
+   2001-2022, and then partial years for 2000 and 2023:
+
+   ```
+   for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
+   sbatch --job-name=Raw-${t} --array=2001-2022 ./runUpdateRawMonthCubes.sh -L v2023.1 ${t} 1 12;
+   sbatch --job-name=Raw-${t} --array=2000 ./runUpdateRawMonthCubes.sh -L v2023.1 ${t} 2 12;
+   sbatch --job-name=Raw-${t} --array=2023 ./runUpdateRawMonthCubes.sh -L v2023.1 ${t} 1 4;
+   done
+   ```
+
+   Once all the Raw months are updated, do the STC Gap/Interp updates. The Gap/Interp
+   cubes use a month window on either side of the month being processed.
+      
+   Same idea as above, see runUpdateSTCMonthCubes.sh for each tile needed,
+   e.g. all months for 2001-2022, and partial sets for 2000 and this year.  Use
+   sbatch options for --job-name and --array.  This updates tile-specific Gap
+   and Interp monthly data cubes:
+
+   e.g. if today is April 2023, to update historic Raw month cubes, do all months,
+   2001-2022, and then partial years for 2000 and 2023:
+
+   ```
+   for t in h08v04 h08v05 h09v04 h09v05 h10v04; do
+   sbatch --job-name=STC-${t} --array=2001-2022 ./runUpdateSTCMonthCubes.sh -L v2023.1 ${t} 1 12;
+   sbatch --job-name=STC-${t} --array=2000 ./runUpdateSTCMonthCubes.sh -L v2023.1 ${t} 2 12;
+   sbatch --job-name=STC-${t} --array=2023 ./runUpdateSTCMonthCubes.sh -L v2023.1 ${t} 1 4
+   done
+   ```
+
+   Check output logs for errors/warnings, with:
+
+   ```
+   grep -i error <logfile_pattern>
+   ```
+   and
+   ```
+   grep -i warning <logfile_pattern>
+   ```
+
+   And restart-rerun any jobs that fail before proceeding to next steps.
+
+4a) ***For annual maintenance, when you you only have to update the most
+    recent water year of STC cubes:***   
+
+    Once an entire water year (oct-sep) is available as STC cubes for a complete
+    region, update the STC cubes with cumulative snow-covered-days:
+
+    For the "westernUS" region:
+
+    ```
+    reg=westernUS;
+    sbatch --job-name=SCD-${reg} --array=2022 ./runUpdateWaterYearSCD.sh -L v2023.0 ${reg}
+    ```
+
+4b) ***For complete re-creation of entire history STC cubes:***
+
+    Update each water year of STC cubes with cumulative snow covered days:
+    For the "westernUS" region:
+
+    ```
+    reg=westernUS;
+    sbatch --job-name=SCD-${reg} --array=2001-2023 ./runUpdateWaterYearSCD.sh -L v2023.1 ${reg}
+    ```
+
+   
+5) Once you have all STC cubes updated for a given period, and ***updated with
+   cumulative SCD***, update the multi-variable mosaics for the new period.  For
+   annual mainenance, set --array to most recent water year.  For complete historical
+   re-processing, set --array to range beginning with 2001 (the first complete water year)
+   
    Use runUpdateMosaic for this.
+
+   ```
    reg=westernUS;
-   sbatch --job-name=Mos-${reg} --array=2022 ./runUpdateMosaic.sh -L v2023.0 ${reg}
+   sbatch --job-name=Mos-${reg} --array=<array_set> ./runUpdateMosaic.sh -L v2023.x ${reg}
+   ```
 
-6) Update the long-term statistics for 2001-current year
+6) Once you have a complete set of updated mosaic files (either for the last water year or for the complete set), update the long-term statistics for 2001-current year:
 
-   For current year= 2022:
-   
    See runSnowTodayStep3Historical.sh.
-   In Oct 2021, 2 hours was enough for array 10 and 12, but array 11
+
+   In Oct 2022, 2 hours was enough for array 10 and 12, but array 11
    timed out. Ran it again, it needed 3 hours.
 
 7) All of the above steps have been done on scratch, which expires in 3 months.
@@ -549,7 +635,6 @@ job-name=$jname --time=02:00:00 ./runFetchTile.sh -s 20000224 -e 20001231 -v his
 ```
 
 On alpine, summer 2022, these jobs were taking about 1 hour per tile per year of data
-
 
 
 
