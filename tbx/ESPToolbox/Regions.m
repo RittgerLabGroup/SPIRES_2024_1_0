@@ -265,14 +265,17 @@ classdef Regions
         % with elements that should be saved to the output file, and
         % then appending the output file with the structure, using the
         % -s option
+        % SIER_289. Method updated so as not to save objects but structs to have more
+        % flexibility when small developments on the ESPEnv, MODISData and 
+        % STC classes.
         function saveEnvironment(obj, outFilename)
             % Appends runtime environment variables to outFilename
 
             % make a copy so variable references in save will work
-            espEnv = obj.espEnv;
-            modisData = obj.modisData;
-            STC = obj.STC;
-            save(outFilename, '-append', 'espEnv', 'modisData', 'STC');
+            espEnvStruct = struct(obj.espEnv);
+            modisDataStruct = struct(obj.modisData);
+            stcStruct = struct(obj.STC);
+            save(outFilename, '-append', 'espEnvStruct', 'modisDataStruct', 'STCStruct');
                 fprintf("%s: Appended espEnv/modisData/STC to %s\n", ...
                     class(obj), outFilename);
 
