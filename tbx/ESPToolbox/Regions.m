@@ -275,7 +275,7 @@ classdef Regions
             espEnvStruct = struct(obj.espEnv);
             modisDataStruct = struct(obj.modisData);
             stcStruct = struct(obj.STC);
-            save(outFilename, '-append', 'espEnvStruct', 'modisDataStruct', 'STCStruct');
+            save(outFilename, '-append', 'espEnvStruct', 'modisDataStruct', 'stcStruct');
                 fprintf("%s: Appended espEnv/modisData/STC to %s\n", ...
                     class(obj), outFilename);
 
