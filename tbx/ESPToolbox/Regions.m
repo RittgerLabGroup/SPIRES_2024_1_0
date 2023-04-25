@@ -120,6 +120,7 @@ classdef Regions
             obj.snowCoverDayMins = mObj.snowCoverDayMins;
             obj.geotiffCrop = mObj.geotiffCrop;            
             obj.STC = STC(mObj.stcStruct); % SIER_289
+            % @deprecated mObj.STC
             obj.tileIds = mObj.tileIds;
             obj.thresholdsForMosaics = mObj.thresholdsForMosaics;
             obj.thresholdsForPublicMosaics = mObj.thresholdsForPublicMosaics;
