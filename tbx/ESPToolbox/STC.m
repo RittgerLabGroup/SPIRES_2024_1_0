@@ -93,10 +93,10 @@ classdef STC < handle
             defaultMindays = 10;
             addOptional(p, 'mindays', defaultMindays);
 
-            defaultSthreshForGS = 0.3;
+            defaultSthreshForGS = 0.2;
             addOptional(p, 'sthreshForGS', defaultSthreshForGS);
 
-            defaultSthreshForRF = 0.3;
+            defaultSthreshForRF = 0.7;
             addOptional(p, 'sthreshForRF', defaultSthreshForRF);
 
             defaultZthresh = [ 800 800 ];
