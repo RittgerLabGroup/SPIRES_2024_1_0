@@ -116,7 +116,7 @@ classdef Variables
                             = NaN;
                     end
                 end
-                if unavailableFlag
+                if unavailableDataFlag
                     warning('%s: Missing file or no %s variable in %s\n', ...
                         mfilename(), aggregateVarName, dataFilePath);
                     lastDaysWithoutObservation = NaN(region.getSizeInPixels(), 'single');
@@ -166,6 +166,8 @@ classdef Variables
                     thisVarConf.type_in_mosaics{1});
                 mosaicData.data_status_for_no_observation = obj.dataStatusForNoObservation;
                 save(dataFilePath, '-struct', 'mosaicData', '-append');
+                fprintf('%s: Saved %s to %s\n', mfilename(), ...
+                    aggregateVarName, dataFilePath);
             end
             t2 = toc;
             fprintf('%s: Finished %s update in %s seconds\n', ...
@@ -301,7 +303,8 @@ classdef Variables
                     'snow_cover_days_units', ...
                     'snow_cover_days_min_elevation', ...
                     'snow_cover_days_min_snow_cover_fraction', '-append');
-
+                fprintf('%s: Saved snow_cover_days to %s\n', mfilename(), ...
+                    STCFile);
             end
             t2 = toc;
             fprintf('%s: Finished snow cover days update in %s seconds\n', ...
@@ -501,7 +504,7 @@ classdef Variables
                 % 2.e. Save albedos and params in Mosaic Files
                 %---------------------------------------------
                 Tools.parforSaveFieldsOfStructInFile(mosaicFile, albedos, 'append');
-                fprintf('%s: saved albedo to %s\n', mfilename(), ...
+                fprintf('%s: Saved albedo to %s\n', mfilename(), ...
                     mosaicFile);
             end
 

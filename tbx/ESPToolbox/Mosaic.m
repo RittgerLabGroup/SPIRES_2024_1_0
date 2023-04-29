@@ -39,7 +39,7 @@ classdef Mosaic
             fprintf('%s: Start mosaic generation and writing\n', mfilename());
             espEnv = obj.region.espEnv;
             modisData = obj.region.modisData;
-            regions = obj.region;
+            region = obj.region;
             regionName = obj.region.regionName;
 
             % Array of the tile regions that compose the upper-level region
