@@ -127,7 +127,7 @@ classdef Variables
             % period by calculating days_without_observation from 
             % viewable_snow_fraction_status.
             %---------------------------------------------------------------------------
-            for thisDateIdx=1:length(dateRange)
+            for thisDateIdx=1:length(dateRange) % No parfor here.
                 % 2.a. Loading of the daily mosaic file
                 %-----------------------------------------------
                 dataFilePath = espEnv.MosaicFile(region, dateRange(thisDateIdx));
@@ -145,9 +145,10 @@ classdef Variables
                     end
                 end
                 if unavailableDataFlag
-                    warning('%s: Missing file or no %s variable in %s\n', ... 
+                    warning(['%s: Stop updating days_without_observation. ', ...
+                        'Missing file or no %s variable in %s\n'], ... 
                         mfilename(), baseVarName, dataFilePath);
-                    lastDaysWithoutObservation = NaN(region.getSizeInPixels(), 'single');
+                    break;
                 else
                     % 2.b. If viewable_snow_fraction_status equals certain values,
                     % the pixel doesn't have reliable observations and was interpolated.

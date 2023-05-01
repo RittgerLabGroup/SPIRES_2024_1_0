@@ -273,9 +273,11 @@ classdef Regions
             % Appends runtime environment variables to outFilename
 
             % make a copy so variable references in save will work
+            warning('off', 'MATLAB:structOnObject');
             espEnvStruct = struct(obj.espEnv);
             modisDataStruct = struct(obj.modisData);
             stcStruct = struct(obj.STC);
+            warning('on', 'MATLAB:structOnObject');
             save(outFilename, '-append', 'espEnvStruct', 'modisDataStruct', 'stcStruct');
                 fprintf("%s: Appended espEnv/modisData/STC to %s\n", ...
                     class(obj), outFilename);
