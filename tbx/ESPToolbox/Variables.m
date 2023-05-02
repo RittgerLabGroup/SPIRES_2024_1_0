@@ -2,7 +2,7 @@ classdef Variables
     % Handles the calculations to obtain the variables
     % e.g. snow_cover_days
     properties
-        regions         % Regions object, on which the calculations are done
+        region         % Regions object, on which the calculations are done
     end
 
     properties(Constant)
@@ -18,25 +18,168 @@ classdef Variables
                                     % spires in parBal package
         albedoMaxGrainSize = 1999;  % Max grain size accepted to calculate albedo
                                     % spires in parBal package
+        dataStatus = ...
+            struct(observed = 1, ...
+                unavailable = 0, ...
+                cloudyOrOther = 10, ...
+                highSolarZenith = 20, ...
+                lowValue = 30, ...
+                notForGeneralPublic = 40, ...
+                temporary = 255); % possible values
+            % for the viewable_snow_fraction_status variable to indicate 
+            % observed and reliable/unobserved/interpolated data.
+        dataStatusForNoObservation = [Variables.dataStatus.unavailable, ...
+            Variables.dataStatus.cloudyOrOther, ...
+            Variables.dataStatus.highSolarZenith]; % Data status values that indicate no 
+            % observation, used to calculate days_without_observation.
+        highSolarZenith = 67.5; % solar zenith value above which the observed data is
+            % considered unreliable.            
     end
 
     methods
-        function obj = Variables(regions)
+        function obj = Variables(region)
             % Constructor of Variables
             %
             % Parameters
             % ----------
-            % regions: Regions object
-            %   Regions on which the variables are handled
+            % region: Regions object
+            %   Region on which the variables are handled
 
-            obj.regions = regions;
+            obj.region = region;
         end
+        function calcDaysWithoutObservation(obj, waterYearDate)
+            % Calculates days_without_observation from snow_fraction_status variable
+            % and updates the dailty mosaic data files with the value.
+            % By default days_without_observation is 0 starting from the 1st day
+            % of the current waterYear and increase over time if there's no data
+            % available for the pixel, the data indicate water, clouds, or noise,
+            % or solar zenith was too high. days_without_observation goes back to 
+            % 0 the day when there's a reliable observation.
+            %
+            % Called by runSnowTodayStep2.sh \ runUpdateMosaic.sh
+            % 
+            % Parameters
+            % ----------
+            % waterYearDate: waterYearDate object, optional
+            %   Date and range of days before over which calculation
+            %   should be carried out
 
+            % 0. Initialization, dates
+            %    and collection of units and divisor
+            %---------------------------------------------------------------------------
+            tic;
+            baseVarName = 'viewable_snow_fraction_status';
+            aggregateVarName = 'days_without_observation';
+            fprintf('%s: Start %s calculations\n', mfilename(), aggregateVarName);
+            
+            region = obj.region;
+            espEnv = region.espEnv;
+            modisData = region.modisData;
+
+            if ~exist('waterYearDate', 'var')
+                waterYearDate = WaterYearDate();
+            end
+            dateRange = waterYearDate.getDailyDatetimeRange();
+
+            thisVarConf = espEnv.myConf.variable(find( ...
+                strcmp(espEnv.myConf.variable.output_name, ...
+                    aggregateVarName)), :);
+            mosaicData = struct();
+            mosaicData.([aggregateVarName '_units']) = thisVarConf.units_in_map{1};
+            mosaicData.([aggregateVarName '_divisor']) = thisVarConf.divisor;
+
+            % 1. Initial daysWithoutObservation.
+            %---------------------------------------------------------------------------
+            % Taken from the day preceding the date range (in the daily
+            % modaic data file of the day before), if the date range
+            % doesn't begin in the first month of the wateryear
+            % else 0.
+            lastDaysWithoutObservation = zeros(region.getSizeInPixels(), 'single');
+            if dateRange(1) ~= waterYearDate.getFirstDatetimeOfWaterYear()
+                thisDatetime = daysadd(dateRange(1) , -1); % date before.
+                dataFilePath = espEnv.MosaicFile(region, thisDatetime);
+                unavailableDataFlag = false;
+                if ~isfile(dataFilePath)
+                    unavailableDataFlag = true;
+                else
+                    data = load(dataFilePath, aggregateVarName);
+                    fprintf('%s: Loading %s from %s\n', ...
+                            mfilename(), aggregateVarName, dataFilePath);
+                    if isempty(data) | ...
+                        ~ismember(aggregateVarName, fieldnames(data))
+                        unavailableDataFlag = true;
+                    else
+                        lastDaysWithoutObservation = cast(data.days_without_observation, 'single');
+                            % Don't forget that in mosaics type is not single.
+                        lastDaysWithoutObservation( ...
+                            lastDaysWithoutObservation == thisVarConf.nodata_value) ...
+                            = NaN;
+                    end
+                end
+                if unavailableDataFlag
+                    warning('%s: Missing file or no %s variable in %s\n', ...
+                        mfilename(), aggregateVarName, dataFilePath);
+                    lastDaysWithoutObservation = NaN(region.getSizeInPixels(), 'single');
+                end
+            end
+
+            % 2. Update each daily mosaic file for the full
+            % period by calculating days_without_observation from 
+            % viewable_snow_fraction_status.
+            %---------------------------------------------------------------------------
+            for thisDateIdx=1:length(dateRange) % No parfor here.
+                % 2.a. Loading of the daily mosaic file
+                %-----------------------------------------------
+                dataFilePath = espEnv.MosaicFile(region, dateRange(thisDateIdx));
+
+                unavailableDataFlag = false;
+                if ~isfile(dataFilePath)
+                    unavailableDataFlag = true; 
+                else
+                    data = load(dataFilePath, baseVarName);
+                    fprintf('%s: Loading %s from %s\n', ...
+                            mfilename(), baseVarName, dataFilePath);                    
+                    if isempty(data) | ...
+                        ~ismember(baseVarName, fieldnames(data))
+                        unavailableDataFlag = true;
+                    end
+                end
+                if unavailableDataFlag
+                    warning(['%s: Stop updating days_without_observation. ', ...
+                        'Missing file or no %s variable in %s\n'], ... 
+                        mfilename(), baseVarName, dataFilePath);
+                    break;
+                else
+                    % 2.b. If viewable_snow_fraction_status equals certain values,
+                    % the pixel doesn't have reliable observations and was interpolated.
+                    % Therefore we increase the counter of days without observations
+                    % otherwise we reset it to zero.
+                    %-----------------------------------------------------------------------
+                    isObserved = ~ismember(data.(baseVarName), ...
+                        obj.dataStatusForNoObservation);
+                    lastDaysWithoutObservation(isObserved) = 0;
+                    lastDaysWithoutObservation(~isObserved) = ...
+                        lastDaysWithoutObservation(~isObserved) + 1;
+                end
+                lastDaysWithoutObservation(isnan(lastDaysWithoutObservation)) = ...
+                    thisVarConf.nodata_value;
+                mosaicData.(aggregateVarName) = cast(lastDaysWithoutObservation, ...
+                    thisVarConf.type_in_mosaics{1});
+                mosaicData.data_status_for_no_observation = obj.dataStatusForNoObservation;
+                save(dataFilePath, '-struct', 'mosaicData', '-append');
+                fprintf('%s: Saved %s to %s\n', mfilename(), ...
+                    aggregateVarName, dataFilePath);
+            end
+            t2 = toc;
+            fprintf('%s: Finished %s update in %s seconds\n', ...
+                mfilename(), aggregateVarName, ...
+                num2str(roundn(t2, -2)));
+        end
         function calcSnowCoverDays(obj, waterYearDate)
             % Calculates snow cover days from snow_fraction variable
             % and updates the monthly STC cube interpolation data files with the value.
             % Cover days are calculated if elevation and snow cover fraction
-            % are above thresholds defined at the Regions level (attribute
+            % are above thresholds defined at the Region level (attribute
             % snowCoverDayMins.
             % Cover days is NaN after the first day (included) without snow fraction data.
             %
@@ -54,10 +197,10 @@ classdef Variables
             %    and collection of units and divisor for
             %    snow_cover_days
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            regions = obj.regions;
-            espEnv = regions.espEnv;
-            modisData = regions.modisData;
-            mins = regions.snowCoverDayMins;
+            region = obj.region;
+            espEnv = region.espEnv;
+            modisData = region.modisData;
+            mins = region.snowCoverDayMins;
 
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
@@ -65,11 +208,10 @@ classdef Variables
             dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
-            elevationData = regions.getElevations();
+            elevationData = region.getElevations();
 
-            variables = espEnv.configurationOfVariables();
-            snowCoverConf = variables(find( ...
-                strcmp(variables.output_name, 'snow_cover_days')), :);
+            snowCoverConf = espEnv.myConf.variable(find( ...
+                strcmp(espEnv.myConf.variable.output_name, 'snow_cover_days')), :);
             snow_cover_days_units = snowCoverConf.units_in_map;
             snow_cover_days_divisor = snowCoverConf.divisor;
 
@@ -86,7 +228,7 @@ classdef Variables
 
             if month(dateRange(1)) ~= waterYearDate.waterYearFirstMonth
                 dateBefore = daysadd(dateRange(1) , -1);
-                STCFile = espEnv.SCAGDRFSFile(regions, ...
+                STCFile = espEnv.SCAGDRFSFile(region, ...
                     'SCAGDRFSSTC', dateBefore);
 
                 if isfile(STCFile)
@@ -114,7 +256,7 @@ classdef Variables
             for monthDayIdx=1:numberOfMonths
                 % 2.a. Loading of the monthly interpolation file
                 %-----------------------------------------------
-                STCFile = espEnv.SCAGDRFSFile(regions, ...
+                STCFile = espEnv.SCAGDRFSFile(region, ...
                     'SCAGDRFSSTC', dateRange(monthDayIdx));
 
                 if ~isfile(STCFile)
@@ -134,7 +276,7 @@ classdef Variables
                     continue;
                 end
 
-                snowCoverFraction = STCData.snow_fraction;
+                snowCoverFraction = STCData.snow_fraction; % type 'single' in STCCubde
                 % 2.b. Below a certain elevation and fraction, the pixel is not
                 % considered covered by snow
                 %--------------------------------------------------------------
@@ -162,7 +304,8 @@ classdef Variables
                     'snow_cover_days_units', ...
                     'snow_cover_days_min_elevation', ...
                     'snow_cover_days_min_snow_cover_fraction', '-append');
-
+                fprintf('%s: Saved snow_cover_days to %s\n', mfilename(), ...
+                    STCFile);
             end
             t2 = toc;
             fprintf('%s: Finished snow cover days update in %s seconds\n', ...
@@ -190,16 +333,16 @@ classdef Variables
 
             % 1. Initialization, dates, slopes, aspects
             %------------------------------------------
-            regions = obj.regions;
-            espEnv = regions.espEnv;
-            modisData = regions.modisData;
+            region = obj.region;
+            espEnv = region.espEnv;
+            modisData = region.modisData;
 
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
             end
             dateRange = waterYearDate.getDailyDatetimeRange();
 
-            topo = matfile(espEnv.topographyFile(regions));
+            topo = matfile(espEnv.topographyFile(region));
             slope = topo.S;
             aspect = topo.A;
 
@@ -250,7 +393,7 @@ classdef Variables
                 %    the albedos to integers.
                 %----------------------------------------------
                 errorStruct = struct();
-                mosaicFile = espEnv.MosaicFile(regions, dateRange(dateIdx));
+                mosaicFile = espEnv.MosaicFile(region, dateRange(dateIdx));
 
                 if ~isfile(mosaicFile)
                     warning('%s: Missing mosaic file %s\n', mfilename(), ...
@@ -325,10 +468,10 @@ classdef Variables
                 %---------------------------------------------------
                 albedos.albedo_clean_mu0 = spires_albedo(...
                     grainSizeForSpires, mu0, ...
-                    regions.atmosphericProfile);
+                    region.atmosphericProfile);
                 albedos.albedo_clean_muZ = spires_albedo(...
                     grainSizeForSpires, muZ, ...
-                    regions.atmosphericProfile);
+                    region.atmosphericProfile);
 
                 albedoObservedCorrection = (cast(mosaicData.deltavis, 'double') / ...
                     Variables.albedoDeltavisScale) * ...
@@ -349,7 +492,7 @@ classdef Variables
                         errorStruct.identifier = 'Variables:RangeError';
                         errorStruct.message = sprintf(...
                             '%s: Calculated %s %s [%.3f,%.3f] out of bounds\n',...
-                            mfilename, regions.regionName, ...
+                            mfilename, region.regionName, ...
                             albedoName, [albedoName '_min'], [albedoName '_max']);
                         error(errorStruct);
                     end
@@ -362,7 +505,7 @@ classdef Variables
                 % 2.e. Save albedos and params in Mosaic Files
                 %---------------------------------------------
                 Tools.parforSaveFieldsOfStructInFile(mosaicFile, albedos, 'append');
-                fprintf('%s: saved albedo to %s\n', mfilename(), ...
+                fprintf('%s: Saved albedo to %s\n', mfilename(), ...
                     mosaicFile);
             end
 

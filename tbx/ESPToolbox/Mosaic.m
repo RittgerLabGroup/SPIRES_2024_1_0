@@ -4,22 +4,22 @@ classdef Mosaic
     % for variables required to generate the data expected by the SnowToday
     % website
     properties
-        regions     % Regions object pointing to the upper-level region, e.g.
+        region     % Regions object pointing to the upper-level region, e.g.
                     % westernUS
     end
 
     methods
-        function obj = Mosaic(regions)
+        function obj = Mosaic(region)
             % Constructor
             %
             % Parameters
             % ----------
-            % regions: Regions object
+            % region: Regions object
             %
             % Return
             % ------
             % obj: Mosaic object
-            obj.regions = regions;
+            obj.region = region;
         end
 
         function writeFiles(obj, waterYearDate, availableVariables)
@@ -37,13 +37,13 @@ classdef Mosaic
             %--------------
             tic;
             fprintf('%s: Start mosaic generation and writing\n', mfilename());
-            espEnv = obj.regions.espEnv;
-            modisData = obj.regions.modisData;
-            regions = obj.regions;
-            regionName = obj.regions.regionName;
+            espEnv = obj.region.espEnv;
+            modisData = obj.region.modisData;
+            region = obj.region;
+            regionName = obj.region.regionName;
 
             % Array of the tile regions that compose the upper-level region
-            tileRegionsArray = obj.regions.getTileRegions();
+            tileRegionsArray = obj.region.getTileRegions();
 
             varIndexes = 1:size(availableVariables, 1);
             for varId=varIndexes
@@ -145,11 +145,13 @@ classdef Mosaic
                     % This indirection is due to matfile 7.3 limitation
                     % It won't allow us to directly index into 
                     % structure fields
-                    thisSTC = tileSTCData.STC;
+                    thisSTC = tileRegionsArray(tileId).STC;
                     mosaicData.mindays(tileId) = {thisSTC.mindays};
                     mosaicData.zthresh(tileId) = {thisSTC.zthresh};
                 end
-
+                warning('off', 'MATLAB:structOnObject');
+                mosaicData.stcStruct = struct(region.STC); % SIER_289
+                warning('on', 'MATLAB:structOnObject');
                 mosaicData.RefMatrix = zeros(3,2);
                 mosaicData.RefMatrix(3, 1) = min(tileData.RefMatrices(:, 3, 1));
                 mosaicData.RefMatrix(2, 1) = tileData.RefMatrices(1, 2, 1); % pixel size
@@ -221,7 +223,7 @@ classdef Mosaic
                 
                 % 2.6. Thresholding
                 %------------------
-                thresholds = regions.thresholdsForMosaics;
+                thresholds = region.thresholdsForMosaics;
                 for thresholdId = 1:size(thresholds, 1)
                     thresholdedVarname = thresholds{thresholdId, 'thresholded_varname'}{1};
                     thresholdValue = thresholds{thresholdId, 'threshold_value'};
@@ -233,13 +235,21 @@ classdef Mosaic
                     mosaicDataForAllDays.(replacedVarname) ...
 			(mosaicDataForAllDays.(thresholdedVarname) ...
                         < thresholdValue) = valueForUnreliableData;
+                    % SIER_151 viewable_snow_fraction_status
+                    if strcmp(replacedVarname, 'viewable_snow_fraction')
+                        mosaicDataForAllDays.viewable_snow_fraction_status ...
+			                (mosaicDataForAllDays.(thresholdedVarname) ...
+                            < thresholdValue & ...
+                            mosaicDataForAllDays.viewable_snow_fraction_status == ...
+                            Variables.dataStatus.observed) = Variables.dataStatus.lowValue;
+                    end
                 end
                 
                 % 2.7. Generate and write the daily Mosaic Files
                 %-----------------------------------------------
                 for dayIdx = 1:length(dayRange)
                     thisDatetime = dayRange(dayIdx);
-                    mosaicFile = espEnv.MosaicFile(regions, thisDatetime);
+                    mosaicFile = espEnv.MosaicFile(region, thisDatetime);
                     mosaicData.dateval = datenum(thisDatetime) + 0.5;
                     for varIdx = varIndexes
                         varName = varNames{varIdx};
@@ -270,7 +280,7 @@ classdef Mosaic
             % waterYearDate: waterYearDate object
             %   waterYearDate for which generating the mosaics.
 
-            espEnv = obj.regions.espEnv;
+            espEnv = obj.region.espEnv;
 
             % List of Variables
             %------------------
@@ -285,15 +295,14 @@ classdef Mosaic
 
     	    Dt = NaT;
     	    dateRange = waterYearDate.getDailyDatetimeRange();
-    	    for i=length(dateRange):-1:1
-        	mosaicFilename = obj.regions.espEnv.MosaicFile( ...
-                    obj.regions, dateRange(i));
-        	if isfile(mosaicFilename)
-        	    Dt = dateRange(i);
-        	    break;
-        	end
-    	    end
-
+    	        for i=length(dateRange):-1:1
+        	    mosaicFilename = obj.region.espEnv.MosaicFile( ...
+                        obj.region, dateRange(i));
+        	    if isfile(mosaicFilename)
+        	        Dt = dateRange(i);
+        	        break;
+        	    end
+            end
     	end
     end
 end 

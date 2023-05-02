@@ -172,6 +172,22 @@ classdef WaterYearDate
 
             dateRange = firstDate:obj.thisDatetime;
         end
+        
+        function firstDatetimeOfWaterYear = getFirstDatetimeOfWaterYear(obj)
+            % Return
+            % ------
+            % firstDateOfWaterYear: datetime.
+            %   First date of the wateryear of the current waterYearDate.
+            yearForFirstDate = obj.getWaterYear();
+            if month(obj.thisDatetime) >= obj.waterYearFirstMonth
+                yearForFirstDate = obj.getWaterYear() - 1;
+            end
+            firstDatetimeOfWaterYear = datetime(yearForFirstDate, ...
+                obj.waterYearFirstMonth, ...
+                obj.monthFirstDay, ...
+                obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
+                obj.dayStartTime.SS);
+        end
 
         function lastDayWaterYearDate = getLastWYDateOfWaterYear(obj)
             % Return

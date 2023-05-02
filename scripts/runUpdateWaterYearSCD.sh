@@ -27,7 +27,6 @@
 #SBATCH -o /scratch/alpine/%u/slurm_out/%x-%A_%a.out
 # Set the system up to notify upon completion
 #SBATCH --mail-type END,FAIL,INVALID_DEPEND,TIME_LIMIT,REQUEUE,STAGE_OUT
-#SBATCH --mail-user brodzik@colorado.edu
 #SBATCH --array=2001-2021
 
 # Grab the full path to this script
