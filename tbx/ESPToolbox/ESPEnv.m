@@ -22,6 +22,7 @@ classdef ESPEnv
              % by tile/year (.hdr/.dat, .tif)
         dirWith % struct with various STC pipeline directories
         parallelismConf   % struct with parameters for parallelism
+        modisData % MODISData Object.
         myConf         % struct(variable = Table). Pointing to tables that stores 
             % the parameters for variables
             % for each variable at different steps of the process Step1, Step2, etc ...
@@ -46,14 +47,22 @@ classdef ESPEnv
             defaultHostName = 'CURCScratchAlpine';
             validHostNames = {'CURC', 'CURCScratchAlpine'};
             checkHostName = @(x) any(validatestring(x, validHostNames));
-            addOptional(p, 'hostName', obj.defaultHostName, ...
-            checkHostName);
-            addOptional(p, 'topPath', obj.defaultTopPath);
+            addParameter(p, 'hostName', obj.defaultHostName, ...
+                checkHostName);
+            addParameter(p, 'modisData', []); 
+                % Impossible to have parameter w/o default value?
+            addParameter(p, 'topPath', obj.defaultTopPath);
 
             p.KeepUnmatched = false;
             parse(p, varargin{:});
-            obj.topPath = p.Results.topPath;
-            
+            % If-Else to prevent instantiating a default MODISData by using
+            % default parameter in addParameter.
+            if isempty(p.Results.modisData)
+                obj.modisData = MODISData();
+            else
+                obj.modisData = p.Results.modisData;
+            end
+            obj.topPath = p.Results.topPath;            
             
             % Load configuration files (paths of ancillary data files, 
             % thresholds / region / variable configuration data.
