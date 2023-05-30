@@ -65,6 +65,8 @@ classdef PublicMosaic
             fields = fieldnames(publicMosaicData);
             if ~ismember(varName, fields)
                 varData = load(mosaicFile, varName).(varName);
+            else
+                varData = publicMosaicData.(varName);
             end
             if ~ismember('elevation', fields)
                 publicMosaicData.elevation = thisRegion.getElevations();
