@@ -584,12 +584,18 @@ classdef Regions < handle
                         publicMosaicData = [];
 
                         % Get the data interpolated at the  coordinates of the output
-                        % reference system.
+                        % reference system. SIER_163.
                         %---------------------------------------------------------------
-                        varData = double(varData);
+                        varData = single(varData);
                         varData(varData == varNameInfos.nodata_value) = NaN;
-                        varData = interpolateRaster(varData, inMapCellsReference, ...
-                            Xq, Yq, 'nearest');
+                        if contains(class(outCellsReference), 'map.rasterref.Map', ...
+                            'IgnoreCase', true)
+                            varData = mapinterp(varData, inMapCellsReference, ...
+                                Xq, Yq, 'nearest');
+                        else
+                            varData = geointerp(varData, inMapCellsReference, ...
+                                Yq, Xq, 'nearest');
+                        end
                         varData(isnan(varData)) = varNameInfos.nodata_value;
                         varData = cast(varData, varNameInfos.type{1});
                         fprintf('%s: Interpolated variable %s OK.\n', ...

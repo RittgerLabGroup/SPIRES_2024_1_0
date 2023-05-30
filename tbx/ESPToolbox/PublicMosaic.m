@@ -70,19 +70,25 @@ classdef PublicMosaic
             end
             if ~ismember('elevation', fields)
                 publicMosaicData.elevation = thisRegion.getElevations();
+                publicMosaicData.elevation(isnan(publicMosaicData.elevation)) = ...
+                    intmax('int16');
+                publicMosaicData.elevation = cast(publicMosaicData.elevation, 'int16');
+                % This should probably be in the getElevations() method.           @todo
             end
                         
             % 3. Rescale variables to match web precision (eg 1 unit)
             % and cast
             % ----------------------------------------------------
-            % Nb: divisor ~= 1 only for albedos
+            % Nb: We assume divisor always = 1 and no_data_value_web = no_data_value
+            % and type_web = type. SIER_163.
+%{ 
             varData = single(varData);
             varData(varData == varNameInfos.('nodata_value')) = NaN;
             varData = varData / varNameInfos.('divisor');
             varData(isnan(varData)) = ...
                 varNameInfos.('nodata_value_web');
             varData = cast(varData, varNameInfos.('type_web'){1});
-
+%}
             % 4. Thresholding and providing the Public Mosaic data
             % NB. SIER_163 optim, only works for thresholds based on elevation
             % and snow_fraction.
