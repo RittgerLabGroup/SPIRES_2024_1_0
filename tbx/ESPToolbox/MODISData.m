@@ -1,19 +1,47 @@
-classdef MODISData
+classdef MODISData < handle
     %MODISData - manages our inventory of MODIS tile data
     %   This class contains functions to manage our copy of MODIS tile
     %   data, including MOD09, modscag and moddrfs
     properties      % public properties
         archiveDir    % top-level directory with tile data
         alternateDir  % top-level directory with tile data on scratch
+        georeferencing = struct(northwest = struct(x0 = -2.001534101036227e+07, ...
+            y0 = 1.000778633335726e+07), tileInfo = struct(dx = 4.633127165279165e+02, ... %4.633127165279169e+02, ...
+            dy = 4.633127165279165e+02, columnCount = 2400, rowCount = 2400));
+        pixSize_500m = 4.633127165279165e+02; %463.31271653; % @deprecated.
         historicEndDt   % date of last historic data to use
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
         versionOf % version structure for various stages of processing
     end
-    properties(Constant)
-        pixSize_500m = 463.31271653;
-        tileRows_500m = 2400;
-        tileCols_500m = 2400;
+    properties(Constant)        
+        projection = struct(modisSinusoidal = struct( ...
+            ... % GeoKeyDirectoryTag to generate the geotiffs in sinusoidal projection.
+            ... % Tag documentation: http://geotiff.maptools.org/spec/geotiff6.html
+            ... % or https://svn.osgeo.org/metacrs/geotiff/trunk/geotiff/html/usgs_geotiff.html
+            geoKeyDirectoryTag = struct( ...
+                GTModelTypeGeoKey = 1, ... % projected.
+                GTRasterTypeGeoKey = 1, ... % cells (areas).
+                ProjectedCSTypeGeoKey = 32767, ... % user-defined projection.
+                PCSCitationGeoKey = 'MODIS Sinusoidal', ...
+                ProjectionGeoKey = 32767, ... % user-defined projection.
+                ProjCoordTransGeoKey = 24, ... % CT_Sinusoidal
+                ProjLinearUnitsGeoKey = 9001, ... % linear_meter
+                ProjFalseEastingGeoKey = 0.0, ...
+                ProjFalseNorthingGeoKey = 0.0, ...
+                GeographicTypeGeoKey = 32767, ... % World Geodetic Survey 1984
+                GeogCitationGeoKey = 'User with datum World Geodetic Survey 1984', ... % World Geodetic Survey 1984. GeogGeodeticDatumGeoKey = 4326 don't yield the correct tags in the geotiff.
+                GeogAngularUnitsGeoKey = 9102, ... % Angular_Degree
+                GeogEllipsoidGeoKey = 32767, ... % user-defined ellipsoid.
+                GeogSemiMajorAxisGeoKey = 6.371007181000000e+06, ... % Semi-major axis
+                GeogSemiMinorAxisGeoKey = 6.371007181000000e+06), ... % Semi-minor axis
+            ... % Well-known text to generate the projection crs. Necessary because
+            ... % there is no EPSG code for sinusoidal, and Matlab don't accept code
+            ... % other than from EPSG.
+            wkt = "PROJCS[""MODIS Sinusoidal"",BASEGEOGCRS[""User"",DATUM[""World Geodetic Survey 1984"",SPHEROID[""Authalic_Spheroid"",6371007.181,0.0]],PRIMEM[""Greenwich"",0.0],UNIT[""Degree"",0.0174532925199433]],PROJECTION[""Sinusoidal""],PARAMETER[""False_Easting"",0.0],PARAMETER[""False_Northing"",0.0],PARAMETER[""Central_Meridian"",0.0],UNIT[""Meter"",1.0]]" ...
+            ));
+        %tileRows_500m = 2400;
+        %tileCols_500m = 2400;
         %pixSize_1000m = pixSize_500m * 2;
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
@@ -109,6 +137,73 @@ classdef MODISData
                 'RegionalStatsMatlab',  label, ...
                 'RegionalStatsCsv',  label);
 
+        end
+        function mapCellsReference = getMapCellsReference(obj, positionalData)
+            % Parameters
+            % ----------
+            % positionalTileData: struct(horizontalId=int, verticalId=int, 
+            %   columnCount=int, rowCount=int).
+            %   - horizontalId: horizontal id of the tile.
+            %   - verticalId: vertical id of the tile.
+            %   - columnCount: number of pixels along a row of the tile.
+            %   - rowCount: number of pixels along a column of the tile.
+            %
+            % Return
+            % ------
+            % mapCellsReference: MapCellsReference object.
+            % SIER_320.
+            theseFieldnames = fieldnames(positionalData);
+            for fieldIdx = 1:length(theseFieldnames) 
+                positionalData.(theseFieldnames{fieldIdx}) = cast( ...
+                    positionalData.(theseFieldnames{fieldIdx}), 'double'); 
+                    % required by maprefcells.
+            end
+            dx = obj.georeferencing.tileInfo.dx;
+            dy = obj.georeferencing.tileInfo.dy;
+            northWestX =  obj.georeferencing.northwest.x0 + ...
+                positionalData.horizontalId * ...
+                obj.georeferencing.tileInfo.columnCount * dx; 
+                % don't use positionalData.columnCount here, we need the size of modis
+                % elemental tiles to get the space from x0.
+            northWestY = obj.georeferencing.northwest.y0 - ...
+                positionalData.verticalId * ...
+                obj.georeferencing.tileInfo.rowCount * dy;
+            mapCellsReference = maprefcells([ ...
+                northWestX + dx / 2, ...
+                northWestX + dx / 2 + dx * positionalData.columnCount], ...
+                [northWestY - dy / 2 - dy * positionalData.rowCount, ...
+                northWestY - dy / 2], ...
+                dx, dy, 'ColumnsStartFrom','north');
+            mapCellsReference.ProjectedCRS = ...
+                    projcrs(obj.projection.modisSinusoidal.wkt);
+        end
+        function positionalData = getTilePositionIdsAndColumnRowCount( ...
+            obj, tileRegionName)
+            % Parameters
+            % ----------
+            % tileRegionName: char. Tile region name (format h00v00).
+            %
+            % Return
+            % ------
+            % positionalData: struct(horizontalId=int, verticalId=int, 
+            %   columnCount=int, rowCount=int). 
+            %   - horizontalId: horizontal id of the tile.
+            %   - verticalId: vertical id of the tile.
+            %   - columnCount: number of pixels along a row of the tile.
+            %   - rowCount: number of pixels along a column of the tile.
+            % SIER_320.
+            positionalData.horizontalId = str2num(tileRegionName(2:3));
+            positionalData.verticalId = str2num(tileRegionName(5:6));
+            positionalData.columnCount = obj.georeferencing.tileInfo.columnCount;
+            positionalData.rowCount = obj.georeferencing.tileInfo.rowCount;
+            
+            % Bypass the MockRegionDataset tiles, which don't have this
+            % nomenclature. We want to be at lat/lon similar to h08v04.
+            % @todo. this is quick and dirty.                           TODO
+            if isempty(positionalData.horizontalId)
+                positionalData.horizontalId = str2num(tileRegionName(9:9)) - 1;
+                positionalData.verticalId = 0;
+            end
         end
 
         function S = inventoryMod09ga(obj, ...
