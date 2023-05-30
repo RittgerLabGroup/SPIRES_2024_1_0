@@ -387,14 +387,24 @@ classdef Regions < handle
             inMapCellsReference = obj.getMapCellsReference();% RasterReprojection
             % package.
             % NB mstruct of regions are wrong and cannot be used here.
+            
+            % We'll preload the variables used for thresholding in the parforloops.
+            % NB: the smaller nb of preloaded variables, the better is, given the
+            % structure of the code. All this is done to lower memory consumption
+            % and quicken the process. SIER_163.
+            % NB: We suppose that the preloaded variable is only thresholded by itself
+            % or by elevation.
+            varnamesToPreLoad = intersect( ...
+                availableVariables.output_name, ...
+                unique(obj.thresholdsForPublicMosaics.thresholded_varname));
 
             % Obtain output projection/system.
             % For this we load the first available mosaic values for variable 
             % viewable_snow_fraction.
             % This is required to use the functions within the RasterProjection package.
             % @todo. Maybe we could use a different function to avoid that.         TODO
-            varDataIsObtained = 0;
-            varName = 'viewable_snow_fraction';
+            varDataIsObtained = 0;            
+            varName = varnamesToPreLoad{1};
             for dateIdx=1:length(dateRange)
                 thisDatetime = dateRange(dateIdx);                
                 publicMosaicData = publicMosaic.getThresholdedData(varName, ...
@@ -518,17 +528,7 @@ classdef Regions < handle
             % to get all the memory on the node, and then limit workers here
             % SIER_163 and SIER_333 should have solve this problem.
             espEnv.configParallelismPool(length(varIndexes)); % currently 8 variables
-            
-            % We'll preload the variables used for thresholding in the parforloops.
-            % NB: the smaller nb of preloaded variables, the better is, given the
-            % structure of the code. All this is done to lower memory consumption
-            % and quicken the process. SIER_163.
-            % NB: We suppose that the preloaded variable is only thresholded by itself
-            % or by elevation.
-            varnamesToPreLoad = intersect( ...
-                availableVariables.output_name, ...
-                unique(obj.thresholdsForPublicMosaics.thresholded_varname));
-
+              
             for dateIdx=1:length(dateRange)
                 logger = Logger('geotiffDate');
                 thisDatetime = dateRange(dateIdx);
