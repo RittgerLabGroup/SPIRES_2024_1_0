@@ -482,23 +482,26 @@ classdef ESPEnv
             f = fullfile(outDir, fileName);
         end
 
-        function f = SnowTodayGeotiffDir(obj, region)
-
+        function f = SnowTodayGeotiffDir(obj, region, geotiffEPSG, year)
+            % SIER_163 add parameter geotiffEPSG.
             myDir = sprintf('%s_%s', obj.dirWith.VariablesGeotiff, ...
                 region.modisData.versionOf.VariablesGeotiff);
 
             f = fullfile(myDir, ...
                 sprintf('v%03d', region.modisData.versionOf.MODISCollection), ...
                 region.regionName, ...
-                sprintf('EPSG_%d', region.geotiffEPSG), ...
+                sprintf('EPSG_%d', geotiffEPSG), ...
                 region.geotiffCompression);
-
+            % SIER_163 year subfolder for EPSG different from the website epsg.
+            if geotiffEPSG ~= Regions.webGeotiffEPSG
+                f = fullfile(f, string(year));
+            end
         end
 
         function f = SnowTodayGeotiffFile(obj, region, outDir, platformName, ...
 	    thisDatetime, varName)
-	    % This filename for geotiffs is expected by the front-end
-	    fileName = sprintf('%s_%s_%s_%s.tif', ...
+            % This filename for geotiffs is expected by the front-end
+            fileName = sprintf('%s_%s_%s_%s.tif', ...
                 region.regionName, platformName, datestr(thisDatetime, 'yyyymmdd'), ...
                 varName);                	       
             f = fullfile(outDir, fileName);
@@ -823,29 +826,28 @@ classdef ESPEnv
 
             f = fullfile(f(1).folder, f(1).name);
         end
-
-        function projInfo = projInfoFor(obj, tileID, varargin)
+        function projInfo = projInfoFor(obj, tileRegionName)
+            % @deprecated. Unmaintained after SIER_320.                       DEPRECATED
+            % Don't serve resolution 1000-m anymore.
+            %
             % projInfoFor reads and returns tileID's projection information
-            numvarargs = length(varargin);
-            if numvarargs > 1
-                error('%s:TooManyInputs, ', ...
-                    'requires at most 1 optional inputs', mfilename());
-            end
-
-            optargs = {obj.mappingDir};
-            optargs(1:numvarargs) = varargin;
-            [myDir] = optargs{:};
-
-            try
-                projInfo = load(fullfile(myDir, ...
-                    sprintf('%s_ProjInfo.mat', tileID)));
-            catch e
-                fprintf("%s: Error reading projInfo in %s for %s\n", ...
-                    mfilename(), myDir, tileID);
-                rethrow(e);
-            end
+            mapCellsReference = obj.modisData.getMapCellsReference( ...
+                obj.modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
+            projInfo.size_500m = mapCellsReference.RasterSize;
+            projInfo.RefMatrix_500m = [[0, -mapCellsReference.CellExtentInWorldX]; ...
+                [mapCellsReference.CellExtentInWorldX, 0]; ...
+                [mapCellsReference.XWorldLimits(1) - ...
+                    mapCellsReference.CellExtentInWorldX / 2, ...
+                    mapCellsReference.YWorldLimits(2) + ...
+                    mapCellsReference.CellExtentInWorldY / 2]];
+            projInfo.size_1000m = mapCellsReference.RasterSize / 2;
+            projInfo.RefMatrix_1000m = [[0, -mapCellsReference.CellExtentInWorldX * 2]; ...
+                [mapCellsReference.CellExtentInWorldX * 2, 0]; ...
+                [mapCellsReference.XWorldLimits(1) - ...
+                    mapCellsReference.CellExtentInWorldX * 2 / 2, ...
+                    mapCellsReference.YWorldLimits(2) + ...
+                    mapCellsReference.CellExtentInWorldY * 2 / 2]];
         end
-
         function s = readShapefileFor(obj, shapeName, varargin)
             % shapefileFor - returns the request shapefile contents
             numvarargs = length(varargin);

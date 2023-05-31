@@ -2,12 +2,12 @@ classdef PublicMosaic
     % Handles filtering or reliability checks of data
     % for their public release to the website
     properties
-        regions     % Regions object pointing to the upper-level region, e.g.
+        region     % Regions object pointing to the upper-level region, e.g.
                     % westernUS
     end
 
     methods
-        function obj = PublicMosaic(regions)
+        function obj = PublicMosaic(region)
             % Constructor
             %
             % Parameters
@@ -17,16 +17,21 @@ classdef PublicMosaic
             % Return
             % ------
             % obj: PublicMosaic object
-            obj.regions = regions;
+            obj.region = region;
         end
 
-        function publicMosaicData = getThresholdedData(obj, varName, thisDatetime)
+        function publicMosaicData = getThresholdedData(obj, varName, thisDatetime, ...
+            publicMosaicData)
             % Provide the temporary public Mosaic data for the variable
             % varName needed to generate stats and geotiffs.
             % Public Mosaics are an update of the Mosaics: when some variables
             % are strictly below some thresholds, the values of other variables
             % are not considered reliable and replaced by a default value given
-            % by regions.configurationOfVariables (file configuration_of_variables).
+            % by region.configurationOfVariables (file configuration_of_variables).
+            %
+            % NB: Should be called first to fill the publicMosaicData argument with
+            % variables used for thresholding, e.g. snow_fraction or 
+            % viewable_snow_fraction. SIER_163.
             %
             % Parameters
             % ----------
@@ -35,50 +40,66 @@ classdef PublicMosaic
             %   of configurationOfVariables)
             % thisDatetime: datetime object
             %   Date over which mosaic data should be thresholded
+            % publicMosaicData: struct(elevation=array(doublexdouble), 
+            %   viewable_snow_fraction=array(uint8xuint8)).
+            %   Previous publicMosaicData if already called, otherwise struct().
 
             % 1. Initialization and configuration of variables
             %-------------------------------------------------
 
-            espEnv = obj.regions.espEnv;
-            modisData = obj.regions.modisData;
-            regions = obj.regions;
-            confOfVar = espEnv.configurationOfVariables();
+            thisRegion = obj.region;
+            confOfVar = thisRegion.espEnv.configurationOfVariables();
             varIndex = find(strcmp(confOfVar.output_name, varName));
             varNameInfos = confOfVar(varIndex, :);
 
             % 2. Mosaic data and elevation
             %-----------------------------
 
-            mosaicFile = espEnv.MosaicFile(regions, thisDatetime);
+            mosaicFile = thisRegion.espEnv.MosaicFile(thisRegion, thisDatetime);
             if ~isfile(mosaicFile)
                 warning('%s: Missing mosaic file %s\n', mfilename(), ...
                     mosaicFile);
-                    publicMosaicData = struct();
-                    return;
+                publicMosaicData = struct();
+                return;
             end
-            publicMosaicData = load(mosaicFile);
-            varData = publicMosaicData.(varName);
+            fields = fieldnames(publicMosaicData);
+            if ~ismember(varName, fields)
+                varData = load(mosaicFile, varName).(varName);
+            else
+                varData = publicMosaicData.(varName);
+            end
+            if ~ismember('elevation', fields)
+                publicMosaicData.elevation = thisRegion.getElevations();
+                publicMosaicData.elevation(isnan(publicMosaicData.elevation)) = ...
+                    intmax('int16');
+                publicMosaicData.elevation = cast(publicMosaicData.elevation, 'int16');
+                % This should probably be in the getElevations() method.           @todo
+            end
                         
             % 3. Rescale variables to match web precision (eg 1 unit)
             % and cast
             % ----------------------------------------------------
-            % Nb: divisor ~= 1 only for albedos
+            % Nb: We assume divisor always = 1 and no_data_value_web = no_data_value
+            % and type_web = type. SIER_163.
+%{ 
             varData = single(varData);
             varData(varData == varNameInfos.('nodata_value')) = NaN;
             varData = varData / varNameInfos.('divisor');
             varData(isnan(varData)) = ...
                 varNameInfos.('nodata_value_web');
             varData = cast(varData, varNameInfos.('type_web'){1});
-
+%}
             % 4. Thresholding and providing the Public Mosaic data
-            %-----------------------------------------------------
-            publicMosaicData.(varName) = varData;
-            publicMosaicData.elevation = regions.getElevations();
-            thresholds = regions.thresholdsForPublicMosaics;
+            % NB. SIER_163 optim, only works for thresholds based on elevation
+            % and snow_fraction.
+            %---------------------------------------------------------------------------
+            publicMosaicData.(varName) = varData;            
+            thresholds = thisRegion.thresholdsForPublicMosaics;
             for thresholdId = 1:size(thresholds, 1)
                 replacedVarname = thresholds{thresholdId, 'replaced_varname'}{1};
                 if strcmp(varName, replacedVarname)
-                    thresholdedVarname = thresholds{thresholdId, 'thresholded_varname'}{1};
+                    thresholdedVarname = thresholds{thresholdId, ...
+                        'thresholded_varname'}{1};
                     thresholdValue = thresholds{thresholdId, 'threshold_value'};
                         % the threshold value must be the threshold value in Mosaic file
                         %    (and not the threshold value as viewed by Public)
@@ -88,10 +109,7 @@ classdef PublicMosaic
                         (publicMosaicData.(thresholdedVarname) < thresholdValue) ...
                             = valueForUnreliableData;
                 end
-            end
-            fields =fieldnames(publicMosaicData);
-            fieldsToRemove = fields(~ismember(fields, {varName}));
-            publicMosaicData = rmfield(publicMosaicData, [fieldsToRemove]);
+            end            
         end
     end
 end
