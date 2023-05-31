@@ -18,7 +18,10 @@
 #SBATCH --mail-type FAIL,INVALID_DEPEND,TIME_LIMIT,REQUEUE,STAGE_OUT
 #SBATCH --array=2023
 
-# Example run: for year in {2020..2022}; do for month in 3 6 9 12; do sbatch --job-name HistGeom-${year}-${month} --time=00:45:00 --ntasks-per-node=9 --array=${year} ./scripts/runHistoricGeotiffs.sh -L v2023.1 westernUS 4326 ${month} 31 3; done; done
+# Example runs:
+# - Dailey EPSG 3857: for year in {2023..2023}; do for month in 5; do sbatch --job-name HistGeon-${year}-${month} --time=00:05:00 --ntasks-per-node=10 --array=${year} ./scripts/runHistoricGeotiffs.sh -L v2023.1 westernUS 3857 ${month} 16 0; done; done;
+# - Historic EPSG 4326: for year in {2020..2022}; do for month in 3 6 9 12; do sbatch --job-name HistGeom-${year}-${month} --time=00:40:00 --ntasks-per-node=9 --array=${year} ./scripts/runHistoricGeotiffs.sh -L v2023.1 westernUS 4326 ${month} 31 3; done; done
+# - Historic EPSG 5070: for year in {2000..2007}; do for month in 3 6 9 12; do sbatch --job-name HistGeom-${year}-${month} --time=00:40:00 --ntasks-per-node=16 --array=${year} ./scripts/runHistoricGeotiffs.sh -L v2023.1 westernUS 5070 ${month} 31 3; done; done
 
 # Functions.
 #--------------------------------------------------------------------------
