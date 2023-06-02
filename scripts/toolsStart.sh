@@ -90,7 +90,7 @@ error_exit() {
 # NB: dependency should be afterany and not any, otherwise it would generate a killing
 # lock.
 printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
-if [ -z isBatch ]; then
+if [ ! -z isBatch ]; then
     echo "${PROGNAME}: SLURM_SCRATCH=$SLURM_SCRATCH"
     echo "${PROGNAME}: SLURM_JOB_ID=$SLURM_JOB_ID"
     sbatch --dependency=afterany:$SLURM_JOB_ID ./scripts/toolsJobAchieved.sh \
