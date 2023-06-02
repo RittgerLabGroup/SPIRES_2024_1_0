@@ -506,6 +506,7 @@ classdef MODISData < handle
         function [filenames, datevals, missingSCAG, ...
                 missingDRFS] = getMODISfilenames(tile, whichSet, imtype, ...
                 scagflag, drfsflag, modisDir)
+            %                                                                @deprecated
             %getMODISfilenames returns list of scag-related filenames
             %
             % Input
@@ -745,6 +746,7 @@ classdef MODISData < handle
 
         function saveMODISfilenames(saveFile, filenames, datevals, ...
                 missingSCAG, missingDRFS)
+            %                                                                @deprecated
             %saveMODISfilenames - saves a MODIS file inventory to .mat file
 
             inventoryDate = datestr(datetime('now'));
