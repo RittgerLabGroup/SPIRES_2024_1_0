@@ -45,9 +45,8 @@ get_slurm_std_out_directory(){
     # ----------
     # $1: char/num. SLURM_JOB_ID.
     JOBID=$1
-    MYSTDOUT=`scontrol show job ${JOBID} | grep StdOut | tr -s ' ' | cut -d = -f 2`
-    MYSTDOUT=($MYSTDOUT)
-    MYSTDOUT=$(dirname `${MYSTDOUT[0]}`)
+    MYSTDOUT=$(scontrol show job ${JOBID} | grep StdOut | tr -s ' ' | cut -d = -f 2)
+    MYSTDOUT=$(dirname ${MYSTDOUT})
     echo "${MYSTDOUT}"
 }
 log_level_1(){
@@ -97,6 +96,7 @@ if [ ! -z isBatch ]; then
         $SLURM_JOB_ID $SBATCH_OUTPUT
 
     stdoutDir=$(get_slurm_std_out_directory ${SLURM_JOB_ID})
+    echo "stdoutDir: " ${stdoutDir}
 fi
 set_slurm_array_task_id
 
