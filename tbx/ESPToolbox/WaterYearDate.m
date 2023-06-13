@@ -179,7 +179,7 @@ classdef WaterYearDate
             % firstDateOfWaterYear: datetime.
             %   First date of the wateryear of the current waterYearDate.
             yearForFirstDate = obj.getWaterYear();
-            if month(obj.thisDatetime) >= obj.waterYearFirstMonth
+            if month(obj.thisDatetime) < obj.waterYearFirstMonth
                 yearForFirstDate = obj.getWaterYear() - 1;
             end
             firstDatetimeOfWaterYear = datetime(yearForFirstDate, ...
