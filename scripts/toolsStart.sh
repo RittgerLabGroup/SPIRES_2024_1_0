@@ -60,7 +60,7 @@ log_level_1(){
     printf "mem%%; totalMem; cores; message\n"
     printf ".....................................................................\n"
     printf "$(date '+%m%dT%H:%M'); $(TZ=UTC0 printf '%(%H:%M)T' "$SECONDS"); "
-    printf "${scriptId}; ${SLURM_JOB_ID}; $SLURM_ARRAY_TASK_ID; $regionName; "
+    printf "${scriptId}; ${SLURM_JOB_ID}; ${SLURM_ARRAY_TASK_ID}; ${regionName}; "
     printf "${1}; $(hostname); "
     printf %q "$(seff ${SLURM_JOB_ID} | grep "CPU Efficiency" | awk '{print $3}' | sed s/.[0-9][0-9]//)";
     printf "; "
@@ -101,19 +101,23 @@ fi
 set_slurm_array_task_id
 
 # Caller script arguments.
+inputFromArchive=
 LABEL="test"
-VERSION_OF_ANCILLARY="v3.1"
 noPipeline=
+outputToArchive=
 startyyyymmdd=
 testing=
-while getopts "A:hL:ns:t" opt
+VERSION_OF_ANCILLARY="v3.1"
+while getopts "A:ihL:nos:t" opt
 do
     case $opt in
     A) VERSION_OF_ANCILLARY="$OPTARG";;
 	h) usage
 	   exit 1;;
+    i) inputFromArchive=1;;
 	L) LABEL="$OPTARG";;
     n) noPipeline=1;;
+    o) outputToArchive=1;;
     s) startyyyymmdd="$OPTARG";;
     t) testing=1;;
 	?) printf "Unknown option %s\n" $opt
@@ -122,11 +126,14 @@ do
 	esac
 done
 
+echo "ancillary: ${VERSION_OF_ANCILLARY}, inputFromArchive: ${inputFromArchive}, " \
+"label: ${LABEL}, noPipeline: ${noPipeline}, outputToArchive: ${outputToArchive}, " \
+"testing: ${testing}."
+
 shift $(($OPTIND - 1))
+
 [[ "$#" -eq $expectedCountOfArguments ]] || \
     error_exit "Line ${LINENO}: Unexpected number of arguments."
-
-optionsForStep1="-L ${LABEL}"
 
 version_of_ancillary_option=""
 # by default we set the version of ancillary data to the one of production.
@@ -138,6 +145,15 @@ printf "inputForModisData: ${inputForModisData}\n"
 
 shuffleAncillaryOptions="-A ${VERSION_OF_ANCILLARY}"
 nextStepOptions="${shuffleAncillaryOptions} -L ${LABEL}"
+if [ inputFromArchive ]; then
+    nextStepOptions="${nextStepOptions} -i"
+fi
+if [ outputToArchive ]; then
+    nextStepOptions="${nextStepOptions} -o"
+fi
+if [ testing ]; then
+    nextStepOptions="${nextStepOptions} -t"
+fi
 
 # Do scratch shuffle for required ancillary data
 ${thisScriptDir}/scratchShuffleAncillary.sh ${shuffleAncillaryOptions} || \
@@ -147,7 +163,6 @@ echo "${PROGNAME}: Done with shuffle TO scratch."
 
 if [ $testing ]; then
     echo "${PROGNAME}: TEST mode"
-    nextStepOptions="${step1Options} -t"
 else
     echo "${PROGNAME}: OPS mode"
 fi
