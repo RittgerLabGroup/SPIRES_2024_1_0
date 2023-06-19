@@ -4,6 +4,8 @@ classdef MODISData < handle
     %   data, including MOD09, modscag and moddrfs
     properties      % public properties
         archiveDir    % top-level directory with tile data
+                        % NB: check hownot to duplicate information with ESPEnv dirs 
+                        %                                                          @todo
         alternateDir  % top-level directory with tile data on scratch
         georeferencing = struct(northwest = struct(x0 = - pi * 6.371007181e+06, ...
             y0 = pi * 6.371007181e+06 / 2), tileInfo = struct( ...
@@ -23,7 +25,7 @@ classdef MODISData < handle
         cstruct % structure with units/fields for MOD09GA files
         versionOf % version structure for various stages of processing
     end
-    properties(Constant)        
+    properties(Constant)
         projection = struct(modisSinusoidal = struct( ...
             ... % GeoKeyDirectoryTag to generate the geotiffs in sinusoidal projection.
             ... % Tag documentation: http://geotiff.maptools.org/spec/geotiff6.html
@@ -55,16 +57,15 @@ classdef MODISData < handle
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
         beginWaterYear = 2001;
-        startDatetimeWhenNrtReceived = datetime(2018, 12, 30); 
-            % Date when new modis nrt files started to be received from JPL 
+        startDatetimeWhenNrtReceived = datetime(2018, 12, 30);
+            % Date when new modis nrt files started to be received from JPL
             % (after historic files). Determine where Step0 Modis files are stored
             % either under historic folder or nrt folder.
-        defaultVersionOf = struct(ancillary = 'prod', ...
+        defaultArchiveDir = '/pl/active/rittger_esp/modis';
+        defaultVersionOf = struct(ancillary = 'v3.1', ...
             modisCollection = 6);
     end
-
     methods         % public methods
-
         function obj = MODISData(varargin)
             % The MODISData constructor initializes the directory
             % for local storage of MODIS tile data
@@ -74,16 +75,15 @@ classdef MODISData < handle
             % The default location is PetaLibrary, so that
             % inventory paths are always set to the definitive PL
             % location; in practice, alternateDir (user's scratch)
-            % will be checked and used since it is faster
-            defaultArchiveDir = '/pl/active/rittger_esp/modis';
+            % will be checked and used since it is faster            
             checkArchiveDir = @(x) exist(x, 'dir');
-            addOptional(p, 'archiveDir', defaultArchiveDir, ...
+            addOptional(p, 'archiveDir', obj.defaultArchiveDir, ...
                 checkArchiveDir);
 
             % The default versionOf label
             % For operational processing, this can be set to something
             % consistent, e.g. 'v2023.0', or the individual versionOf
-            % labels can be controlled by the caller 
+            % labels can be controlled by the caller
             defaultLabel = 'test';
             checkLabel = @(x) isstring(x) | ischar(x);
             addParameter(p, 'label', defaultLabel, checkLabel);
@@ -145,12 +145,11 @@ classdef MODISData < handle
                 'VariablesGeotiff',  label, ...
                 'RegionalStatsMatlab',  label, ...
                 'RegionalStatsCsv',  label);
-
         end
         function mapCellsReference = getMapCellsReference(obj, positionalData)
             % Parameters
             % ----------
-            % positionalTileData: struct(horizontalId=int, verticalId=int, 
+            % positionalTileData: struct(horizontalId=int, verticalId=int,
             %   columnCount=int, rowCount=int).
             %   - horizontalId: horizontal id of the tile.
             %   - verticalId: vertical id of the tile.
@@ -161,17 +160,18 @@ classdef MODISData < handle
             % ------
             % mapCellsReference: MapCellsReference object.
             % SIER_320.
+
             theseFieldnames = fieldnames(positionalData);
-            for fieldIdx = 1:length(theseFieldnames) 
+            for fieldIdx = 1:length(theseFieldnames)
                 positionalData.(theseFieldnames{fieldIdx}) = cast( ...
-                    positionalData.(theseFieldnames{fieldIdx}), 'double'); 
+                    positionalData.(theseFieldnames{fieldIdx}), 'double');
                     % required by maprefcells.
             end
             dx = obj.georeferencing.tileInfo.dx;
             dy = obj.georeferencing.tileInfo.dy;
             northWestX =  obj.georeferencing.northwest.x0 + ...
                 positionalData.horizontalId * ...
-                obj.georeferencing.tileInfo.columnCount * dx; 
+                obj.georeferencing.tileInfo.columnCount * dx;
                 % don't use positionalData.columnCount here, we need the size of modis
                 % elemental tiles to get the space from x0.
             northWestY = obj.georeferencing.northwest.y0 - ...
@@ -202,8 +202,8 @@ classdef MODISData < handle
             %
             % Return
             % ------
-            % positionalData: struct(horizontalId=int, verticalId=int, 
-            %   columnCount=int, rowCount=int). 
+            % positionalData: struct(horizontalId=int, verticalId=int,
+            %   columnCount=int, rowCount=int).
             %   - horizontalId: horizontal id of the tile.
             %   - verticalId: vertical id of the tile.
             %   - columnCount: number of pixels along a row of the tile.
@@ -213,7 +213,7 @@ classdef MODISData < handle
             positionalData.verticalId = str2num(tileRegionName(5:6));
             positionalData.columnCount = obj.georeferencing.tileInfo.columnCount;
             positionalData.rowCount = obj.georeferencing.tileInfo.rowCount;
-            
+
             % Bypass the MockRegionDataset tiles, which don't have this
             % nomenclature. We want to be at lat/lon similar to h08v04.
             % @todo. this is quick and dirty.                           TODO
@@ -222,7 +222,6 @@ classdef MODISData < handle
                 positionalData.verticalId = 0;
             end
         end
-
         function S = inventoryMod09ga(obj, ...
                 folder, whichSet, tileID, varargin)
             %inventoryJPLmod09ga creates an inventory of MOD09GA files for
@@ -366,10 +365,24 @@ classdef MODISData < handle
                 end
 
                 recNum = recNum + 1;
-
             end
         end
+        function S = isFileOnScratch(obj, filename)
+            %isFileOnScratch looks for this filename on user's scratch space
+            %
+            % Input
+            %   filename - any filename of form /*/modis/*/file.ext
+            %
+            % Output
+            %   struct with
+            %   .filename - the temporary file expected on user's tmp
+            %   .exists - true or false (if tmp file exists)
 
+            expression = '^/.*/modis';
+            replace = sprintf('/scratch/alpine/%s/modis', getenv('USER'));
+            S.filename = regexprep(filename, expression, replace);
+            S.onScratch = isfile(S.filename);
+        end
         function S = readInventoryStatus(obj, whichSet, ...
                 tile, imtype)
 
@@ -400,9 +413,10 @@ classdef MODISData < handle
                 end
             end
         end
-
+        %{
         function S = tileSubsetCoords(...
                 obj, espEnv, RefMatrix, nRows, nCols, tileID)
+                                                                             % @obsolete
             %ExtractTileSubset - returns row/col coords for tileID in RefMatrix
             %% Refer to tutorial here:
             %% https://laptrinhx.com/introduction-to-spatial-referencing-3251134442/
@@ -460,30 +474,18 @@ classdef MODISData < handle
                 rethrow(e);
             end
         end
-
-        function S = isFileOnScratch(obj, filename)
-            %isFileOnScratch looks for this filename on user's scratch space
-            %
-            % Input
-            %   filename - any filename of form /*/modis/*/file.ext
-            %
-            % Output
-            %   struct with
-            %   .filename - the temporary file expected on user's tmp
-            %   .exists - true or false (if tmp file exists)
-        
-            expression = '^/.*/modis';
-            replace = sprintf('/scratch/alpine/%s/modis', getenv('USER'));
-            S.filename = regexprep(filename, expression, replace);
-            S.onScratch = isfile(S.filename);
-            
-        end
-
+%}
     end
-
-
     methods(Static)  % static methods can be called for the class
+        function doy = doy(Dt)
+            % Returns the day of year of the input datetime Dt
+            % TODO: Make this work on an array of Dts
+            % TODO: Move this to a date utility object
+            jan1Dt = datetime(sprintf("%04d0101", year(Dt)), ...
+                'InputFormat', 'yyyyMMdd');
+            doy = days(Dt - jan1Dt + 1);
 
+        end
         function dt = getMod09gaDt(fileNames)
             %getMod09gaDate parses the MOD09GA-like filename for datetime
             % Input
@@ -515,15 +517,248 @@ classdef MODISData < handle
                     '%s: Error Unable to parse dates from %s\n', ...
                     mfilename(), strjoin(fileNames));
                 error(errorStruct);
-
             end
-
         end
+        function years = getSubDirs(folder)
+            % Returns a sorted cell array of the subdirs in folder
+            list = dir(folder);
 
+            list = list([list(:).isdir]==1);
+            list = list(~ismember({list(:).name},{'.','..'}));
+
+            years = sort({list.name});
+        end
+        function idx = indexForYYYYMM(yr, mn, Dts)
+            %indexForYYYYMM finds indices to Dts array for yr, mn
+            %
+            % Input
+            %  yr: 4-digit year
+            %  mn: integer month
+            %  Dts: array of datetimes
+            %
+            % Output
+            %  idx: array of indices into Dts for requested yr, mn
+            %
+            % Notes
+            % Returns an empty array if no dates in Dts match yr, mn
+            %
+
+            superset = datenum(Dts);
+            subset = datenum(yr, mn, 1):datenum(yr, mn, eomday(yr, mn));
+            idx = datefind(subset, superset);
+        end
+        function [RefMatrix, umdays, NoValues, SensZ, SolZ, SolAzimuth, ...
+                refl] = loadMOD09(files)
+            %loadMOD09 loads the data from a list of MOD09 Raw cubes
+            %
+            % Input
+            %   files: cell array of filenames
+            %
+            % Output
+            %   concatenated data arrays read from filenames
+            %
+            % Notes: Returned RefMatrix is from final file loaded,
+            % earlier ones are loaded and then replaced.
+
+            NoValues = [];
+            SensZ = [];
+            SolZ = [];
+            SolAzimuth = [];
+            refl = [];
+            umdays = [];
+            for mn=1:size(files,2)
+                [NoValuesT, SensZT, SolZT, SolAzimuthT, ...
+                    reflT, RefMatrix] = ...
+                    parloadMatrices(files{mn}, ...
+                    'NoValues', 'SensZ', 'SolZ', 'SolAzimuth', ...
+                    'refl', 'RefMatrix');
+                [umdaysT] = parloadDts(files{mn}, 'umdays');
+                if mn == 1
+                    NoValues = NoValuesT; %cat was making this a double
+                    umdays = umdaysT{1}';
+                else
+                    NoValues = cat(3, NoValues, NoValuesT);
+                    umdays = [umdays umdaysT{1}'];
+                end
+                SensZ = cat(3, SensZ, SensZT);
+                SolZ = cat(3, SolZ, SolZT);
+                SolAzimuth = cat(3, SolAzimuth, SolAzimuthT);
+                refl = cat(4, refl, reflT);
+            end
+            umdays = datenum(umdays);
+        end
+        function [RefMatrix, usdays, RawSnow, RawVeg, RawRock, ...
+                RawDV, RawRF, RawGS_SCAG, RawGS_DRFS, ...
+                viewable_snow_fraction_status] = ...
+                loadSCAGDRFS(files)
+            %loadSCAGDRFS loads the data from a list of SCAGDRFS Raw cubes
+            %
+            % Input
+            %   files: cell array of filenames
+            %
+            % Output
+            %   concatenated data arrays read from filenames
+            %
+            % Notes: Returned RefMatrix is from final file loaded,
+            % earlier ones are loaded and then replaced.
+            % SIER_151 ugly add of viewable_snow_fraction_status
+
+            usdays = [];
+            RawSnow = [];
+            RawVeg = [];
+            RawRock = [];
+            RawGS_SCAG = [];
+            RawDV = [];
+            RawRF = [];
+            RawGS_DRFS = [];
+            viewable_snow_fraction_status = [];
+            for mn=1:size(files, 2)
+                [RawSnowT, RawVegT, RawRockT, RawDVT, RawRFT, ...
+                    RawGS_SCAGT, RawGS_DRFST, RefMatrix, ...
+                    viewable_snow_fraction_statusT] = ...
+                    parloadMatrices(files{mn}, ...
+                    'RawSnow', 'RawVeg', 'RawRock', 'RawDV', 'RawRF', ...
+                    'RawGS_SCAG', 'RawGS_DRFS', 'RefMatrix', ...
+                    'viewable_snow_fraction_status');
+                [usdaysT] = ...
+                    parloadDts(files{mn}, ...
+                    'usdays');
+                if mn == 1
+                    usdays = usdaysT{1}';
+                else
+                    usdays = [usdays usdaysT{1}'];
+                end
+                RawSnow = cat(3, RawSnow, RawSnowT);
+                RawVeg = cat(3, RawVeg, RawVegT);
+                RawRock = cat(3, RawRock, RawRockT);
+                RawDV = cat(3, RawDV, RawDVT);
+                RawRF = cat(3, RawRF, RawRFT);
+                RawGS_SCAG = cat(3, RawGS_SCAG, RawGS_SCAGT);
+                RawGS_DRFS = cat(3, RawGS_DRFS, RawGS_DRFST);
+                viewable_snow_fraction_status = cat(3, ...
+                    viewable_snow_fraction_status, viewable_snow_fraction_statusT);
+            end
+            usdays = datenum(usdays);
+        end
+        function list = matchingFiles(mod09File)
+            % matchingFiles finds any scag/drfs files that
+            % match this mod09ga file, including procID
+            tokenNames = regexp(mod09File, ...
+                ['MOD09GA.A(?<yyyy>\d{4})(?<doy>\d{3})\.' ...
+                '(?<tileID>h\d{2}v\d{2})\.(?<version>\d{3})\.' ...
+                '(?<procID>\w+)\.'], ...
+                'names');
+            [path, baseName, ~] = fileparts(mod09File);
+            parts = split(path, filesep);
+            procMode = parts(end-3);
+            topPath = join(parts(1:end-5), filesep);
+
+            % Look for scag files
+            versionStr = sprintf('v%s', tokenNames.version);
+
+            list = [...
+                dir(fullfile(topPath{1}, 'modscag', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('%s.*.dat', baseName))); ...
+                dir(fullfile(topPath{1}, 'modscag', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('%s.*.tif', baseName))); ...
+                dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('%s.*.dat', baseName))); ...
+                dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
+                versionStr, tokenNames.tileID, tokenNames.yyyy,...
+                sprintf('%s.*.tif', baseName)))];
+        end
+        function [ppl, ppt, thetad] = pixelSize(R, H, p, theta_s)
+            %pixelSize calculate pixel sizes in along-track and cross-track directions
+            % input
+            %  (first 3 inputs must be in same units)
+            %  R - Earth radius
+            %  H - orbit altitude
+            %  p - pixel size at nadir
+            %  theta_s - sensor zenith angle (degrees, can be vector of arguments)
+            %
+            % output (same size as vector theta_s)
+            %  ppl - pixel size in along-track direction
+            %  ppt - pixel size in cross-track direction
+            %  thetad - nadir sensor angle, degrees
+            %
+
+            theta=asin(R*sind(theta_s)/(R+H));
+            ppl=(1/H)*(cos(theta)*(R+H)-R*sqrt(1-((R+H)/R)^2*(sin(theta)).^2));
+            beta=atan(p/(2*H));
+            ppt=(R/p)*(asin(((R+H)/R)*sin(theta+beta))-...
+                asin(((R+H)/R)*sin(theta-beta))-2*beta);
+            thetad=rad2deg(theta);
+            ppl=ppl*p;
+            ppt=ppt*p;
+        end
+        function numDupes = removeMod09gaDuplicates(S)
+            %removeMod09gaDuplicates removes duplicate MOD09GA files
+            %
+            % Input
+            %   S = mod09ga inventory cell array returned from
+            %       inventoryMod09ga
+            %
+            % Output
+            %   numDupes - number of duplicates found and removed
+            %
+            % Notes
+            %
+            % Example
+            %
+            numDupes = 0;
+
+            % Find duplicate MOD09GA files from input inventory
+            idx = [S.num] > 1;
+
+            subS = S(idx);
+
+            for i=1:length(subS)
+                fprintf("\n%s: multiple files found for : %s\n", ...
+                    mfilename(), datestr(subS(i).dt, 'yyyy-mm-dd'));
+                names = vertcat(subS(i).files.name);
+                folders = vertcat(subS(i).files.folder);
+                [numFiles, ~] = size(names);
+                files = strings(numFiles, 1);
+                for j=1:numFiles
+                    files(j) = fullfile(folders(j,:), names(j,:));
+                end
+                files = sort(files, 'descend');
+
+                % Delete all but the first one, sorting in descending order
+                for j=1:length(files)
+                    if 1 == j
+                        fprintf("%s: keeping %s\n", mfilename(), files(j));
+                    else
+                        fprintf("%s: deleting %s...\n", ...
+                            mfilename(), files(j));
+
+                        delete(files(j));
+
+                        % Delete any scag/drfs files found for this
+                        % file also
+                        list = MODISData.matchingFiles(files(j));
+                        if ~isempty(list)
+                            for k=1:length(list)
+                                modisFile = fullfile(list(k).folder, ...
+                                    list(k).name);
+                                fprintf("%s: deleting %s...\n", ...
+                                    mfilename(), modisFile);
+                                delete(modisFile);
+                            end
+                        end
+                        numDupes = numDupes + 1;
+                    end
+                end
+            end
+        end
+        %{
         function [filenames, datevals, missingSCAG, ...
                 missingDRFS] = getMODISfilenames(tile, whichSet, imtype, ...
                 scagflag, drfsflag, modisDir)
-            %                                                                @deprecated
+            %                                                                  @obsolete
             %getMODISfilenames returns list of scag-related filenames
             %
             % Input
@@ -758,84 +993,19 @@ classdef MODISData < handle
             if ~exist('missingDRFS','var')
                 missingDRFS={};
             end
-
         end
-
         function saveMODISfilenames(saveFile, filenames, datevals, ...
                 missingSCAG, missingDRFS)
-            %                                                                @deprecated
+            %                                                                  @obsolete
             %saveMODISfilenames - saves a MODIS file inventory to .mat file
 
             inventoryDate = datestr(datetime('now'));
 
             save(saveFile, 'inventoryDate', ...
                 'filenames', 'datevals', 'missingSCAG', 'missingDRFS');
-
         end
-
-        function numDupes = removeMod09gaDuplicates(S)
-            %removeMod09gaDuplicates removes duplicate MOD09GA files
-            %
-            % Input
-            %   S = mod09ga inventory cell array returned from
-            %       inventoryMod09ga
-            %
-            % Output
-            %   numDupes - number of duplicates found and removed
-            %
-            % Notes
-            %
-            % Example
-            %
-            numDupes = 0;
-
-            % Find duplicate MOD09GA files from input inventory
-            idx = [S.num] > 1;
-
-            subS = S(idx);
-
-            for i=1:length(subS)
-                fprintf("\n%s: multiple files found for : %s\n", ...
-                    mfilename(), datestr(subS(i).dt, 'yyyy-mm-dd'));
-                names = vertcat(subS(i).files.name);
-                folders = vertcat(subS(i).files.folder);
-                [numFiles, ~] = size(names);
-                files = strings(numFiles, 1);
-                for j=1:numFiles
-                    files(j) = fullfile(folders(j,:), names(j,:));
-                end
-                files = sort(files, 'descend');
-
-                % Delete all but the first one, sorting in descending order
-                for j=1:length(files)
-                    if 1 == j
-                        fprintf("%s: keeping %s\n", mfilename(), files(j));
-                    else
-                        fprintf("%s: deleting %s...\n", ...
-                            mfilename(), files(j));
-
-                        delete(files(j));
-
-                        % Delete any scag/drfs files found for this
-                        % file also
-                        list = MODISData.matchingFiles(files(j));
-                        if ~isempty(list)
-                            for k=1:length(list)
-                                modisFile = fullfile(list(k).folder, ...
-                                    list(k).name);
-                                fprintf("%s: deleting %s...\n", ...
-                                    mfilename(), modisFile);
-                                delete(modisFile);
-                            end
-                        end
-
-                        numDupes = numDupes + 1;
-                    end
-                end
-            end
-        end
-
         function list = tilesFor(region)
+            %                                                                  @obsolete
             % tilesFor returns cell array of tileIDs for the region
 
             lowRegion = lower(region);
@@ -864,8 +1034,8 @@ classdef MODISData < handle
             end
 
         end
-
         function regionName = regionNameFor(tileID)
+            %                                                                  @obsolete
             % regionNameFor returns the regionName for this tileID
             switch tileID
                 case MODISData.tilesFor('westernUS')
@@ -878,8 +1048,8 @@ classdef MODISData < handle
             end
 
         end
-
         function [Rmap, lr, dims] = RmapFor(espEnv, tiles)
+            %                                                                  @obsolete
             % RmapFor returns the merged referencing matrix for tiles
             % Input:
             % espEnv : environment tile projection files
@@ -916,185 +1086,9 @@ classdef MODISData < handle
 
             xy = [max(lr(:, 1)) min(lr(:, 2))];
             dims = round(map2pix(Rmap, xy));
-
         end
-
-
-
-        function list = matchingFiles(mod09File)
-            % matchingFiles finds any scag/drfs files that
-            % match this mod09ga file, including procID
-            tokenNames = regexp(mod09File, ...
-                ['MOD09GA.A(?<yyyy>\d{4})(?<doy>\d{3})\.' ...
-                '(?<tileID>h\d{2}v\d{2})\.(?<version>\d{3})\.' ...
-                '(?<procID>\w+)\.'], ...
-                'names');
-            [path, baseName, ~] = fileparts(mod09File);
-            parts = split(path, filesep);
-            procMode = parts(end-3);
-            topPath = join(parts(1:end-5), filesep);
-
-            % Look for scag files
-            versionStr = sprintf('v%s', tokenNames.version);
-
-            list = [...
-                dir(fullfile(topPath{1}, 'modscag', procMode{1},...
-                versionStr, tokenNames.tileID, tokenNames.yyyy,...
-                sprintf('%s.*.dat', baseName))); ...
-                dir(fullfile(topPath{1}, 'modscag', procMode{1},...
-                versionStr, tokenNames.tileID, tokenNames.yyyy,...
-                sprintf('%s.*.tif', baseName))); ...
-                dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
-                versionStr, tokenNames.tileID, tokenNames.yyyy,...
-                sprintf('%s.*.dat', baseName))); ...
-                dir(fullfile(topPath{1}, 'moddrfs', procMode{1},...
-                versionStr, tokenNames.tileID, tokenNames.yyyy,...
-                sprintf('%s.*.tif', baseName)))];
-
-        end
-
-        function years = getSubDirs(folder)
-            % Returns a sorted cell array of the subdirs in folder
-            list = dir(folder);
-
-            list = list([list(:).isdir]==1);
-            list = list(~ismember({list(:).name},{'.','..'}));
-
-            years = sort({list.name});
-
-        end
-
-        function doy = doy(Dt)
-            % Returns the day of year of the input datetime Dt
-            % TODO: Make this work on an array of Dts
-            % TODO: Move this to a date utility object
-            jan1Dt = datetime(sprintf("%04d0101", year(Dt)), ...
-                'InputFormat', 'yyyyMMdd');
-            doy = days(Dt - jan1Dt + 1);
-
-        end
-
-        function idx = indexForYYYYMM(yr, mn, Dts)
-            %indexForYYYYMM finds indices to Dts array for yr, mn
-            %
-            % Input
-            %  yr: 4-digit year
-            %  mn: integer month
-            %  Dts: array of datetimes
-            %
-            % Output
-            %  idx: array of indices into Dts for requested yr, mn
-            %
-            % Notes
-            % Returns an empty array if no dates in Dts match yr, mn
-            %
-
-            superset = datenum(Dts);
-            subset = datenum(yr, mn, 1):datenum(yr, mn, eomday(yr, mn));
-            idx = datefind(subset, superset);
-
-        end
-
-        function [RefMatrix, umdays, NoValues, SensZ, SolZ, SolAzimuth, ...
-                refl] = loadMOD09(files)
-            %loadMOD09 loads the data from a list of MOD09 Raw cubes
-            %
-            % Input
-            %   files: cell array of filenames
-            %
-            % Output
-            %   concatenated data arrays read from filenames
-            %
-            % Notes: Returned RefMatrix is from final file loaded,
-            % earlier ones are loaded and then replaced.
-
-            NoValues = [];
-            SensZ = [];
-            SolZ = [];
-            SolAzimuth = [];
-            refl = [];
-            umdays = [];
-            for mn=1:size(files,2)
-                [NoValuesT, SensZT, SolZT, SolAzimuthT, ...
-                    reflT, RefMatrix] = ...
-                    parloadMatrices(files{mn}, ...
-                    'NoValues', 'SensZ', 'SolZ', 'SolAzimuth', ...
-                    'refl', 'RefMatrix');
-                [umdaysT] = parloadDts(files{mn}, 'umdays');
-                if mn == 1
-                    NoValues = NoValuesT; %cat was making this a double
-                    umdays = umdaysT{1}';
-                else
-                    NoValues = cat(3, NoValues, NoValuesT);
-                    umdays = [umdays umdaysT{1}'];
-                end
-                SensZ = cat(3, SensZ, SensZT);
-                SolZ = cat(3, SolZ, SolZT);
-                SolAzimuth = cat(3, SolAzimuth, SolAzimuthT);
-                refl = cat(4, refl, reflT);
-            end
-
-            umdays = datenum(umdays);
-
-        end
-
-        function [RefMatrix, usdays, RawSnow, RawVeg, RawRock, ...
-                RawDV, RawRF, RawGS_SCAG, RawGS_DRFS, ...
-                viewable_snow_fraction_status] = ...
-                loadSCAGDRFS(files)
-            %loadSCAGDRFS loads the data from a list of SCAGDRFS Raw cubes
-            %
-            % Input
-            %   files: cell array of filenames
-            %
-            % Output
-            %   concatenated data arrays read from filenames
-            %
-            % Notes: Returned RefMatrix is from final file loaded,
-            % earlier ones are loaded and then replaced.
-            % SIER_151 ugly add of viewable_snow_fraction_status
-
-            usdays = [];
-            RawSnow = [];
-            RawVeg = [];
-            RawRock = [];
-            RawGS_SCAG = [];
-            RawDV = [];
-            RawRF = [];
-            RawGS_DRFS = [];
-            viewable_snow_fraction_status = [];
-            for mn=1:size(files, 2)
-                [RawSnowT, RawVegT, RawRockT, RawDVT, RawRFT, ...
-                    RawGS_SCAGT, RawGS_DRFST, RefMatrix, ...
-                    viewable_snow_fraction_statusT] = ...
-                    parloadMatrices(files{mn}, ...
-                    'RawSnow', 'RawVeg', 'RawRock', 'RawDV', 'RawRF', ...
-                    'RawGS_SCAG', 'RawGS_DRFS', 'RefMatrix', ...
-                    'viewable_snow_fraction_status');
-                [usdaysT] = ...
-                    parloadDts(files{mn}, ...
-                    'usdays');
-                if mn == 1
-                    usdays = usdaysT{1}';
-                else
-                    usdays = [usdays usdaysT{1}'];
-                end
-                RawSnow = cat(3, RawSnow, RawSnowT);
-                RawVeg = cat(3, RawVeg, RawVegT);
-                RawRock = cat(3, RawRock, RawRockT);
-                RawDV = cat(3, RawDV, RawDVT);
-                RawRF = cat(3, RawRF, RawRFT);
-                RawGS_SCAG = cat(3, RawGS_SCAG, RawGS_SCAGT);
-                RawGS_DRFS = cat(3, RawGS_DRFS, RawGS_DRFST);
-                viewable_snow_fraction_status = cat(3, ...
-                    viewable_snow_fraction_status, viewable_snow_fraction_statusT);
-            end
-
-            usdays = datenum(usdays);
-
-        end
-
         function FP = loadFP(fpFile, dims)
+            %                                                                  @obsolete
             %loadFP loads a false positives mask
             %
             % Input
@@ -1126,35 +1120,7 @@ classdef MODISData < handle
                 fprintf('%s: Using dummy false positives FP mask\n', ...
                     mfilename());
             end
-
         end
-
-        function [ppl, ppt, thetad] = pixelSize(R, H, p, theta_s)
-            %pixelSize calculate pixel sizes in along-track and cross-track directions
-            % input
-            %  (first 3 inputs must be in same units)
-            %  R - Earth radius
-            %  H - orbit altitude
-            %  p - pixel size at nadir
-            %  theta_s - sensor zenith angle (degrees, can be vector of arguments)
-            %
-            % output (same size as vector theta_s)
-            %  ppl - pixel size in along-track direction
-            %  ppt - pixel size in cross-track direction
-            %  thetad - nadir sensor angle, degrees
-            %
-
-            theta=asin(R*sind(theta_s)/(R+H));
-            ppl=(1/H)*(cos(theta)*(R+H)-R*sqrt(1-((R+H)/R)^2*(sin(theta)).^2));
-            beta=atan(p/(2*H));
-            ppt=(R/p)*(asin(((R+H)/R)*sin(theta+beta))-...
-                asin(((R+H)/R)*sin(theta-beta))-2*beta);
-            thetad=rad2deg(theta);
-            ppl=ppl*p;
-            ppt=ppt*p;
-
-        end
-
+%}
     end
-
 end
