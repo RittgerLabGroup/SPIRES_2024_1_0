@@ -181,7 +181,7 @@ classdef MODISData < handle
                 northWestY - dy / 2 + dy]]; % Should give result same as deprecated 
                                             % makerefmat()
             mapCellsReference = refmatToMapRasterReference(refMatrix,...
-                    [positionalData.columnCount positionalData.rowCount]);
+                    [positionalData.rowCount positionalData.columnCount]);
 %{
 % Version before 2023-06-19. Doesn't work for some tiles and didn't figure out why.
             mapCellsReference = maprefcells([ ...
