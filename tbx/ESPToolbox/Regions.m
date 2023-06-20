@@ -19,7 +19,7 @@ classdef Regions < handle
         useForSnowToday % logical cell array indicating we are using it
         lowIllumination % logical cell array for Northern areas
         espEnv          % ESPEnv object, local environment variables (paths...)
-                        % and methods
+                        % and methods. Include the modisData property.
         snowCoverDayMins % Struct(minElevation (double), minSnowCoverFraction
                          % (double [0:100]))
                          % indicate the minimal elevation and minimal snow cover
@@ -46,15 +46,14 @@ classdef Regions < handle
                         % the replaced_varname value is replaced by the value indicated
                         % in the file configuration_of_variables
         modisData       % MODISData object, modis environment paths and methods
+                        %                                                    @deprecated
         STC             % STC thresholds
     end
     properties(Constant)
         geotiffCompression = 'LZW';
         webGeotiffEPSG = 3857;
     end
-
     methods         % public methods
-
         function obj = Regions(regionName, maskName, espEnv, modisData)
             % The Regions constructor initializes the directory
             % for local storage of MODIS tile data
@@ -67,44 +66,43 @@ classdef Regions < handle
             %    currently only 'westernUS'
             % maskName: str
             %     group of regions of a certain type. e.g. 'westernUS_mask',
-            %    'State_masks', 'HUC2_masks' (for large drainage basins)
+            %    'State_mask', 'HUC2_mask' (for large drainage basins)
             % espEnv: ESPEnv object
             %    local environment variables, peculiarly the directory
             %    where are stored the region masks (= sub-regions,
             %    e.g. for 'State_masks' the entities are 'USAZ',
             %    'USCO', etc ...
             % modisData: MODISData object
-            %    Modis environment, with paths
+            %    Modis environment, with paths . SIER_322/345                @deprecated
 
 
-            % Masks variable
+            % Mask variable
             %---------------
             if ~exist('maskName', 'var')
-                maskName = 'State_masks';
+                maskName = 'State_mask';
             end
             if ~ischar(maskName)
                 ME = MException('Region:inputError', ...
                     '%s: maskName %s is not of char type', ...
                     mfilename(), maskName);
-                throw(ME)
+                throw(ME);
             end
 
             obj.maskName = maskName;
             obj.regionName = regionName;
             obj.espEnv = espEnv;
-            obj.modisData = modisData;
+            obj.modisData = espEnv.modisData;
 
             % Fetch the structure with the requested region information
-            regionFile = fullfile(espEnv.regionMaskDir, ...
-                sprintf("%s.mat", obj.maskName));
-            mObj = matfile(regionFile);            
+            [regionFilePath, ~] = getFilePathForObjectNameDataLabel(espEnv, ...
+                maskName, 'region');
+            mObj = matfile(regionFilePath);            
             varNames = who(mObj);
             if isempty(varNames)
-                errorStruct.identifier = 'Regions:BadRegionsFile';
-                errorStruct.message = sprintf(...
-                    '%s: empty RegionsFile %s\n', ...
-                    mfilename(), regionFile);
-                error(errorStruct);
+                ME = MException('Region:BadRegionFile', ...
+                    '%s: empty RegionFile %s\n', ...
+                    mfilename(), regionFilePath);
+                throw(ME);
             end
 
             obj.ShortName = mObj.ShortName;
@@ -123,8 +121,9 @@ classdef Regions < handle
             obj.thresholdsForMosaics = mObj.thresholdsForMosaics;
             obj.thresholdsForPublicMosaics = mObj.thresholdsForPublicMosaics;
         end
-
+%{
         function elevations = getElevations(obj)
+            %                                                                  @obsolete
             % Return
             % ------
             %   elevations: Array(double)
@@ -149,7 +148,7 @@ classdef Regions < handle
                 rethrow(e);
             end
         end
-
+%}
         function [xExtent, yExtent] = getGeotiffExtent(obj, geotiffEPSG)
             % Returns two vector indicating the x-y limits of the geotiff
             % for the web, after projection, which actually contain data.
@@ -236,11 +235,12 @@ classdef Regions < handle
             % Encapsulates the MODISData getMapCellsReference. Here
             % we need to have the list of all tiles that compose the big region,
             % which we can't have if we only base on the MODISData object.
+            modisData = obj.espEnv.modisData;
             horizontalTileIds = zeros([1, length(obj.tileIds)], 'uint8');
             verticalTileIds = zeros([1, length(obj.tileIds)], 'uint8');
             for idx = 1:length(obj.tileIds)
                 positionalTileData = ...
-                    obj.modisData.getTilePositionIdsAndColumnRowCount( ...
+                    modisData.getTilePositionIdsAndColumnRowCount( ...
                     obj.tileIds{idx});
                 horizontalTileIds(idx) = positionalTileData.horizontalId;
                 verticalTileIds(idx) = positionalTileData.verticalId;
@@ -248,10 +248,10 @@ classdef Regions < handle
             positionalData.horizontalId = min(horizontalTileIds);
             positionalData.verticalId = min(verticalTileIds);
             positionalData.columnCount = ...
-                obj.modisData.georeferencing.tileInfo.columnCount * ...
+                modisData.georeferencing.tileInfo.columnCount * ...
                 length(unique(horizontalTileIds));
             positionalData.rowCount = ...
-                obj.modisData.georeferencing.tileInfo.rowCount * ...
+                modisData.georeferencing.tileInfo.rowCount * ...
                 length(unique(verticalTileIds));
                 
             mapCellsReference = obj.modisData.getMapCellsReference(positionalData);
@@ -275,7 +275,7 @@ classdef Regions < handle
                 tileName = tileNames{tileIdx};
                 regionsArray(tileIdx) = Regions(tileName, ...
                     [tileName '_mask'], ...
-                    obj.espEnv, obj.modisData);
+                    obj.espEnv, obj.espEnv.modisData);
 
                 % Override any default STC or snowCoverDayMins
                 % settings with values from the upper-level regions obj
@@ -299,7 +299,7 @@ classdef Regions < handle
             % make a copy so variable references in save will work
             warning('off', 'MATLAB:structOnObject');
             espEnvStruct = struct(obj.espEnv);
-            modisDataStruct = struct(obj.modisData);
+            modisDataStruct = struct(obj.espEnv.modisData);
             stcStruct = struct(obj.STC);
             warning('on', 'MATLAB:structOnObject');
             save(outFilename, '-append', 'espEnvStruct', 'modisDataStruct', 'stcStruct');
@@ -655,7 +655,7 @@ classdef Regions < handle
             % subRegionIndex: Int, Optional
             %        Index of the subregion within all the subregions
             %        contained in the object Regions. E.g. subRegionIndex = 1
-            %        for 'USAZ' in the object Regions 'State_masks'
+            %        for 'USAZ' in the object Regions 'State_mask'
             %        Beware, this index may not be unique.
             %        If not input, write files for all subregions.
             % varName: str, Optional
@@ -799,7 +799,7 @@ classdef Regions < handle
             end
 
             waterYear = waterYearDate.getWaterYear();
-            modisBeginWaterYear = obj.modisData.beginWaterYear;
+            modisBeginWaterYear = obj.espEnv.modisData.beginWaterYear;
             modisEndWaterYear = waterYear - 1;
 
             % Retrieval of aggregated data files
@@ -828,7 +828,6 @@ classdef Regions < handle
 		availableVariables, outputDirectory, NaN, NaN, waterYearDate);
         end
     end
-
     methods(Static)  % static methods can be called for the class
 
         function partitionName = getPartitionNameFor(partitionNum)
@@ -844,15 +843,17 @@ classdef Regions < handle
                 case 10
                     partitionName = 'westernUS_mask';
                 case 11
-                    partitionName = 'State_masks';
+                    partitionName = 'State_mask';
                 case 12
-                    partitionName = 'HUC2_masks';
+                    partitionName = 'HUC2_mask';
                 case 14
-                    partitionName = 'HUC4_masks';
+                    partitionName = 'HUC4_mask';
+%{
                 case 16
-                    partitionName = 'HUC6_masks';
+                    partitionName = 'HUC6_mask';
                 case 18
-                    partitionName = 'HUC8_masks';
+                    partitionName = 'HUC8_mask';
+%}
                 otherwise
                     errorStruct.identifier = 'Regions:PartitionError';
                     errorStruct.message = sprintf( ...

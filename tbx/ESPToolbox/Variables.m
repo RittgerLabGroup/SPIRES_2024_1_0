@@ -4,7 +4,6 @@ classdef Variables
     properties
         region         % Regions object, on which the calculations are done
     end
-
     properties(Constant)
         uint8NoData = cast(255, 'uint8');
         uint16NoData = cast(65535, 'uint16');
@@ -26,14 +25,14 @@ classdef Variables
                 lowValue = 30, ...
                 notForGeneralPublic = 40, ...
                 temporary = 255); % possible values
-            % for the viewable_snow_fraction_status variable to indicate 
+            % for the viewable_snow_fraction_status variable to indicate
             % observed and reliable/unobserved/interpolated data.
         dataStatusForNoObservation = [Variables.dataStatus.unavailable, ...
             Variables.dataStatus.cloudyOrOther, ...
-            Variables.dataStatus.highSolarZenith]; % Data status values that indicate no 
+            Variables.dataStatus.highSolarZenith]; % Data status values that indicate no
             % observation, used to calculate days_without_observation.
         highSolarZenith = 67.5; % solar zenith value above which the observed data is
-            % considered unreliable.            
+            % considered unreliable.
     end
 
     methods
@@ -53,11 +52,11 @@ classdef Variables
             % By default days_without_observation is 0 starting from the 1st day
             % of the current waterYear and increase over time if there's no data
             % available for the pixel, the data indicate water, clouds, or noise,
-            % or solar zenith was too high. days_without_observation goes back to 
+            % or solar zenith was too high. days_without_observation goes back to
             % 0 the day when there's a reliable observation.
             %
             % Called by runSnowTodayStep2.sh \ runUpdateMosaic.sh
-            % 
+            %
             % Parameters
             % ----------
             % waterYearDate: waterYearDate object, optional
@@ -71,10 +70,10 @@ classdef Variables
             baseVarName = 'viewable_snow_fraction_status';
             aggregateVarName = 'days_without_observation';
             fprintf('%s: Start %s calculations\n', mfilename(), aggregateVarName);
-            
+
             region = obj.region;
             espEnv = region.espEnv;
-            modisData = region.modisData;
+            modisData = espEnv.modisData;
 
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
@@ -124,7 +123,7 @@ classdef Variables
             end
 
             % 2. Update each daily mosaic file for the full
-            % period by calculating days_without_observation from 
+            % period by calculating days_without_observation from
             % viewable_snow_fraction_status.
             %---------------------------------------------------------------------------
             for thisDateIdx=1:length(dateRange) % No parfor here.
@@ -134,11 +133,11 @@ classdef Variables
 
                 unavailableDataFlag = false;
                 if ~isfile(dataFilePath)
-                    unavailableDataFlag = true; 
+                    unavailableDataFlag = true;
                 else
                     data = load(dataFilePath, baseVarName);
                     fprintf('%s: Loading %s from %s\n', ...
-                            mfilename(), baseVarName, dataFilePath);                    
+                            mfilename(), baseVarName, dataFilePath);
                     if isempty(data) | ...
                         ~ismember(baseVarName, fieldnames(data))
                         unavailableDataFlag = true;
@@ -146,7 +145,7 @@ classdef Variables
                 end
                 if unavailableDataFlag
                     warning(['%s: Stop updating days_without_observation. ', ...
-                        'Missing file or no %s variable in %s\n'], ... 
+                        'Missing file or no %s variable in %s\n'], ...
                         mfilename(), baseVarName, dataFilePath);
                     break;
                 else
@@ -199,7 +198,7 @@ classdef Variables
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             region = obj.region;
             espEnv = region.espEnv;
-            modisData = region.modisData;
+            modisData = espEnv.modisData;
             mins = region.snowCoverDayMins;
 
             if ~exist('waterYearDate', 'var')
@@ -208,7 +207,8 @@ classdef Variables
             dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
-            elevationData = region.getElevations();
+            [elevation, ~, ~] = ...
+                espEnv.getDataForObjectNameDataLabel(region.regionName, 'elevation');
 
             snowCoverConf = espEnv.myConf.variable(find( ...
                 strcmp(espEnv.myConf.variable.output_name, 'snow_cover_days')), :);
@@ -284,7 +284,7 @@ classdef Variables
                     snowCoverFraction < ...
                     snow_cover_days_min_snow_cover_fraction) = 0;
                 snowCoverFraction(...
-                    elevationData < snow_cover_days_min_elevation) = 0;
+                    elevation < snow_cover_days_min_elevation) = 0;
 
                 % 2.c. Cumulated snow cover days calculation and save
                 %----------------------------------------------------
@@ -335,16 +335,17 @@ classdef Variables
             %------------------------------------------
             region = obj.region;
             espEnv = region.espEnv;
-            modisData = region.modisData;
+            modisData = espEnv.modisData;
 
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
             end
             dateRange = waterYearDate.getDailyDatetimeRange();
 
-            topo = matfile(espEnv.topographyFile(region));
-            slope = topo.S;
-            aspect = topo.A;
+            [slope, ~, ~] = ...
+                espEnv.getDataForObjectNameDataLabel(region.regionName, 'slope');
+            [aspect, ~, ~] = ...
+                espEnv.getDataForObjectNameDataLabel(region.regionName, 'aspect');
 
             albedoNames = {'albedo_clean_mu0'; 'albedo_clean_muZ'; ...
                 'albedo_observed_mu0'; 'albedo_observed_muZ'};
@@ -385,11 +386,11 @@ classdef Variables
                 % convert all variables to double (and NaN) for
                 % parBal package
                 % Since Mosaic files are stored as int and the ParBal functions
-                % use floats as input arguments, we 
-                % 1. cast the Mosaic data to the float type and 
-                %    replace no_data_value by NaNs, 
+                % use floats as input arguments, we
+                % 1. cast the Mosaic data to the float type and
+                %    replace no_data_value by NaNs,
                 % 2. use the ParBal functions, and then
-                % 3. replace the albedo NaNs by no_data_value and cast 
+                % 3. replace the albedo NaNs by no_data_value and cast
                 %    the albedos to integers.
                 %----------------------------------------------
                 errorStruct = struct();
@@ -416,9 +417,9 @@ classdef Variables
                     mosaicData.(fieldname) = cast(mosaicData.(fieldname), 'double');
                     if strcmp(fieldname, 'snow_fraction')
                         continue;
-                    end                    
+                    end
                     varInfos = confOfVar(find( ...
-                        strcmp(confOfVar.output_name, fieldname)), :);                                        
+                        strcmp(confOfVar.output_name, fieldname)), :);
                     nans = nans | mosaicData.(fieldname) == varInfos.nodata_value;
                     mosaicData.(fieldname)(mosaicData.(fieldname) == ...
                         varInfos.nodata_value) = NaN;
@@ -442,7 +443,7 @@ classdef Variables
                 % + cap of grain size to max value accepted by parBal.spires
                 % use of ParBal package: .sunslope and .spires_albedo.
                 % spires_albedo needs no data values to be NaNs
-                %----------------------------------------------------------- 
+                %-----------------------------------------------------------
                 mu0 = cosd(mosaicData.solar_zenith);
                 mu0(nans) = NaN;
 

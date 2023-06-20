@@ -12,7 +12,7 @@ classdef PublicMosaic
             %
             % Parameters
             % ----------
-            % regions: Regions object
+            % region: Regions object
             %
             % Return
             % ------
@@ -27,7 +27,7 @@ classdef PublicMosaic
             % Public Mosaics are an update of the Mosaics: when some variables
             % are strictly below some thresholds, the values of other variables
             % are not considered reliable and replaced by a default value given
-            % by region.configurationOfVariables (file configuration_of_variables).
+            % by espEnv.myConf.variable (file configuration_of_variables).
             %
             % NB: Should be called first to fill the publicMosaicData argument with
             % variables used for thresholding, e.g. snow_fraction or 
@@ -37,7 +37,7 @@ classdef PublicMosaic
             % ----------
             % varName: char
             %   Name of the variable (should be checked in writeGeotiffs
-            %   of configurationOfVariables)
+            %   of espEnv.myConf.variable)
             % thisDatetime: datetime object
             %   Date over which mosaic data should be thresholded
             % publicMosaicData: struct(elevation=array(doublexdouble), 
@@ -48,14 +48,15 @@ classdef PublicMosaic
             %-------------------------------------------------
 
             thisRegion = obj.region;
-            confOfVar = thisRegion.espEnv.configurationOfVariables();
-            varIndex = find(strcmp(confOfVar.output_name, varName));
-            varNameInfos = confOfVar(varIndex, :);
+            espEnv = thisRegion.espEnv;
+            confOfVar = espEnv.myConf.variable;
+            varNameInfos = confOfVar(strcmp(confOfVar.output_name, varName), ...
+                :);
 
             % 2. Mosaic data and elevation
             %-----------------------------
 
-            mosaicFile = thisRegion.espEnv.MosaicFile(thisRegion, thisDatetime);
+            mosaicFile = espEnv.MosaicFile(thisRegion, thisDatetime);
             if ~isfile(mosaicFile)
                 warning('%s: Missing mosaic file %s\n', mfilename(), ...
                     mosaicFile);
@@ -69,7 +70,11 @@ classdef PublicMosaic
                 varData = publicMosaicData.(varName);
             end
             if ~ismember('elevation', fields)
-                publicMosaicData.elevation = thisRegion.getElevations();
+                [elevation, ~, ~] = ...
+                    espEnv.getDataForObjectNameDataLabel( ...
+                        thisRegion.regionName, 'elevation');
+                publicMosaicData.elevation = elevation;
+                clear elevation;
                 publicMosaicData.elevation(isnan(publicMosaicData.elevation)) = ...
                     intmax('int16');
                 publicMosaicData.elevation = cast(publicMosaicData.elevation, 'int16');
