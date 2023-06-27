@@ -112,6 +112,43 @@ classdef WaterYearDate
                 thisYear = waterYear - 1;
             end
         end
+        function [waterYearDate trailingMonthStatus] = ...
+            getWaterYearDateForInterpAndTrailingStatus(thisDate)
+            % Parameters
+            % ----------
+            % thisDate: datetime. For which we want the set of months. Should be 1st of
+            %   the month.
+            %
+            % Return
+            % ------
+            % waterYearDate: WaterYearDate. Covers the 2 to 3-month period over which
+            %   the temporal interpolation will be done for the month related to
+            %   thisDate. Centered by default around the month of thisDate. If ongoing
+            %   month, waterYearDate doesn't include the future month. If January of
+            %   this year and we are in Jan or Feb, monthStatus = trailing,
+            %   waterYearDate covers the ongoing month + the two previous months.
+            % trailingMonthStatus: uint8. 'trailing' or 'centered'. Presently, 
+            %   only january can be trailing in some specific cases
+            %
+            % NB: Code refactored from ESPEnv.rawFilesFor3months().
+            
+            % Default case: centered.
+            waterYearDate = WaterYearDate(datetime(year(thisDate), ...
+                month(thisDate) +1, eom(year(thisDate), month(thisDate) + 1)), 3);
+            trailingMonthStatus = 'centered';
+            % Other cases trailing or centered without the subsequent month.
+            if (1 == month(thisDate) && year(thisDate) == year(date) ...
+                && month(date) < 3)
+                waterYearDate = WaterYearDate( ...
+                    waterYearDate.thisDatetime - calmonths(1), 3);
+                trailingMonthStatus = 'trailing';
+            elseif (month(thisDate) == month(date) && ...
+                year(thisDate) == year(date))
+                waterYearDate = WaterYearDate( ...
+                    waterYearDate.thisDatetime - calmonths(1), 2);
+                trailingMonthStatus = 'centered';
+            end
+        end
     end
 
     methods

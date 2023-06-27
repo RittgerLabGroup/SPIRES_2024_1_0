@@ -289,6 +289,77 @@ classdef ESPEnv < handle
                 end
             end
         end
+        function varData = getDataForWaterYearDateAndVarName(obj, ...
+            objectName, dataLabel, waterYearDate, varName)
+            % SIER_297: replacement of modisData.loadMOD09() and loadSCAGDRFS()
+            % NB: this ugly method may be improved, depending on raw data struct.  @todo
+            %
+            % Parameters
+            % ----------
+            % objectName: char. Name of the tile or region as found in the modis files
+            %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
+            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
+            % label: char. Label (type) of data for which the file is required, should
+            %   be a key of ESPEnv.dirWith struct, e.g. MOD09Raw.
+            % waterYearDate: WaterYearDate. Cover the period for which we want the
+            %   files.
+            % varName: name of the variable to load.
+            %
+            % Return
+            % ------
+            %   varData: concatenated data arrays read.
+            %
+            % NB: only works for dataLabel in MOD09Raw or SCAGRaw.
+            % NB: doesn't check if the variable is present in file.                @todo
+            
+            % 1. Check valid dataLabel and get list of files for which the variable is
+            % to be loaded.
+            %---------------------------------------------------------------------------
+            if ~ismember(dataLabel, fieldnames(obj.dirWith)) || ...
+                ~ismember(dataLabel, fieldnames(modisData.versionOf)) || ...
+                ~ismember(dataLabel, {'MOD09Raw', 'SCAGDRFSRaw'})
+                errorStruct.identifier = ...
+                    'ESPEnv:getDataForWaterYearDateAndVarName:BadDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in ESPEnv.dirWith and MODISData.versionOf ', ...
+                     'fieldnames and either MOD09Raw or SCAGDRFSRaw.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+            
+            [filePath, fileExists, ~, ~] = ...
+                obj.getFilePathForWaterYearDate(objectName, dataLabel, waterYearDate);
+            filePath = filePath(fileExists == 1);
+            
+            % 2. Construction of the array of values extracted from the files.
+            %---------------------------------------------------------------------------
+            varData = [];
+            if ismember(varName, {'umdays', 'usdays'})
+                for fileIdx = 1:size(filePath, 2)
+                    [varDataT] = parloadDts(filePath{fileIdx}, varName);
+                    if fileIdx == 1
+                        varData = varDataT{1}';
+                    else
+                        varData = [varData varDataT{1}'];
+                    end
+                end
+                varData = datenum(varData); 
+            elseif strcmp(varName, 'RefMatrix')
+                varData = parloadMatrices(filePath{1}, 'RefMatrix');
+            else
+                for fileIdx = 1:size(filePath, 2)
+                    varDataT = parloadMatrices(filePath{fileIdx}, varName);
+                    if strcmp(varName, 'NoValues') && fileIdx == 1 
+                        varData = varDataT;
+                    elseif strcmp(varName, 'refl')
+                        varData = cat(4, varData, varDataT);
+                    else
+                        varData = cat(3, varData, varDataT);
+                    end
+                end
+            end
+        end
         function [filePath, fileExists] = getFilePathForObjectNameDataLabel(obj, ...
             objectName, dataLabel)
             % Parameters
@@ -321,6 +392,105 @@ classdef ESPEnv < handle
             end
             filePath = fullfile(directoryPath, fileName);
             fileExists = isfile(filePath);
+        end
+        function [filePath, fileExists, lastDateInFile, waterYearDate] = ...
+            getFilePathForWaterYearDate(obj, objectName, dataLabel, waterYearDate)
+            % Parameters
+            % ----------
+            % objectName: char. Name of the tile or region as found in the modis files
+            %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
+            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
+            % label: char. Label (type) of data for which the file is required, should
+            %   be a key of ESPEnv.dirWith struct, e.g. MOD09Raw.
+            % waterYearDate: WaterYearDate. Cover the period for which we want the
+            %   files.
+            %
+            % Return
+            % ------
+            % filePath: char or 1-D array(char) if several files (e.g. waterYearDate
+            %   having a window > 1.
+            % existFile: uint8 or 1-D array(uint8) if several files. 
+            %   0 if file doesn't exist.
+            % lastDate: datetime or 1-D array(datetime). Last date present in the file.
+            %   NB: because of the design of raw files, which are filled up to the day
+            %   before run, lastDate is similar to the number of days in file. 
+            %   Not to be used when existFile = 0.
+            
+            % 1. Generation and check existence of the file directory path.
+            %---------------------------------------------------------------------------
+            modisData = obj.modisData;
+            if ~ismember(dataLabel, fieldnames(obj.dirWith)) || ...
+                ~ismember(dataLabel, fieldnames(modisData.versionOf)) || ...
+                ~ismember(dataLabel, {'MOD09Raw', 'SCAGDRFSRaw', 'SCAGDRGSGap', ...
+                    'SCAGDRFSSTC'})
+                errorStruct.identifier = ...
+                    'ESPEnv:getFilePathForWaterYearDate:BadDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in ESPEnv.dirWith and MODISData.versionOf ', ...
+                     'fieldnames.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+            if ~isempty(modisData.versionOf.(dataLabel))
+                sepChar = '_';
+            else
+                sepChar = '';
+            end
+            directoryPath = fullfile( ...
+                sprintf('%s%s%s', obj.dirWith.(dataLabel), sepChar, ...
+                    modisData.versionOf.(dataLabel)), ...
+                sprintf('v%03d', modisData.versionOf.MODISCollection), ...
+                objectName, ...
+                string(thisDate, 'yyyy'));
+            if ~isfolder(directoryPath)
+                mkdir(directoryPath);
+            end
+            
+            % 2. Generation of the filenames, check existence, detection of the
+            % last date recorded in file and update of the waterYearDate.
+            %---------------------------------------------------------------------------
+            theseDates = waterYearDate.getMonthlyFirstDatetimeRange();
+            filePath = {};
+            fileExists = zeros([1, length(theseDates)], 'uint8');
+            lastDateInFile = theseDates;
+            switch dataLabel
+                case 'MOD09Raw'
+                    dateFieldName = 'usdays'; % in file. make fieldnames same in all files @todo
+                case 'SCAGRaw'
+                    dateFieldName = 'umdays';
+                case 'SCAGGap'
+                    dateFieldName = 'datevals';
+                case 'SCAGSTC'
+                    dateFieldName = 'datevals';
+            end
+            
+            for dateIdx = 1:length(theseDates)
+                thisDate = theseDates(dateIdx);
+                if strcmp(dataLabel, 'MOD09Raw')
+                    % These files should have the same naming structure as SCAG    @todo
+                    f = sprintf('%s_%s_%s_%s.mat', ...
+                            modisData.fileNamePrefix.(dataLabel), ...
+                            modisData.versionOf.platform, objectName, ...
+                            string(thisDate, 'yyyyMM'));
+                else
+                    % SCAGDRFSRaw, SCAGDRFSGap, or SCAGDRFSSTC case.
+                    f = sprintf('%s_%s_%s_%s.%s.mat', ...
+                            modisData.filenamePrefix.(dataLabel), ...
+                            modisData.versionOf.platform, objectName, ...
+                            string(thisDate, 'yyyyMM'), ...
+                            modisData.versionOf.(dataLabel));
+                end
+                filePath{dateIdx} = fullfile(directoryPath, fileName);
+                if isfile(filePath{dateIdx})
+                    fileExists(dateIdx) = 1;                    
+                    lastDate(dateIdx) = max( ...
+                        load(filePath{dateIdx}, dateFieldName).(dateFieldName));
+                end    
+            end
+            waterYearDate = WaterYearDate( ...
+                Tools.valueAt(lastDateInFile(fileExists == 1), end), ...
+                length(find(fileExists == 1)));
         end
         function f = MOD09File(obj, MData, regionName, yr, mm)
             % MOD09File returns the name of a monthly MOD09 cubefile
