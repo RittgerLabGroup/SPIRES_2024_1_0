@@ -570,7 +570,7 @@ classdef ESPEnv < handle
                 varName);                	
             f = fullfile(outDir, fileName);
         end
-        function filename = Step0ModisFilename(obj, region, myDate, varName)
+        function [filePath, fileExists] = Step0ModisFilename(obj, region, myDate, varName)
             % Parameters
             % ----------
             % source: char.
@@ -585,13 +585,14 @@ classdef ESPEnv < handle
             %
             % Return
             % ------
-            % Full filename of the daily file received from JPL for the tile and
+            % filePath: char. Full filepath of the daily file received from JPL for the tile and
             %   variable, accessible from the /scratch/alpine/user directory.
-            %   If the file has not been received or doesn't exist, return ''
+            % fileExists: uint8. 0 if the file has not been received or
+            % doesn't exist.
             modisData = obj.modisData;
             regionName = region.regionName;
-            varConf = obj.myConfigurationOfVariables(find( ...
-                strcmp(obj.myConfigurationOfVariables.output_name, varName)), :);
+            varConf = obj.myConf.variable(find( ...
+                strcmp(obj.myConf.variable.output_name, varName)), :);
             if ~strcmp(varName, 'mod09ga')
                 sourceVarName = [varConf.modis_source_name{1} '.dat'];
                 source = varConf.modis_source{1};
@@ -612,9 +613,11 @@ classdef ESPEnv < handle
                     sourceVarName);
             fileStruct = dir(fullfile(directory, searchFilename));
             if isempty(fileStruct)
-                filename = '';
+                filePath = fullfile(directory, searchFilename);
+                fileExists = 0;
             else
-                filename = fullfile(directory, fileStruct(end).name);
+                filePath = fullfile(directory, fileStruct(end).name);
+                fileExists = 1;
             end
         end
         function f = SummarySnowFile(obj, region, startYr, stopYr)
