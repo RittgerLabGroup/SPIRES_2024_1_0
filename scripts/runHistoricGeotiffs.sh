@@ -85,7 +85,8 @@ else
     PROGNAME=${BASH_SOURCE[0]}
 fi
 cd "$(dirname "${PROGNAME}")"
-printf "Script directory: $(pwd)\n"
+thisScriptDir=$(pwd)
+printf "Script directory: ${thisScriptDir}\n"
 #Go to parent of this script, so that correct pathdef.m file is used
 cd ..
 source scripts/toolsStart.sh
