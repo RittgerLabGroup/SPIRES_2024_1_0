@@ -316,7 +316,7 @@ classdef ESPEnv < handle
             % to be loaded.
             %---------------------------------------------------------------------------
             if ~ismember(dataLabel, fieldnames(obj.dirWith)) || ...
-                ~ismember(dataLabel, fieldnames(modisData.versionOf)) || ...
+                ~ismember(dataLabel, fieldnames(obj.modisData.versionOf)) || ...
                 ~ismember(dataLabel, {'MOD09Raw', 'SCAGDRFSRaw'})
                 errorStruct.identifier = ...
                     'ESPEnv:getDataForWaterYearDateAndVarName:BadDataLabel';
@@ -411,10 +411,11 @@ classdef ESPEnv < handle
             %   having a window > 1.
             % existFile: uint8 or 1-D array(uint8) if several files. 
             %   0 if file doesn't exist.
-            % lastDate: datetime or 1-D array(datetime). Last date present in the file.
+            % lastDateInFile: datetime or 1-D array(datetime). Last date present in the file.
             %   NB: because of the design of raw files, which are filled up to the day
             %   before run, lastDate is similar to the number of days in file. 
             %   Not to be used when existFile = 0.
+            % waterYearDate: WaterYearDate. Adjusted to the last available date.
             
             % 1. Generation and check existence of the file directory path.
             %---------------------------------------------------------------------------
@@ -442,7 +443,7 @@ classdef ESPEnv < handle
                     modisData.versionOf.(dataLabel)), ...
                 sprintf('v%03d', modisData.versionOf.MODISCollection), ...
                 objectName, ...
-                string(thisDate, 'yyyy'));
+                string(waterYearDate.thisDatetime, 'yyyy'));
             if ~isfolder(directoryPath)
                 mkdir(directoryPath);
             end
@@ -456,12 +457,12 @@ classdef ESPEnv < handle
             lastDateInFile = theseDates;
             switch dataLabel
                 case 'MOD09Raw'
-                    dateFieldName = 'usdays'; % in file. make fieldnames same in all files @todo
-                case 'SCAGRaw'
-                    dateFieldName = 'umdays';
-                case 'SCAGGap'
+                    dateFieldName = 'umdays'; % in file. make fieldnames same in all files @todo
+                case 'SCAGDRFSRaw'
+                    dateFieldName = 'usdays';
+                case 'SCAGDRFSGap'
                     dateFieldName = 'datevals';
-                case 'SCAGSTC'
+                case 'SCAGDRFSSTC'
                     dateFieldName = 'datevals';
             end
             
@@ -469,14 +470,14 @@ classdef ESPEnv < handle
                 thisDate = theseDates(dateIdx);
                 if strcmp(dataLabel, 'MOD09Raw')
                     % These files should have the same naming structure as SCAG    @todo
-                    f = sprintf('%s_%s_%s_%s.mat', ...
+                    fileName = sprintf('%s_%s_%s_%s.mat', ...
                             modisData.fileNamePrefix.(dataLabel), ...
                             modisData.versionOf.platform, objectName, ...
                             string(thisDate, 'yyyyMM'));
                 else
                     % SCAGDRFSRaw, SCAGDRFSGap, or SCAGDRFSSTC case.
-                    f = sprintf('%s_%s_%s_%s.%s.mat', ...
-                            modisData.filenamePrefix.(dataLabel), ...
+                    fileName = sprintf('%s_%s_%s_%s.%s.mat', ...
+                            modisData.fileNamePrefix.(dataLabel), ...
                             modisData.versionOf.platform, objectName, ...
                             string(thisDate, 'yyyyMM'), ...
                             modisData.versionOf.(dataLabel));
@@ -484,13 +485,14 @@ classdef ESPEnv < handle
                 filePath{dateIdx} = fullfile(directoryPath, fileName);
                 if isfile(filePath{dateIdx})
                     fileExists(dateIdx) = 1;                    
-                    lastDate(dateIdx) = max( ...
+                    lastDateInFile(dateIdx) = max( ...
                         load(filePath{dateIdx}, dateFieldName).(dateFieldName));
                 end    
             end
+            lastDateInFileWhichExists = lastDateInFile(fileExists == 1);
             waterYearDate = WaterYearDate( ...
-                Tools.valueAt(lastDateInFile(fileExists == 1), end), ...
-                length(find(fileExists == 1)));
+                 lastDateInFileWhichExists(end), length(find(fileExists == 1)));
+            waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
         end
         function f = MOD09File(obj, MData, regionName, yr, mm)
             % MOD09File returns the name of a monthly MOD09 cubefile

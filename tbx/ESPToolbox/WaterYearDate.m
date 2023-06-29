@@ -5,6 +5,8 @@ classdef WaterYearDate
         thisDatetime    % datetime of the object
         monthWindow     % Int [1-12]. Number of months over which to
                         % recalculate variables or stats.
+        overlapOtherYear % 1: overlap possible for interpolation. 0: not possible. 
+                            % SIER_365
     end
     properties(Constant)
         waterYearFirstMonth = 10;
@@ -14,7 +16,6 @@ classdef WaterYearDate
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultMonthWindow = 3;
     end
-
     methods(Static)
         function monthWindow = getMonthWindowFromMonths(startMonth, endMonth)
             % NB: Cap the start of the window to the first month of the waterYear
@@ -103,8 +104,6 @@ classdef WaterYearDate
             %   Calendar year
             % thisMonth: int
             %   Calendar month
-
-            %
             thisYear = waterYear;
             thisMonth = month;
             if month <= 0
@@ -134,7 +133,11 @@ classdef WaterYearDate
             
             % Default case: centered.
             waterYearDate = WaterYearDate(datetime(year(thisDate), ...
-                month(thisDate) +1, eom(year(thisDate), month(thisDate) + 1)), 3);
+                month(thisDate) +1, eomday(year(thisDate), month(thisDate) + 1)), 3);
+            % Permit the possibility to overlap on the previous/subsequent
+            % year for interpolation.
+            waterYearDate.overlapOtherYear = 1;
+
             trailingMonthStatus = 'centered';
             % Other cases trailing or centered without the subsequent month.
             if (1 == month(thisDate) && year(thisDate) == year(date) ...
@@ -188,10 +191,14 @@ classdef WaterYearDate
             [thisYYYY, thisMM, thisDD] = ymd(obj.thisDatetime);
 
             % 1. Cap the monthWindow to the starting month of the year (oct)
-            monthCountSinceWaterYearFirstMonth = ...
-                WaterYearDate.getMonthWindowFromMonths( ...
-                    WaterYearDate.waterYearFirstMonth, thisMM);
-            monthWindow = min(monthWindow, monthCountSinceWaterYearFirstMonth);
+            % except if overlap on other year is permitted.
+            % NB: should rather be in constructor, impact?            @todo
+            if ~obj.overlapOtherYear
+                monthCountSinceWaterYearFirstMonth = ...
+                    WaterYearDate.getMonthWindowFromMonths( ...
+                        WaterYearDate.waterYearFirstMonth, thisMM);
+                monthWindow = min(monthWindow, monthCountSinceWaterYearFirstMonth);
+            end
 
             % 2. Determining the first date of the range
             firstMonth = thisMM - monthWindow + 1;
