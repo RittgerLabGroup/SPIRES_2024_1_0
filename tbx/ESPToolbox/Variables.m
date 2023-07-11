@@ -70,10 +70,7 @@ classdef Variables
             baseVarName = 'viewable_snow_fraction_status';
             aggregateVarName = 'days_without_observation';
             fprintf('%s: Start %s calculations\n', mfilename(), aggregateVarName);
-
-            region = obj.region;
-            espEnv = region.espEnv;
-            modisData = espEnv.modisData;
+            espEnv = obj.region.espEnv;
 
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
@@ -93,10 +90,10 @@ classdef Variables
             % modaic data file of the day before), if the date range
             % doesn't begin in the first month of the wateryear
             % else 0.
-            lastDaysWithoutObservation = zeros(region.getSizeInPixels(), 'single');
+            lastDaysWithoutObservation = zeros(obj.region.getSizeInPixels(), 'single');
             if dateRange(1) ~= waterYearDate.getFirstDatetimeOfWaterYear()
                 thisDatetime = daysadd(dateRange(1) , -1); % date before.
-                dataFilePath = espEnv.MosaicFile(region, thisDatetime);
+                dataFilePath = espEnv.MosaicFile(obj.region, thisDatetime);
                 unavailableDataFlag = false;
                 if ~isfile(dataFilePath)
                     unavailableDataFlag = true;
@@ -118,7 +115,7 @@ classdef Variables
                 if unavailableDataFlag
                     warning('%s: Missing file or no %s variable in %s\n', ...
                         mfilename(), aggregateVarName, dataFilePath);
-                    lastDaysWithoutObservation = NaN(region.getSizeInPixels(), 'single');
+                    lastDaysWithoutObservation = NaN(obj.region.getSizeInPixels(), 'single');
                 end
             end
 
@@ -129,7 +126,7 @@ classdef Variables
             for thisDateIdx=1:length(dateRange) % No parfor here.
                 % 2.a. Loading of the daily mosaic file
                 %-----------------------------------------------
-                dataFilePath = espEnv.MosaicFile(region, dateRange(thisDateIdx));
+                dataFilePath = espEnv.MosaicFile(obj.region, dateRange(thisDateIdx));
 
                 unavailableDataFlag = false;
                 if ~isfile(dataFilePath)
@@ -196,10 +193,8 @@ classdef Variables
             %    and collection of units and divisor for
             %    snow_cover_days
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            region = obj.region;
-            espEnv = region.espEnv;
-            modisData = espEnv.modisData;
-            mins = region.snowCoverDayMins;
+            espEnv = obj.region.espEnv;
+            mins = obj.region.snowCoverDayMins;
 
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
@@ -208,7 +203,7 @@ classdef Variables
             numberOfMonths = length(dateRange);
 
             [elevation, ~, ~] = ...
-                espEnv.getDataForObjectNameDataLabel(region.regionName, 'elevation');
+                espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'elevation');
 
             snowCoverConf = espEnv.myConf.variable(find( ...
                 strcmp(espEnv.myConf.variable.output_name, 'snow_cover_days')), :);
@@ -228,7 +223,7 @@ classdef Variables
 
             if month(dateRange(1)) ~= waterYearDate.waterYearFirstMonth
                 dateBefore = daysadd(dateRange(1) , -1);
-                STCFile = espEnv.SCAGDRFSFile(region, ...
+                STCFile = espEnv.SCAGDRFSFile(obj.region, ...
                     'SCAGDRFSSTC', dateBefore);
 
                 if isfile(STCFile)
@@ -256,7 +251,7 @@ classdef Variables
             for monthDayIdx=1:numberOfMonths
                 % 2.a. Loading of the monthly interpolation file
                 %-----------------------------------------------
-                STCFile = espEnv.SCAGDRFSFile(region, ...
+                STCFile = espEnv.SCAGDRFSFile(obj.region, ...
                     'SCAGDRFSSTC', dateRange(monthDayIdx));
 
                 if ~isfile(STCFile)
@@ -333,9 +328,7 @@ classdef Variables
 
             % 1. Initialization, dates, slopes, aspects
             %------------------------------------------
-            region = obj.region;
-            espEnv = region.espEnv;
-            modisData = espEnv.modisData;
+            espEnv = obj.region.espEnv;
 
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
@@ -343,9 +336,11 @@ classdef Variables
             dateRange = waterYearDate.getDailyDatetimeRange();
 
             [slope, ~, ~] = ...
-                espEnv.getDataForObjectNameDataLabel(region.regionName, 'slope');
+                espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'slope');
+            slope = cast(slope, 'double');
             [aspect, ~, ~] = ...
-                espEnv.getDataForObjectNameDataLabel(region.regionName, 'aspect');
+                espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'aspect'); 
+            aspect = cast(aspect, 'double'); % Slope and aspect are input of cosd within ParBal.sunslope, which only accept double.
 
             albedoNames = {'albedo_clean_mu0'; 'albedo_clean_muZ'; ...
                 'albedo_observed_mu0'; 'albedo_observed_muZ'};
@@ -394,7 +389,7 @@ classdef Variables
                 %    the albedos to integers.
                 %----------------------------------------------
                 errorStruct = struct();
-                mosaicFile = espEnv.MosaicFile(region, dateRange(dateIdx));
+                mosaicFile = espEnv.MosaicFile(obj.region, dateRange(dateIdx));
 
                 if ~isfile(mosaicFile)
                     warning('%s: Missing mosaic file %s\n', mfilename(), ...
@@ -469,10 +464,10 @@ classdef Variables
                 %---------------------------------------------------
                 albedos.albedo_clean_mu0 = spires_albedo(...
                     grainSizeForSpires, mu0, ...
-                    region.atmosphericProfile);
+                    obj.region.atmosphericProfile);
                 albedos.albedo_clean_muZ = spires_albedo(...
                     grainSizeForSpires, muZ, ...
-                    region.atmosphericProfile);
+                    obj.region.atmosphericProfile);
 
                 albedoObservedCorrection = (cast(mosaicData.deltavis, 'double') / ...
                     Variables.albedoDeltavisScale) * ...
@@ -493,7 +488,7 @@ classdef Variables
                         errorStruct.identifier = 'Variables:RangeError';
                         errorStruct.message = sprintf(...
                             '%s: Calculated %s %s [%.3f,%.3f] out of bounds\n',...
-                            mfilename, region.regionName, ...
+                            mfilename, obj.region.regionName, ...
                             albedoName, [albedoName '_min'], [albedoName '_max']);
                         error(errorStruct);
                     end
