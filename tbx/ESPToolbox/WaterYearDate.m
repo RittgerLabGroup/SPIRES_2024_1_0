@@ -132,8 +132,9 @@ classdef WaterYearDate
             % NB: Code refactored from ESPEnv.rawFilesFor3months().
             
             % Default case: centered.
-            waterYearDate = WaterYearDate(datetime(year(thisDate), ...
-                month(thisDate) +1, eomday(year(thisDate), month(thisDate) + 1)), 3);
+            thisDatePlusOneMonth = thisDate + calmonths(1);
+            waterYearDate = WaterYearDate(datetime(year(thisDatePlusOneMonth), ...
+                month(thisDatePlusOneMonth), eomday(year(thisDatePlusOneMonth), month(thisDatePlusOneMonth))), 3);
             % Permit the possibility to overlap on the previous/subsequent
             % year for interpolation.
             waterYearDate.overlapOtherYear = 1;
