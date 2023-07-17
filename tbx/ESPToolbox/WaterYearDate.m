@@ -5,6 +5,8 @@ classdef WaterYearDate
         thisDatetime    % datetime of the object
         monthWindow     % Int [1-12]. Number of months over which to
                         % recalculate variables or stats.
+        overlapOtherYear = 0;% 1: overlap possible for interpolation. 0: not possible. 
+                            % SIER_365
     end
     properties(Constant)
         waterYearFirstMonth = 10;
@@ -14,7 +16,6 @@ classdef WaterYearDate
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultMonthWindow = 3;
     end
-
     methods(Static)
         function monthWindow = getMonthWindowFromMonths(startMonth, endMonth)
             % NB: Cap the start of the window to the first month of the waterYear
@@ -103,13 +104,53 @@ classdef WaterYearDate
             %   Calendar year
             % thisMonth: int
             %   Calendar month
-
-            %
             thisYear = waterYear;
             thisMonth = month;
             if month <= 0
                 thisMonth = 12 + month;
                 thisYear = waterYear - 1;
+            end
+        end
+        function [waterYearDate trailingMonthStatus] = ...
+            getWaterYearDateForInterpAndTrailingStatus(thisDate)
+            % Parameters
+            % ----------
+            % thisDate: datetime. For which we want the set of months. Should be 1st of
+            %   the month.
+            %
+            % Return
+            % ------
+            % waterYearDate: WaterYearDate. Covers the 2 to 3-month period over which
+            %   the temporal interpolation will be done for the month related to
+            %   thisDate. Centered by default around the month of thisDate. If ongoing
+            %   month, waterYearDate doesn't include the future month. If January of
+            %   this year and we are in Jan or Feb, monthStatus = trailing,
+            %   waterYearDate covers the ongoing month + the two previous months.
+            % trailingMonthStatus: uint8. 'trailing' or 'centered'. Presently, 
+            %   only january can be trailing in some specific cases
+            %
+            % NB: Code refactored from ESPEnv.rawFilesFor3months().
+            
+            % Default case: centered.
+            thisDatePlusOneMonth = thisDate + calmonths(1);
+            waterYearDate = WaterYearDate(datetime(year(thisDatePlusOneMonth), ...
+                month(thisDatePlusOneMonth), eomday(year(thisDatePlusOneMonth), month(thisDatePlusOneMonth))), 3);
+            % Permit the possibility to overlap on the previous/subsequent
+            % year for interpolation.
+            waterYearDate.overlapOtherYear = 1;
+
+            trailingMonthStatus = 'centered';
+            % Other cases trailing or centered without the subsequent month.
+            if (1 == month(thisDate) && year(thisDate) == year(date) ...
+                && month(date) < 3)
+                waterYearDate = WaterYearDate( ...
+                    waterYearDate.thisDatetime - calmonths(1), 3);
+                trailingMonthStatus = 'trailing';
+            elseif (month(thisDate) == month(date) && ...
+                year(thisDate) == year(date))
+                waterYearDate = WaterYearDate( ...
+                    waterYearDate.thisDatetime - calmonths(1), 2);
+                trailingMonthStatus = 'centered';
             end
         end
     end
@@ -151,10 +192,14 @@ classdef WaterYearDate
             [thisYYYY, thisMM, thisDD] = ymd(obj.thisDatetime);
 
             % 1. Cap the monthWindow to the starting month of the year (oct)
-            monthCountSinceWaterYearFirstMonth = ...
-                WaterYearDate.getMonthWindowFromMonths( ...
-                    WaterYearDate.waterYearFirstMonth, thisMM);
-            monthWindow = min(monthWindow, monthCountSinceWaterYearFirstMonth);
+            % except if overlap on other year is permitted.
+            % NB: should rather be in constructor, impact?            @todo
+            if ~obj.overlapOtherYear
+                monthCountSinceWaterYearFirstMonth = ...
+                    WaterYearDate.getMonthWindowFromMonths( ...
+                        WaterYearDate.waterYearFirstMonth, thisMM);
+                monthWindow = min(monthWindow, monthCountSinceWaterYearFirstMonth);
+            end
 
             % 2. Determining the first date of the range
             firstMonth = thisMM - monthWindow + 1;
@@ -178,10 +223,9 @@ classdef WaterYearDate
             % ------
             % firstDateOfWaterYear: datetime.
             %   First date of the wateryear of the current waterYearDate.
-            yearForFirstDate = obj.getWaterYear();
-            if month(obj.thisDatetime) < obj.waterYearFirstMonth
-                yearForFirstDate = obj.getWaterYear() - 1;
-            end
+            
+            % Northern Hemisphere. Adapt for Southern Hemisphere @todo
+            yearForFirstDate = obj.getWaterYear() - 1;            
             firstDatetimeOfWaterYear = datetime(yearForFirstDate, ...
                 obj.waterYearFirstMonth, ...
                 obj.monthFirstDay, ...

@@ -14,10 +14,8 @@
 %---------------------------------------------------------------------------------------
 classdef TileRegionAncillaryDataSetup
     properties
-        georeferencing % struct(northwest = struct(x0 = int, y0 = int), tileInfo = 
-            % struct(dx = single, dy = single, columnCount = int, rowCount = int)). 
-            % Data necessary to absolutely calculate georeferencing for each tile named
-            % hyyvxx.
+        % georeferencing.                                           2023-06-30 @obsolete
+        espEnv % ESPEnv Obj.
         parentDirectory % char. Parent directory which store the ancillary 
             % files.
         regionName % char. Name of the region.
@@ -30,31 +28,6 @@ classdef TileRegionAncillaryDataSetup
             % of mod09ga tile .hdf file.
         mod44wWaterThreshold = 0.5; % threshold above which mod44w values are considered
             % as water.
-        projection = struct(modisSinusoidal = struct( ...
-            ... % GeoKeyDirectoryTag to generate the geotiffs in sinusoidal projection.
-            ... % Tag documentation: http://geotiff.maptools.org/spec/geotiff6.html
-            ... % or https://svn.osgeo.org/metacrs/geotiff/trunk/geotiff/html/usgs_geotiff.html
-            geoKeyDirectoryTag = struct( ...        
-                GTModelTypeGeoKey = 1, ... % projected. 
-                GTRasterTypeGeoKey = 1, ... % cells (areas).
-                ProjectedCSTypeGeoKey = 32767, ... % user-defined projection.
-                PCSCitationGeoKey = 'MODIS Sinusoidal', ...
-                ProjectionGeoKey = 32767, ... % user-defined projection.
-                ProjCoordTransGeoKey = 24, ... % CT_Sinusoidal
-                ProjLinearUnitsGeoKey = 9001, ... % linear_meter
-                ProjFalseEastingGeoKey = 0.0, ...
-                ProjFalseNorthingGeoKey = 0.0, ...
-                GeographicTypeGeoKey = 32767, ... % World Geodetic Survey 1984
-                GeogCitationGeoKey = 'User with datum World Geodetic Survey 1984', ... % World Geodetic Survey 1984. GeogGeodeticDatumGeoKey = 4326 don't yield the correct tags in the geotiff.
-                GeogAngularUnitsGeoKey = 9102, ... % Angular_Degree
-                GeogEllipsoidGeoKey = 32767, ... % user-defined ellipsoid.
-                GeogSemiMajorAxisGeoKey = 6.371007181000000e+06, ... % Semi-major axis
-                GeogSemiMinorAxisGeoKey = 6.371007181000000e+06), ... % Semi-minor axis
-            ... % Well-known text to generate the projection crs. Necessary because 
-            ... % there is no EPSG code for sinusoidal, and Matlab don't accept code 
-            ... % other than from EPSG.
-            wkt = "PROJCS[""MODIS Sinusoidal"",BASEGEOGCRS[""User"",DATUM[""World Geodetic Survey 1984"",SPHEROID[""Authalic_Spheroid"",6371007.181,0.0]],PRIMEM[""Greenwich"",0.0],UNIT[""Degree"",0.0174532925199433]],PROJECTION[""Sinusoidal""],PARAMETER[""False_Easting"",0.0],PARAMETER[""False_Northing"",0.0],PARAMETER[""Central_Meridian"",0.0],UNIT[""Meter"",1.0]]" ...
-            )); 
         subdirectories = struct( ...
             modisNrtMod09ga = fullfile('modis', 'mod09ga', 'NRT', 'v006'), ...
             modisHistMod44w = fullfile('modis_ancillary', 'mod44w', 'historic', ...
@@ -166,7 +139,7 @@ classdef TileRegionAncillaryDataSetup
                 geographicCellsReference = georefcells(...
                     [latitudeLimit1, latitudeLimit2], ...
                     [longitudeLimit1, longitudeLimit2], ...
-                    rasterSize);
+                    double(rasterSize));
                 geographicCellsReference.GeographicCRS = ...
                     sourceGeographicCellsReference.GeographicCRS;                
                 elevations = zeros( ...
@@ -261,8 +234,9 @@ classdef TileRegionAncillaryDataSetup
             % canopyheightLabel: char. Label included in output filename and indicating
             %   source of canopy height data.
             % canopyheightPath: char. Path of input file.
+            modisData = obj.espEnv.modisData;
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                'canopyheight', obj.version);            
+                obj.version, 'canopyheight');            
             if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
@@ -274,7 +248,8 @@ classdef TileRegionAncillaryDataSetup
             end                                        
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
-                tileRegionMapCellsReference = obj.getMapCellsReference(tileRegionName);
+                tileRegionMapCellsReference = modisData.getMapCellsReference( ...
+                    modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
                 land = obj.getLand(tileRegionName);
                 tileRegionCanopyheight = rasterReprojection(sourceCanopyheight, ...
                     sourceGeographicCellsReference, 'rasterref', ...
@@ -291,7 +266,7 @@ classdef TileRegionAncillaryDataSetup
                                         data, ...
                                         mapCellsReference, ...
                                         GeoKeyDirectoryTag = ...
-                        obj.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+                        modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
                                         TiffTags = struct('Compression', 'LZW'));
             end
         end
@@ -303,8 +278,9 @@ classdef TileRegionAncillaryDataSetup
             % exampleMaskPath: char. Path of the example mask on which basing the tile
             %   masks, that is it copies some attributes present in the example mask
             %   towards the new tile mask.
+            modisData = obj.espEnv.modisData;
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                'region', obj.version);            
+                obj.version, 'region');            
             if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
@@ -315,19 +291,25 @@ classdef TileRegionAncillaryDataSetup
                 geotiffCrop.xRight =0;
                 geotiffCrop.yTop = 0;
                 geotiffCrop.yBottom = 0;
+                indxMosaic = NaN; % modified in call generateTileWaterAndLandFiles()
                 LongName = tileRegionName;
+                mapCellsReference = modisData.getMapCellsReference( ...
+                    modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
+                RefMatrix = obj.espEnv.projInfoFor(tileRegionName).RefMatrix_500m;
+                S = NaN;
                 ShortName = tileRegionName;
                 tileIds = {tileRegionName};
-                mapCellsReference = obj.getMapCellsReference(tileRegionName);
                 save(fullfile(outputDirectory, [tileRegionName '_mask.mat']), ...
-                    'atmosphericProfile', 'geotiffCrop', ...
-                    'LongName', 'lowIllumination', 'percentCoverage', ...
-                    'ShortName', 'snowCoverDayMins', 'stc', ...
+                    'atmosphericProfile', 'geotiffCrop', 'indxMosaic', ...
+                    'LongName', 'lowIllumination', 'percentCoverage', 'RefMatrix', ...
+                    'ShortName', 'snowCoverDayMins', 'S', 'stc', 'stcStruct', ...
                     'thresholdsForMosaics', 'thresholdsForPublicMosaics', 'tileIds', ...
                     'useForSnowToday', 'mapCellsReference');
             end
         end
+%{
         function generateTileProjectionInfoFiles(obj)
+            %                                                       2023-06-23 @obsolete
             % Generate the v3 files containing the projection information 
             % refmat (reference matrix), size, and mstruct) for each tile region.
             % @deprecated for v3.alaska.
@@ -353,7 +335,8 @@ classdef TileRegionAncillaryDataSetup
                     'mstruct', 'RefMatrix_1000m', ...
                     'RefMatrix_500m', 'size_1000m', 'size_500m');
             end
-        end        
+        end 
+%}        
         function generateTileTopographicFiles(obj, topographicCastType, ...
             topographicFileLabel, topographicSourcePaths, topographicSubDir)
             % Generate the topographic: elevation, aspect, and slope for each tile.
@@ -371,11 +354,11 @@ classdef TileRegionAncillaryDataSetup
             %   indicating type and source of topographic data ()
             % topographicSourcePaths: cells(char). Paths of input  topographic files to
             %   extract elevation for each tile. They are supposed to be in a geographic
-            %   reference and have the same reference and the same matrix size.            % 
+            %   reference and have the same reference and the same matrix size.        
             % topographicSubDir: char. Either aspect, elevation, or slope
-           
+            modisData = obj.espEnv.modisData;
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                topographicSubDir, obj.version);            
+                obj.version, topographicSubDir);            
             if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
@@ -392,7 +375,8 @@ classdef TileRegionAncillaryDataSetup
                 sourceTopographics = cast(sourceTopographics, topographicCastType);
                 for tileRegionIdx = 1:length(obj.tileRegionNames)
                     tileRegionName = obj.tileRegionNames{tileRegionIdx};
-                    tileMapCellsReference = obj.getMapCellsReference(tileRegionName);
+                    tileMapCellsReference = modisData.getMapCellsReference( ...
+                        modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
                     tileTopographics = rasterReprojection(sourceTopographics, ...
                         sourceGeographicCellsReference, 'rasterref', ...
                         tileMapCellsReference, 'fillvalue', nodataValue, ...
@@ -407,7 +391,8 @@ classdef TileRegionAncillaryDataSetup
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 fprintf('Generation for %s\n', tileRegionName);
-                tileRegionMapCellsReference = obj.getMapCellsReference(tileRegionName);
+                tileRegionMapCellsReference = modisData.getMapCellsReference( ...
+                    modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
                 topographics = eval([tileRegionName '_topographics_1']);    
                 for topographicSourceIdx = 2:length(topographicSourcePaths)
                     tmpTopographics = ...
@@ -427,7 +412,7 @@ classdef TileRegionAncillaryDataSetup
                                         data, ...
                                         tileRegionMapCellsReference, ...
                                         GeoKeyDirectoryTag = ...
-                        obj.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+                        modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
                                         TiffTags = struct('Compression', 'LZW'));
             end
         end
@@ -445,9 +430,10 @@ classdef TileRegionAncillaryDataSetup
             % but this is incorrect, and the
             % webpage is correct:
             % https://lpdaac.usgs.gov/products/modis_overview
+            modisData = obj.espEnv.modisData;
             outputDirectories = {fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                'land', obj.version), ...
-                fullfile(obj.parentDirectory, 'modis_ancillary', 'water', obj.version)};
+                obj.version, 'land'), ...
+                fullfile(obj.parentDirectory, 'modis_ancillary', obj.version, 'water')};
             for directoryIdx = 1:length(outputDirectories)
                 directory = outputDirectories{directoryIdx};
                 if ~isfolder(directory)
@@ -458,6 +444,8 @@ classdef TileRegionAncillaryDataSetup
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 % Georeferencing.
+%{
+                @obsolete implementation 2023-06-30.
                 [horizontalId verticalId] = obj.getTilePositionIds( ...
                     tileRegionName);
                 columnCount = obj.georeferencing.tileInfo.columnCount;
@@ -468,11 +456,9 @@ classdef TileRegionAncillaryDataSetup
                     columnCount * dx;
                 northWestY = obj.georeferencing.northwest.y0 - verticalId * ...
                     rowCount * dy;
-                mapCellsReference = maprefcells([ ...
-                    northWestX + dx / 2, ...
-                    northWestX - dx / 2 + dx * columnCount], ...
-                    [northWestY - dy / 2 - dy * rowCount, northWestY - dy / 2], ...
-                    dx, dy, 'ColumnsStartFrom','north'); 
+%}
+                mapCellsReference = modisData.getMapCellsReference( ...
+                    modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
 %{
 Deprecated implementation             
                 fileSearch = fullfile(obj.parentDirectory, ...
@@ -501,10 +487,10 @@ The following is useful to check identicity of mapRasterReferences
                 mapCellsReference2 = ...
                     refmatToMapRasterReference(load(['c:\Tor\Dev\' tileRegionName ...
                     '_projInfo.mat']).RefMatrix_500m, [2400 2400]);
-%}                
+                    
                 mapCellsReference.ProjectedCRS = ...
                     projcrs(obj.projection.modisSinusoidal.wkt);
-                
+%}                
                 % Water and Land.
                 fileSearch = fullfile(obj.parentDirectory, ...
                     obj.subdirectories.modisHistMod44w, ...
@@ -527,7 +513,7 @@ The following is useful to check identicity of mapRasterReferences
                     data, ...
                     mapCellsReference, ...
                     GeoKeyDirectoryTag = ...
-                        obj.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+                        modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
                     TiffTags = struct('Compression', 'LZW'));
 
                 data = ~water;
@@ -540,11 +526,19 @@ The following is useful to check identicity of mapRasterReferences
                     data, ...
                     mapCellsReference, ...
                     GeoKeyDirectoryTag = ...
-                        obj.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+                        modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
                     TiffTags = struct('Compression', 'LZW'));
+                % Update indMosaic in region mask.
+                indxMosaic = data;
+                outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
+                    obj.version, 'region'); 
+                save(fullfile(outputDirectory, [tileRegionName '_mask.mat']), ...
+                    'indxMosaic', '-append');
             end
-        end        
+        end 
+%{        
         function mapCellsReference = getMapCellsReference(obj, regionName)
+            %                                                       2023-06-30 @obsolete
             % Parameters
             % ----------
             % regionName: char. region or tile region name.
@@ -563,6 +557,7 @@ The following is useful to check identicity of mapRasterReferences
                         % We then update the crs here so that it can be taken into
                         % account when saving .mat files.
         end
+%}
         function land = getLand(obj, regionName)
             % Parameters
             % ----------
@@ -572,14 +567,16 @@ The following is useful to check identicity of mapRasterReferences
             % ------
             % land: array(logical x 2). Indicates land.
             [land ~] = readgeoraster(fullfile(obj.parentDirectory, ...
-                'modis_ancillary', 'land', obj.version, ...
+                'modis_ancillary', obj.version, 'land', ...
                 [regionName '_land_mod44_' ...
                     num2str(obj.mod44wWaterThreshold * 100) '.tif']));
         end
     end
+%{
     methods(Static)
         function [tileHorizontalId tileVerticalId] = ...
             getTilePositionIds(tileRegionName)
+            %                                                       2023-06-30 @obsolete
             % Parameters
             % ----------
             % tileRegionName: char. Tile region name (format h00v00).
@@ -592,4 +589,5 @@ The following is useful to check identicity of mapRasterReferences
             tileVerticalId = str2num(tileRegionName(5:6));
         end
     end
+%}
 end
