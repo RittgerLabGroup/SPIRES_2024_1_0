@@ -5,7 +5,7 @@ classdef WaterYearDate
         thisDatetime    % datetime of the object
         monthWindow     % Int [1-12]. Number of months over which to
                         % recalculate variables or stats.
-        overlapOtherYear % 1: overlap possible for interpolation. 0: not possible. 
+        overlapOtherYear = 0;% 1: overlap possible for interpolation. 0: not possible. 
                             % SIER_365
     end
     properties(Constant)
