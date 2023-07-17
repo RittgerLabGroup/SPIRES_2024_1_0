@@ -773,7 +773,7 @@ classdef ESPEnv < handle
                 source = 'mod09ga';
             end
             historicFolderName = 'historic';
-            if myDate >= modisData.startDatetimeWhenNrtReceived
+            if myDate > modisData.endDateOfHistoricJPLFiles
                 historicFolderName = 'NRT';
             end
 

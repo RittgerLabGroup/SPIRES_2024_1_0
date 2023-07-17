@@ -21,9 +21,12 @@ classdef MODISData < handle
             dy = 4.633127165279165e+02, columnCount = 2400, rowCount = 2400));
 %}
         pixSize_500m = 2 * pi * 6.371007181e+06 / 36 / 2400; %4.633127165279165e+02; %463.31271653; % @deprecated.
-        historicEndDt   % date of last historic data to use
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
+        endDateOfHistoricJPLFiles = datetime(2018, 12, 29);
+            % Date of the last historic files available at JPL. At this date + 1, only available
+            % nrt files. Determine where Step0 Modis files are stored
+            % either under historic folder or nrt folder.
         versionOf % version structure for various stages of processing
     end
     properties(Constant)
@@ -58,10 +61,6 @@ classdef MODISData < handle
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
         beginWaterYear = 2001;
-        startDatetimeWhenNrtReceived = datetime(2018, 12, 30);
-            % Date when new modis nrt files started to be received from JPL
-            % (after historic files). Determine where Step0 Modis files are stored
-            % either under historic folder or nrt folder.
         defaultArchiveDir = '/pl/active/rittger_esp/modis';
         defaultVersionOf = struct(ancillary = 'v3.1', ...
             modisCollection = 6);
@@ -99,9 +98,6 @@ classdef MODISData < handle
             % Default location for (fast) alternate data
             obj.alternateDir = sprintf('/scratch/alpine/%s/modis', ...
                 getenv('USER'));
-
-            obj.historicEndDt = datetime("20181229", ...
-                'InputFormat', 'yyyyMMdd');
 
             path = fileparts(mfilename('fullpath'));
             parts = split(path, filesep);
@@ -354,7 +350,7 @@ classdef MODISData < handle
             yrDirs = MODISData.getSubDirs(mod09Folder);
             if isnat(beginDate)
                 if strcmp(whichSet, 'historic')
-                    beginDate = obj.historicEndDt - 1;
+                    beginDate = obj.endDateOfHistoricJPLFiles - 1;
                 else
                     beginDate = today('datetime') - 1;
                 end
@@ -371,7 +367,7 @@ classdef MODISData < handle
 
             if isnat(endDate)
                 if strcmp(whichSet, 'historic')
-                    endDate = obj.historicEndDt;
+                    endDate = obj.endDateOfHistoricJPLFiles;
                 else
                     endDate = today('datetime');
                 end
@@ -442,9 +438,9 @@ classdef MODISData < handle
 
             % Only return historic/nrt data before/after cutoff Dt
             if strcmp(whichSet, 'historic')
-                idx = S.datevals <= obj.historicEndDt;
+                idx = S.datevals <= obj.endDateOfHistoricJPLFiles;
             else
-                idx = S.datevals > obj.historicEndDt;
+                idx = S.datevals > obj.endDateOfHistoricJPLFiles;
             end
 
             if any(idx)
