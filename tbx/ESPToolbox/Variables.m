@@ -83,6 +83,8 @@ classdef Variables
             mosaicData = struct();
             mosaicData.([aggregateVarName '_units']) = thisVarConf.units_in_map{1};
             mosaicData.([aggregateVarName '_divisor']) = thisVarConf.divisor;
+            mosaicData.([aggregateVarName '_type']) = thisVarConf.type_in_mosaics{1};
+            mosaicData.([aggregateVarName '_nodata_value']) = thisVarConf.nodata_value;
 
             % 1. Initial daysWithoutObservation.
             %---------------------------------------------------------------------------
