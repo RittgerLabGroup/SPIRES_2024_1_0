@@ -21,7 +21,54 @@ classdef Mosaic
             % obj: Mosaic object
             obj.region = region;
         end
-
+        function buildTileSet(obj, waterYearDate)
+            % Generate the daily Mosaic files over several months of a waterYear by
+            % assembling the daily tile Mosaic files. For instance, for 2023/1/2
+            % westerUS, I assemble the Mosaics for 2023/1/2 of h08v04, h08v05, h09v04,
+            % h09v05, h10v04.
+            % NB: ends generation if a tile lacks for a day.
+            % NB: Mosaic became ambiguous as it can mean the type of dataset (here) or
+            % the assembly of tiles / tileset.
+            % 1. Initialize.
+            fprintf(['%s: Start Mosaic tileset generation for waterYearDate', ...
+                ' %s - %d...\n'], ...
+                    mfilename(), string(waterYearDate.thisDatetime, 'yyyyMMdd'), ...
+                    waterYearDate.monthWindow);
+            espEnv = obj.region.espEnv;
+            espEnv.configParallelismPool(10);
+            dateRange = waterYearDate.getDailyDatetimeRange();
+            
+            % 2. Build tileset for the big region for each day of waterYearDate,
+            % with stop when a tile isn't available.
+            parfor dateIdx = 1:length(dateRange)
+                % 2.1. Information on date, tile and region filepaths, 
+                % mapCellsReferences.
+                thisDate = dateRange(dateIdx);
+                filePath = espEnv.MosaicFile(obj.region, thisDate);
+                mapCellsReference = obj.region.getMapCellsReference();
+                tileRegions = obj.region.getTileRegions();
+                tileFilePaths = {};
+                tileMapCellsReferences = map.rasterref.MapCellsReference.empty();
+                for tileIdx = 1:length(tileRegions)
+                    tileRegion = tileRegions(tileIdx);
+                    tileFilePaths{tileIdx} = espEnv.MosaicFile(tileRegion, thisDate);
+                    tileMapCellsReferences(tileIdx) = tileRegion.getMapCellsReference();
+                end
+                
+                % 2.2. Generation of the Mosaic tileset.
+                tileSetIsGenerated = Tools.buildTileSet(tileFilePaths, ...
+                    tileMapCellsReferences, filePath, mapCellsReference);
+                if tileSetIsGenerated == 0
+                    warning('%s: No tileset for %s.\n', mfilename(), ...
+                        string(thisDate - 1, 'yyyyMMdd'));
+                    %break; parfor doesn't accept break.
+                end
+            end
+            fprintf(['%s: Done Mosaic tileset generation for waterYearDate', ...
+                '%s - %d...\n'], ...
+                    mfilename(), string(waterYearDate.thisDatetime, 'yyyyMMdd'), ...
+                    waterYearDate.monthWindow);
+        end
         function writeFiles(obj, waterYearDate, availableVariables)
             % Generate and write the mosaic files over several months of a waterYear
             %
@@ -32,6 +79,9 @@ classdef Mosaic
             % availableVariables: array of cells
             %   list of information about the variables to include in the mosaics
             %   filtered from the data obtained by espEnv.configurationOfVariables.
+            % NB: 2023/07/11: I tried to reduce memory consumption through
+            % a quick and dirty
+            % @todo
             
             % 1. Initialize
             %--------------
@@ -218,6 +268,7 @@ classdef Mosaic
                                 tileCol(1):tileCol(2), ...
                                 1:size(varSTCData, 3)) = ...
                             cast(varSTCData, varNameInfosForVarIdx.type_in_mosaics{1});
+                        varSTCData = [];
                     end
                 end
                 
@@ -247,22 +298,38 @@ classdef Mosaic
                 
                 % 2.7. Generate and write the daily Mosaic Files
                 %-----------------------------------------------
+                % Split loop in two loops to reduce memory consumption 2023/07/11.
+                % I did a quick and dirty                                          @todo 
                 for dayIdx = 1:length(dayRange)
                     thisDatetime = dayRange(dayIdx);
                     mosaicFile = espEnv.MosaicFile(region, thisDatetime);
                     mosaicData.dateval = datenum(thisDatetime) + 0.5;
-                    for varIdx = varIndexes
-                        varName = varNames{varIdx};
-                        mosaicData.(varName) = ...
-                            mosaicDataForAllDays.(varName)(:, :, dayIdx);                        
-                    end
                     % NB: Because of a 'Transparency violation error.' occuring 
                     % with the upper-level
                     % parfor loop, it is required to save the mosaic files using
                     % another function (in our Tools package).
                     Tools.parforSaveFieldsOfStructInFile(mosaicFile, ...
                         mosaicData, 'new_file');
-                    fprintf('%s: Saved mosaic data to %s\n', mfilename(), ...
+                    fprintf('%s: Saved base mosaic data to %s\n', mfilename(), ...
+                        mosaicFile);
+                end                
+                for dayIdx = 1:length(dayRange)
+                    mosaicData = struct(); % dirty way to reduce memory consumption 2023/07/11 @todo 
+                    thisDatetime = dayRange(dayIdx);
+                    mosaicFile = espEnv.MosaicFile(region, thisDatetime);
+                    for varIdx = varIndexes                        
+                        mosaicData = struct(); % dirty way to reduce memory consumption 2023/07/11 @todo 
+                        varName = varNames{varIdx};
+                        mosaicData.(varName) = ...
+                            mosaicDataForAllDays.(varName)(:, :, dayIdx);
+                        % NB: Because of a 'Transparency violation error.' occuring 
+                        % with the upper-level
+                        % parfor loop, it is required to save the mosaic files using
+                        % another function (in our Tools package).
+                        Tools.parforSaveFieldsOfStructInFile(mosaicFile, ...
+                            mosaicData, 'append');
+                    end                   
+                    fprintf('%s: Saved variables in mosaic data to %s\n', mfilename(), ...
                         mosaicFile);
                 end
             end % end parfor

@@ -223,10 +223,9 @@ classdef WaterYearDate
             % ------
             % firstDateOfWaterYear: datetime.
             %   First date of the wateryear of the current waterYearDate.
-            yearForFirstDate = obj.getWaterYear();
-            if month(obj.thisDatetime) < obj.waterYearFirstMonth
-                yearForFirstDate = obj.getWaterYear() - 1;
-            end
+            
+            % Northern Hemisphere. Adapt for Southern Hemisphere @todo
+            yearForFirstDate = obj.getWaterYear() - 1;            
             firstDatetimeOfWaterYear = datetime(yearForFirstDate, ...
                 obj.waterYearFirstMonth, ...
                 obj.monthFirstDay, ...
