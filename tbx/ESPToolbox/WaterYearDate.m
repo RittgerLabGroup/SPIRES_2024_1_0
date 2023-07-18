@@ -174,6 +174,14 @@ classdef WaterYearDate
             if ~exist('monthWindow', 'var')
                 monthWindow = obj.defaultMonthWindow;
             end
+            
+            % Cap to Yesterday. No calculations for the future right now.
+            % SIER_245 we handle all dates of waterYearDate until the day before today
+            % if last month = today's month.
+            % NB: Has it an impact for the early data in 2000?
+            if obj.thisDatetime >= datetime('today')
+                obj.thisDatetime = datetime('today') - caldays(1);
+            end
 
             [thisYYYY, thisMM, thisDD] = ymd(thisDatetime);
             obj.thisDatetime = datetime(thisYYYY, thisMM, thisDD, ...
@@ -181,7 +189,6 @@ classdef WaterYearDate
                 obj.dayStartTime.SS);
             obj.monthWindow = monthWindow;
         end
-
         function dateRange = getDailyDatetimeRange(obj)
             % Return
             % ------
