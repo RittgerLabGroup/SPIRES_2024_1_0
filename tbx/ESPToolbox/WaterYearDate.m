@@ -129,29 +129,28 @@ classdef WaterYearDate
             % trailingMonthStatus: uint8. 'trailing' or 'centered'. Presently, 
             %   only january can be trailing in some specific cases
             %
-            % NB: Code refactored from ESPEnv.rawFilesFor3months().
+            % NB: Code refactored from ESPEnv.rawFilesFor3months().           
             
-            % Default case: centered.
-            thisDatePlusOneMonth = thisDate + calmonths(1);
-            waterYearDate = WaterYearDate(datetime(year(thisDatePlusOneMonth), ...
-                month(thisDatePlusOneMonth), eomday(year(thisDatePlusOneMonth), month(thisDatePlusOneMonth))), 3);
-            % Permit the possibility to overlap on the previous/subsequent
-            % year for interpolation.
-            waterYearDate.overlapOtherYear = 1;
-
-            trailingMonthStatus = 'centered';
-            % Other cases trailing or centered without the subsequent month.
+            % Cases trailing or centered without the subsequent month.
             if (1 == month(thisDate) && year(thisDate) == year(date) ...
                 && month(date) < 3)
-                waterYearDate = WaterYearDate( ...
-                    waterYearDate.thisDatetime - calmonths(1), 3);
+                waterYearDate = WaterYearDate(thisDate, 3);
                 trailingMonthStatus = 'trailing';
             elseif (month(thisDate) == month(date) && ...
                 year(thisDate) == year(date))
-                waterYearDate = WaterYearDate( ...
-                    waterYearDate.thisDatetime - calmonths(1), 2);
+                waterYearDate = WaterYearDate(thisDate, 2);
+                trailingMonthStatus = 'centered';
+            % Default case: centered.
+            else
+                thisDatePlusOneMonth = thisDate + calmonths(1);
+                waterYearDate = WaterYearDate(datetime(year(thisDatePlusOneMonth), ...
+                    month(thisDatePlusOneMonth), eomday(year(thisDatePlusOneMonth), month(thisDatePlusOneMonth))), 3);
                 trailingMonthStatus = 'centered';
             end
+
+            % Permit the possibility to overlap on the previous/subsequent
+            % year for interpolation.
+            waterYearDate.overlapOtherYear = 1;
         end
     end
 
@@ -179,8 +178,8 @@ classdef WaterYearDate
             % SIER_245 we handle all dates of waterYearDate until the day before today
             % if last month = today's month.
             % NB: Has it an impact for the early data in 2000?
-            if obj.thisDatetime >= datetime('today')
-                obj.thisDatetime = datetime('today') - caldays(1);
+            if thisDatetime >= datetime('today')
+                thisDatetime = datetime('today') - caldays(1);
             end
 
             [thisYYYY, thisMM, thisDD] = ymd(thisDatetime);
