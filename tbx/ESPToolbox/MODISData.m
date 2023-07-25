@@ -225,6 +225,44 @@ classdef MODISData < handle
                 positionalData.verticalId = 0;
             end
         end
+        function relativePositionalData = getTileRelativePositionIds( ...
+            obj, tileRegionName, arrayOfTileRegionNames)
+            % Used to generate ancillary data for new Regions. BEWARE!!!!!!
+            %
+            % Parameters
+            % ----------
+            % tileRegionName: char. Tile region name (format h00v00).
+            % arrayOfTileRegionNames: cells(char). Cell list of tile regionNames, which
+            %   should include tileRegionName.
+            %
+            % Return
+            % ------
+            % positionalData: struct(horizontalId=int, verticalId=int).
+            %   - horizontalId: relative horizontal id of the tile.
+            %   - verticalId: relative vertical id of the tile.
+            % Alaska, with SIER_365.
+
+            for tileIdx = 1:length(arrayOfTileRegionNames)
+                thatTileRegionName = arrayOfTileRegionNames{tileIdx};
+                thatPositionalData = obj.getTilePositionIdsAndColumnRowCount( ...
+                    thatTileRegionName);
+                if tileIdx == 1
+                    thatHorizontalId = thatPositionalData.horizontalId;
+                    thatVerticalId = thatPositionalData.verticalId;
+                else
+                    thatHorizontalId = min(thatHorizontalId, ...
+                        thatPositionalData.horizontalId);
+                    thatVerticalId = min(thatVerticalId, thatPositionalData.verticalId);
+                end
+            end
+            thisPositionalData = obj.getTilePositionIdsAndColumnRowCount( ...
+                    tileRegionName);
+            relativePositionalData = struct();
+            relativePositionalData.horizontalId = ...
+                thisPositionalData.horizontalId - thatHorizontalId;
+            relativePositionalData.verticalId = ...
+                thisPositionalData.verticalId - thatVerticalId;
+        end
         function S = inventoryMod09ga(obj, ...
                 folder, whichSet, tileID, varargin)
             %inventoryJPLmod09ga creates an inventory of MOD09GA files for
