@@ -201,7 +201,6 @@ classdef Variables
             if ~exist('waterYearDate', 'var')
                 waterYearDate = WaterYearDate();
             end
-            waterYearDate.capToYesterday();
             dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
