@@ -23,21 +23,12 @@ set_slurm_array_task_id(){
         printf "Default set SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}\n";
     fi
 }
-get_start_stop_date_string(){
-    # Get the string of start and stop dates to give as parameters for snowTodayStep1
+get_water_year_date_string(){
+    # Get the waterYearDate year, month and month window as parameters for snowTodayStep1
     # and 2 to update the cubes with a 3-month window.
-    # NB: Should be replaced by the use of the WaterYearDate class.                @todo
-    yearStop=$(date +'%Y')
-    monthStop=$(date +'%-m')
-    dayStop=$(date +'%d')
-    monthStart=$(( $monthStop - 2 ))
-    if (( "$monthStart" < "1" )); then
-        monthStart=$(( $monthStart + 12 ))
-        yearStart=$(( $yearStop - 1 ))
-    else
-        yearStart=$yearStop
-    fi
-	echo "${yearStart} ${monthStart} ${yearStop} ${monthStop} ${dayStop}"
+    year=$(date +'%Y')
+    month=$(date +'%-m')
+	echo "${year} ${month} ${monthWindow}"
 }
 get_slurm_std_out_directory(){
     # Get the slurm std ouput file for the SLURM_JOB_ID.#
