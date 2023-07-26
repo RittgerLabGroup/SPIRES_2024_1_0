@@ -55,7 +55,7 @@ classdef Variables
             % or solar zenith was too high. days_without_observation goes back to
             % 0 the day when there's a reliable observation.
             %
-            % Called by runSnowTodayStep2.sh \ runUpdateMosaic.sh
+            % Called by runSnowTodayStep2.sh \ runUpdateDaysWithoutObservation.sh
             %
             % Parameters
             % ----------
@@ -181,8 +181,8 @@ classdef Variables
             % snowCoverDayMins.
             % Cover days is NaN after the first day (included) without snow fraction data.
             %
-            % Called by runSnowTodayStep1.sh \ updateRegionMonthCubes.m \
-            % updateSTC_SCAGDRFSFor.m
+            % Called by runSnowTodayStep1.sh \ runUpdateWaterYearSCD.sh \
+            % updateWaterYearSCDFor.m
             % Parameters
             % ----------
             % waterYearDate: waterYearDate object, optional
@@ -318,6 +318,8 @@ classdef Variables
             % Fields calculated: albedo_clean_mu0, albedo_observed_mu0,
             % albedo_clean_muZ, albedo_observed_muZ.
             % Albedos are NaN when snow_fraction or grain_size are NaN.
+            %
+            % Called by runSnowTodayStep2.sh / runUpdateMosaic.sh
             %
             % Parameters
             % ----------
