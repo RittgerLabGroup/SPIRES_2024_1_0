@@ -44,7 +44,7 @@ usage() {
     echo "  -L LABEL: string with version label for directories" 1>&2
     echo "     e.g. for operational processing, use -L v2023.x" 1>&2
     echo "Arguments: " 1>&2
-    echo "  REGIONNAME : regionName to update" 1>&2
+    echo "  REGIONNAME : regionName (tile id, e.g. h08v04) to update" 1>&2
     echo "Output: " 1>&2
     echo "  Output location is controlled in Matlab scripts and -L LABEL" 1>&2
     echo "Notes: " 1>&2
@@ -87,11 +87,11 @@ source scripts/toolsStart.sh
 
 # Argument setting
 regionName=$1
-year=${SLURM_ARRAY_TASK_ID}
+waterYear=${SLURM_ARRAY_TASK_ID}
 
 inputForESPEnv="modisData = modisData"
 inputForRegion="'"${regionName}"', '"${regionName}"_mask', espEnv, modisData"
-inputForMain="region, ${SLURM_ARRAY_TASK_ID}"
+inputForWYDate="${waterYear}, modisData.getFirstMonthOfWaterYear('"${regionName}"'), 12"
 
 source scripts/toolsMatlab.sh
 
@@ -102,7 +102,9 @@ matlab -nodesktop -nodisplay -r "clear; "\
 "modisData = MODISData(${inputForModisData}); "\
 "espEnv = ESPEnv(${inputForESPEnv}); "\
 "region = Regions(${inputForRegion}); "\
-"updateWaterYearSCDFor(${inputForMain}); "\
+"waterYearDate = WaterYearDate.getLastWYDateForWaterYear(${inputForWYDate}); "\
+"variables = Variables(region); "\
+"variables.calcSnowCoverDays(waterYearDate); "\
 "catch e; "\
 "fprintf('%s: %s\n', e.identifier, e.message); "\
 "exit(-1); "\
