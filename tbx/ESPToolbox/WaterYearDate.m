@@ -1,51 +1,32 @@
-classdef WaterYearDate
+classdef WaterYearDate < handle
 % Handles the dates for ESP, in particular the several-month
 % window to calculates some variables and statistics
-    properties
-        thisDatetime    % datetime of the object
-        monthWindow     % Int [1-12]. Number of months over which to
+    properties        
+        firstMonth = 10; % SIER_288. Possibility to change first month of 
+            % wateryear to 7 (south hemisphere). This should be a constant, and we may
+            % tryhave an inherited south hemisphere waterYearDate, but unfortunately
+            % constant properties are not editable in inherited classes and inheritance
+            % here is not advantageous since except the first date of the waterYear
+            % everything else remains the same.
+        monthWindow = 3; % Int [1-12]. Number of months over which to
                         % recalculate variables or stats.
-        overlapOtherYear = 0;% 1: overlap possible for interpolation. 0: not possible. 
-                            % SIER_365
+        overlapOtherYear = 0; % 1: overlap possible for interpolation. 0: not possible. 
+                            % SIER_365.
+        thisDatetime    % datetime of the object        
     end
-    properties(Constant)
-        waterYearFirstMonth = 10;
-        monthFirstDay = 1;
-        waterYearLastMonth = 9;
-        waterYearLastDay = 30;
+    properties(Constant) 
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
-        defaultMonthWindow = 3;
+        defaultFirstMonthForNorthTiles = 10;
+        defaultFirstMonthForSouthTiles = 7;
+        monthFirstDay = 1;
+        cubeMonthWindow = 3;
+        yearMonthWindow = 12;
     end
     methods(Static)
-        function monthWindow = getMonthWindowFromMonths(startMonth, endMonth)
-            % NB: Cap the start of the window to the first month of the waterYear
-            %
-            % Parameters
-            % ----------
-            % startMonth: int.
-            %   start month of the window.
-            % endMonth: int.
-            %   end month of the window.
-            %
-            % Return
-            % ------
-            % monthWindow: int.
-            % the number of months separating start and endMonth
-
-            % Cap the start of the window to the first month of the waterYear
-            if startMonth < WaterYearDate.waterYearFirstMonth & ...
-                endMonth >= WaterYearDate.waterYearFirstMonth
-                startMonth = WaterYearDate.waterYearFirstMonth;
-            end
-
-            monthWindow = endMonth - startMonth + 1;
-            if monthWindow <= 0
-                monthWindow = monthWindow + 12;
-            end
-        end
-
+ %{
         function waterYearDates = getWaterYearDateRangeBetweenWYDates(...
             startWaterYearDate, endWaterYearDate)
+            % NB: Currently unused, but might be used in the future          @deprecated
             % Construct an array of WaterYearDates that cover the period between two
             % waterYearDates
             %
@@ -83,11 +64,31 @@ classdef WaterYearDate
 
             % Correct the last WaterYearDate to fit endWaterYearDate
             monthWindow = WaterYearDate.getMonthWindowFromMonths(...
-                WaterYearDate.waterYearFirstMonth, ...
+                WaterYearDate.firstMonth, ...
                 month(endWaterYearDate.thisDatetime));
             waterYearDates(idx) = WaterYearDate(endWaterYearDate.thisDatetime, monthWindow);
         end
-
+%}
+        function lastWYDateForWaterYear = getLastWYDateForWaterYear(waterYear, ...
+            firstMonth, monthWindow)
+            % Parameters
+            % ----------
+            % waterYear: int.
+            % firstMonth: int[1-12]. First month of the waterYear.
+            % monthWindow: int[1-12], optional. Extent of the waterYearDate in months. 
+            %
+            % Return
+            % ------
+            % lastWYDateForWaterYear: WaterYearDate.
+            %   Last WaterYearDate for a waterYear.
+            if ~exist('monthWindow', 'var')
+                monthWindow = WaterYearDate.yearMonthWindow;
+            end
+            lastWYDateForWaterYear = WaterYearDate(datetime(waterYear + 1, ...
+                firstMonth, WaterYearDate.monthFirstDay, ...
+                WaterYearDate.dayStartTime.HH, WaterYearDate.dayStartTime.MIN, ...
+                WaterYearDate.dayStartTime.SS) - caldays(1), firstMonth, monthWindow);
+        end
         function [thisYear, thisMonth] = getYearMonthFromWaterYearNegativeMonth( ...
             waterYear, month)
             % Subtraction of the monthly window to dates lead to negative months. These
@@ -111,12 +112,16 @@ classdef WaterYearDate
                 thisYear = waterYear - 1;
             end
         end
-        function [waterYearDate trailingMonthStatus] = ...
-            getWaterYearDateForInterpAndTrailingStatus(thisDate)
+        function [waterYearDate, trailingMonthStatus] = ...
+            getWaterYearDateForInterpAndTrailingStatus(thisDate, firstMonth, ...
+            monthWindow)
             % Parameters
             % ----------
             % thisDate: datetime. For which we want the set of months. Should be 1st of
             %   the month.
+            % firstMonth: int[1-12]. First month of the waterYear.
+            % monthWindow: int[1-12], optional. Window over which interpolation will be
+            % done.
             %
             % Return
             % ------
@@ -130,21 +135,24 @@ classdef WaterYearDate
             %   only january can be trailing in some specific cases
             %
             % NB: Code refactored from ESPEnv.rawFilesFor3months().           
-            
+            if ~exist('monthWindow', 'var')
+                monthWindow = WaterYearDate.cubeMonthWindow;
+            end
             % Cases trailing or centered without the subsequent month.
-            if (1 == month(thisDate) && year(thisDate) == year(date) ...
-                && month(date) < 3)
-                waterYearDate = WaterYearDate(thisDate, 3);
+            if (1 == month(thisDate) && year(thisDate) == year(datetime("today")) ...
+                && month(datetime("today")) < 3)
+                waterYearDate = WaterYearDate(thisDate, firstMonth, monthWindow);
                 trailingMonthStatus = 'trailing';
-            elseif (month(thisDate) == month(date) && ...
-                year(thisDate) == year(date))
-                waterYearDate = WaterYearDate(thisDate, 2);
+            elseif (month(thisDate) == month(datetime("today")) && ...
+                year(thisDate) == year(datetime("today")))
+                waterYearDate = WaterYearDate(thisDate, firstMonth, monthWindow - 1);
                 trailingMonthStatus = 'centered';
             % Default case: centered.
             else
                 thisDatePlusOneMonth = thisDate + calmonths(1);
                 waterYearDate = WaterYearDate(datetime(year(thisDatePlusOneMonth), ...
-                    month(thisDatePlusOneMonth), eomday(year(thisDatePlusOneMonth), month(thisDatePlusOneMonth))), 3);
+                    month(thisDatePlusOneMonth), eomday(year(thisDatePlusOneMonth), ...
+                    month(thisDatePlusOneMonth))), firstMonth, monthWindow);
                 trailingMonthStatus = 'centered';
             end
 
@@ -155,23 +163,23 @@ classdef WaterYearDate
     end
 
     methods
-        function obj = WaterYearDate(thisDatetime, monthWindow)
+        function obj = WaterYearDate(thisDatetime, firstMonth, monthWindow)
             % WaterYearDate constructor
             % NB: datetimes are forced to obj.dayStartTime.HH, .MIN, .SS
             %
             % Parameters
             % ----------
-            % thisDatetime: datetime, optional
-            %   Date to handle
-            % monthWindow: int, optional
+            % thisDatetime: datetime, optional.
+            %   Date to handle.
+            % firstMonth: int, optional.
+            %   First month of the waterYear (10 in northern hemisphere, 7 in south).
+            % monthWindow: int, optional.
             %   Number of months to handle before thisDatetime, knowing
             %   that only the months of the water year associated with
-            %   thisDatetime will be handled
+            %   thisDatetime will be handled.
+            
             if ~exist('thisDatetime', 'var')
-                thisDatetime = datetime;
-            end
-            if ~exist('monthWindow', 'var')
-                monthWindow = obj.defaultMonthWindow;
+                thisDatetime = datetime('today');
             end
             
             % Cap to Yesterday. No calculations for the future right now.
@@ -186,7 +194,15 @@ classdef WaterYearDate
             obj.thisDatetime = datetime(thisYYYY, thisMM, thisDD, ...
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
-            obj.monthWindow = monthWindow;
+            if exist('firstMonth', 'var') & firstMonth <= 12
+                obj.firstMonth = firstMonth;
+            end
+            if exist('monthWindow', 'var') & monthWindow <= 12
+                obj.monthWindow = monthWindow;
+            end
+            fprintf('%s: WaterYearDate: %s, firstMonth %d, monthWindow: %d.\n', ...
+                mfilename(), string(obj.thisDatetime, 'yyyyMMdd'), ...
+                obj.firstMonth, obj.monthWindow);
         end
         function dateRange = getDailyDatetimeRange(obj)
             % Return
@@ -202,8 +218,8 @@ classdef WaterYearDate
             % NB: should rather be in constructor, impact?            @todo
             if ~obj.overlapOtherYear
                 monthCountSinceWaterYearFirstMonth = ...
-                    WaterYearDate.getMonthWindowFromMonths( ...
-                        WaterYearDate.waterYearFirstMonth, thisMM);
+                    obj.getMonthWindowFromMonths( ...
+                        obj.firstMonth, thisMM);
                 monthWindow = min(monthWindow, monthCountSinceWaterYearFirstMonth);
             end
 
@@ -233,7 +249,7 @@ classdef WaterYearDate
             % Northern Hemisphere. Adapt for Southern Hemisphere @todo
             yearForFirstDate = obj.getWaterYear() - 1;            
             firstDatetimeOfWaterYear = datetime(yearForFirstDate, ...
-                obj.waterYearFirstMonth, ...
+                obj.firstMonth, ...
                 obj.monthFirstDay, ...
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
@@ -245,15 +261,15 @@ classdef WaterYearDate
             % lastDayWaterYearDate: WaterYearDate.
             %   Yields the WaterYearDate for the last day of the water year
             %   linked to the waterYearDate argument,
-            %   with a monthwindow from the waterYearDate argument to the resulting
+            %   with a monthWindow from the waterYearDate argument to the resulting
             %   last day.
             waterYear = obj.getWaterYear();
             monthWindow = obj.monthWindow - 1 + ...
-                WaterYearDate.getMonthWindowFromMonths( ...
-                month(obj.thisDatetime), WaterYearDate.waterYearLastMonth);
-            lastDayWaterYearDate = WaterYearDate(datetime(waterYear, ...
-                WaterYearDate.waterYearLastMonth, ...
-                WaterYearDate.waterYearLastDay), monthWindow);
+                obj.getMonthWindowFromMonths( ...
+                month(obj.thisDatetime), obj.getWaterYearLastMonth());
+            lastDayWaterYearDate = WaterYearDate(datetime(waterYear + 1, ...
+                obj.firstMonth, ...
+                obj.monthFirstDay) - caldays(1), obj.firstMonth, monthWindow);
         end
 
         function monthRange = getMonthlyFirstDatetimeRange(obj)
@@ -271,12 +287,49 @@ classdef WaterYearDate
                 obj.monthFirstDay);
             monthRange = firstMonthDate:calmonths(1):lastMonthDate;
         end
+        function monthWindow = getMonthWindowFromMonths(obj, startMonth, endMonth)
+            % NB: Cap the start of the window to the first month of the waterYear
+            %
+            % Parameters
+            % ----------
+            % startMonth: int.
+            %   start month of the window.
+            % endMonth: int.
+            %   end month of the window.
+            %
+            % Return
+            % ------
+            % monthWindow: int.
+            % the number of months separating start and endMonth
+            %
+            % NB: this method should be static, but is not because the firstMonth is
+            %   not a constant (depends on the location of the region).
 
+            % Cap the start of the window to the first month of the waterYear
+            if startMonth < obj.firstMonth & ...
+                endMonth >= obj.firstMonth
+                startMonth = obj.firstMonth;
+            end
+
+            monthWindow = endMonth - startMonth + 1;
+            if monthWindow <= 0
+                monthWindow = monthWindow + 12;
+            end
+        end
         function waterYear = getWaterYear(obj)
             % Gets the WaterYear associated with the date
             [waterYear, thisMonth, ~] = ymd(obj.thisDatetime);
-            if thisMonth >= obj.waterYearFirstMonth
+            if thisMonth >= obj.firstMonth
                 waterYear = waterYear + 1;
+            end
+        end
+        function lastMonth = getWaterYearLastMonth(obj)
+            % Return
+            % ------
+            % lastMonth: int. Last month of the waterYear associated to this object.
+            lastMonth = obj.firstMonth - 1;
+            if month <= 0
+                lastMonth = 12 + lastMonth;
             end
         end
     end
