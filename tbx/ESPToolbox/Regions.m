@@ -149,6 +149,18 @@ classdef Regions < handle
             end
         end
 %}
+        function firstMonth = getFirstMonthOfWaterYear(obj)
+            % Return
+            % ------
+            % firstMonth: int. First month of the waterYear on which stats will be
+            %   calculated for the region, depends on location of the region.
+            % NB: takes the coordinates of the NW corner of the region.
+            if max(obj.getMapCellsReference().YWorldLimits) >= 0 % North Hemisphere
+                firstMonth = 10;
+            else % South Hemisphere
+                firstMonth = 7;
+            end
+        end
         function [xExtent, yExtent] = getGeotiffExtent(obj, geotiffEPSG)
             % Returns two vector indicating the x-y limits of the geotiff
             % for the web, after projection, which actually contain data.
@@ -327,7 +339,7 @@ classdef Regions < handle
             %         must be in configuration_of_variables.csv.
             %         When input, write output csv files only for varName.
             %         When not input, write csv files for all variables.
-            % waterYearDate: waterYearDate, Optional
+            % waterYearDate: waterYearDate.
             %         Dates for which stats are calculated.
             % geotiffEPSG: int. Code EPSG of the projection or geographic system.
             %   SIER_163.
@@ -339,12 +351,6 @@ classdef Regions < handle
             espEnv = obj.espEnv;
             publicMosaic = PublicMosaic(obj);
             
-            % Dates
-            %%%%%%%
-            if ~exist('waterYearDate', 'var')
-                waterYearDate = WaterYearDate();
-            end
-
             % Variables and output directory
             %-------------------------------
             confOfVar = espEnv.configurationOfVariables();
@@ -375,9 +381,6 @@ classdef Regions < handle
 
             % Current year (for file naming)
             % ------------------------------
-            if ~exist('waterYearDate', 'var')
-                waterYearDate = WaterYearDate();
-            end
             dateRange = waterYearDate.getDailyDatetimeRange();
 
             % Projections and crop extent
@@ -664,7 +667,7 @@ classdef Regions < handle
             %         must be in configuration_of_variables.csv.
             %         When input, write output csv files only for varName.
             %         When not input, write csv files for all variables.
-            % waterYearDate: waterYearDate, Optional
+            % waterYearDate: waterYearDate.
             %         Date for which stats are calculated.
 
             % instantiate the region and variable indexes on which to loop
@@ -697,9 +700,6 @@ classdef Regions < handle
 
             % Current year (for file naming)
             % ------------------------------
-            if ~exist('waterYearDate', 'var')
-                waterYearDate = WaterYearDate();
-            end
             waterYear = waterYearDate.getWaterYear();
 
             for subRegionIdx=subRegionIndexes
@@ -789,15 +789,11 @@ classdef Regions < handle
         function runWriteStats(obj, waterYearDate)
             % Parameters
             % ----------
-            % waterYearDate: waterYearDate, optional
+            % waterYearDate: waterYearDate.
             %    Date of the run (today, or another day before if necessary)
 
             % Dates
             %------
-            if ~exist('waterYearDate', 'var')
-                waterYearDate = WaterYearDate();
-            end
-
             waterYear = waterYearDate.getWaterYear();
             modisBeginWaterYear = obj.espEnv.modisData.beginWaterYear;
             modisEndWaterYear = waterYear - 1;

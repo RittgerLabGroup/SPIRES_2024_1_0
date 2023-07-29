@@ -149,6 +149,22 @@ classdef MODISData < handle
                 'RegionalStatsMatlab',  label, ...
                 'RegionalStatsCsv',  label);
         end
+        function firstMonth = getFirstMonthOfWaterYear(obj, tileRegionName)
+            % Parameters
+            % ----------
+            % tileRegionName: char. Tile region name (format h00v00).
+            % 
+            % Return
+            % ------
+            % firstMonth: int. First month of the waterYear on which stats will be
+            %   calculated for the tile region, depends on location of the region.
+            positionalData = obj.getTilePositionIdsAndColumnRowCount(tileRegionName);
+            if positionalData.horizontalId <= 8 % North Hemisphere
+                firstMonth = 10;
+            else % South Hemisphere
+                firstMonth = 7;
+            end
+        end
         function mapCellsReference = getMapCellsReference(obj, positionalData)
             % Parameters
             % ----------
