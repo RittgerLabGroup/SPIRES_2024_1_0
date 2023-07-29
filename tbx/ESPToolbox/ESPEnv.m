@@ -491,7 +491,9 @@ classdef ESPEnv < handle
             end
             lastDateInFileWhichExists = lastDateInFile(fileExists == 1);
             waterYearDate = WaterYearDate( ...
-                 lastDateInFileWhichExists(end), length(find(fileExists == 1)));
+                 lastDateInFileWhichExists(end), ...
+                 modisData.getFirstMonthOfWaterYear(objectName), ...
+                 (find(fileExists == 1)));
             waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
         end
         function f = MOD09File(obj, MData, regionName, yr, mm)

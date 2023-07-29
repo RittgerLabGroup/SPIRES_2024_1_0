@@ -59,7 +59,7 @@ classdef Variables
             %
             % Parameters
             % ----------
-            % waterYearDate: waterYearDate object, optional
+            % waterYearDate: waterYearDate object.
             %   Date and range of days before over which calculation
             %   should be carried out
 
@@ -71,10 +71,6 @@ classdef Variables
             aggregateVarName = 'days_without_observation';
             fprintf('%s: Start %s calculations\n', mfilename(), aggregateVarName);
             espEnv = obj.region.espEnv;
-
-            if ~exist('waterYearDate', 'var')
-                waterYearDate = WaterYearDate();
-            end
             dateRange = waterYearDate.getDailyDatetimeRange();
 
             thisVarConf = espEnv.myConf.variable(find( ...
@@ -185,7 +181,7 @@ classdef Variables
             % updateWaterYearSCDFor.m
             % Parameters
             % ----------
-            % waterYearDate: waterYearDate object, optional
+            % waterYearDate: waterYearDate object.
             %   Date and range of days before over which calculation
             %   should be carried out
 
@@ -197,10 +193,6 @@ classdef Variables
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             espEnv = obj.region.espEnv;
             mins = obj.region.snowCoverDayMins;
-
-            if ~exist('waterYearDate', 'var')
-                waterYearDate = WaterYearDate();
-            end
             dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
             numberOfMonths = length(dateRange);
 
@@ -223,7 +215,7 @@ classdef Variables
             % else 0
             lastSnowCoverDays = 0.;
 
-            if month(dateRange(1)) ~= waterYearDate.waterYearFirstMonth
+            if month(dateRange(1)) ~= waterYearDate.firstMonth
                 dateBefore = daysadd(dateRange(1) , -1);
                 STCFile = espEnv.SCAGDRFSFile(obj.region, ...
                     'SCAGDRFSSTC', dateBefore);
@@ -323,7 +315,7 @@ classdef Variables
             %
             % Parameters
             % ----------
-            % waterYearDate: WaterYearDate object, optional
+            % waterYearDate: WaterYearDate object.
             %   Date and range of days before over which calculation
             %   should be carried out
 
@@ -333,10 +325,6 @@ classdef Variables
             % 1. Initialization, dates, slopes, aspects
             %------------------------------------------
             espEnv = obj.region.espEnv;
-
-            if ~exist('waterYearDate', 'var')
-                waterYearDate = WaterYearDate();
-            end
             dateRange = waterYearDate.getDailyDatetimeRange();
 
             [slope, ~, ~] = ...
