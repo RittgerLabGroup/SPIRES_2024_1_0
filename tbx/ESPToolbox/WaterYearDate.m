@@ -224,13 +224,13 @@ classdef WaterYearDate < handle
             end
 
             % 2. Determining the first date of the range
-            firstMonth = thisMM - monthWindow + 1;
+            firstMonthOfTheRange = thisMM - monthWindow + 1;
             firstYear = thisYYYY;
-            if firstMonth <= 0
-                firstMonth = 12 + firstMonth;
+            if firstMonthOfTheRange <= 0
+                firstMonthOfTheRange = 12 + firstMonthOfTheRange;
                 firstYear = firstYear - 1;
             end
-            firstDate = datetime(firstYear, firstMonth, obj.monthFirstDay, ...
+            firstDate = datetime(firstYear, firstMonthOfTheRange, obj.monthFirstDay, ...
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
             if firstDate > obj.thisDatetime %when monthWindow == 0
