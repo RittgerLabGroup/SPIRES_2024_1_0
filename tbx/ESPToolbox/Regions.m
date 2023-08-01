@@ -156,9 +156,9 @@ classdef Regions < handle
             %   calculated for the region, depends on location of the region.
             % NB: takes the coordinates of the NW corner of the region.
             if max(obj.getMapCellsReference().YWorldLimits) >= 0 % North Hemisphere
-                firstMonth = 10;
+                firstMonth = WaterYearDate.defaultFirstMonthForNorthTiles;
             else % South Hemisphere
-                firstMonth = 7;
+                firstMonth = WaterYearDate.defaultFirstMonthForSouthTiles;
             end
         end
         function [xExtent, yExtent] = getGeotiffExtent(obj, geotiffEPSG)

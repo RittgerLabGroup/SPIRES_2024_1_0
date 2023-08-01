@@ -160,9 +160,9 @@ classdef MODISData < handle
             %   calculated for the tile region, depends on location of the region.
             positionalData = obj.getTilePositionIdsAndColumnRowCount(tileRegionName);
             if positionalData.verticalId <= 8 % North Hemisphere
-                firstMonth = 10;
+                firstMonth = WaterYearDate.defaultFirstMonthForNorthTiles;
             else % South Hemisphere
-                firstMonth = 7;
+                firstMonth = WaterYearDate.defaultFirstMonthForSouthTiles;
             end
         end
         function mapCellsReference = getMapCellsReference(obj, positionalData)
