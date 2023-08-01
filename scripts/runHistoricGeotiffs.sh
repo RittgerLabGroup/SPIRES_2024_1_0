@@ -110,7 +110,8 @@ matlab -nodesktop -nodisplay -r "clear; "\
 "espEnv = ESPEnv(${inputForESPEnv}); "\
 "region = Regions(${inputForRegion}); "\
 "waterYearDate = WaterYearDate(datetime(${SLURM_ARRAY_TASK_ID}, "\
-"       ${month}, min(eomday(${SLURM_ARRAY_TASK_ID}, ${month}), ${day})), ${window}); "\
+"       ${month}, min(eomday(${SLURM_ARRAY_TASK_ID}, ${month}), ${day})), "\
+"region.getFirstMonthOfWaterYear(), ${window}); "\
 "region.writeGeotiffs(NaN, waterYearDate, ${geotiffEPSG}); "\
 "catch e; "\
 "fprintf('%s: %s\n', e.identifier, e.message); "\

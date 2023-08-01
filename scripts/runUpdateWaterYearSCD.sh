@@ -91,7 +91,9 @@ waterYear=${SLURM_ARRAY_TASK_ID}
 
 inputForESPEnv="modisData = modisData"
 inputForRegion="'"${regionName}"', '"${regionName}"_mask', espEnv, modisData"
-inputForWYDate="${waterYear}, modisData.getFirstMonthOfWaterYear('"${regionName}"'), 12"
+inputForWaterYearDate="${waterYear}, modisData.getFirstMonthOfWaterYear('"${regionName}"'), "\
+"WaterYearDate.yearMonthWindow"
+echo "${PROGNAME}: input for waterYearDate: ${inputForWaterYearDate}"
 
 source scripts/toolsMatlab.sh
 
@@ -102,7 +104,7 @@ matlab -nodesktop -nodisplay -r "clear; "\
 "modisData = MODISData(${inputForModisData}); "\
 "espEnv = ESPEnv(${inputForESPEnv}); "\
 "region = Regions(${inputForRegion}); "\
-"waterYearDate = WaterYearDate.getLastWYDateForWaterYear(${inputForWYDate}); "\
+"waterYearDate = WaterYearDate.getLastWYDateForWaterYear(${inputForWaterYearDate}); "\
 "variables = Variables(region); "\
 "variables.calcSnowCoverDays(waterYearDate); "\
 "catch e; "\
