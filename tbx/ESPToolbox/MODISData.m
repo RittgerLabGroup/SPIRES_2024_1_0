@@ -159,7 +159,7 @@ classdef MODISData < handle
             % firstMonth: int. First month of the waterYear on which stats will be
             %   calculated for the tile region, depends on location of the region.
             positionalData = obj.getTilePositionIdsAndColumnRowCount(tileRegionName);
-            if positionalData.horizontalId <= 8 % North Hemisphere
+            if positionalData.verticalId <= 8 % North Hemisphere
                 firstMonth = 10;
             else % South Hemisphere
                 firstMonth = 7;
