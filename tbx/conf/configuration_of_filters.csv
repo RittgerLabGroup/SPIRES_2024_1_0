@@ -1,0 +1,82 @@
+id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,replacedVarName,comment
+0,Order by which the filtering is processed. Important for thresholding by snow_fraction. This column should stay in 2nd position (to be sorted in EspEnv instanciation). (The id of the threshold group should stay in 1st position).,Indicate where the group is used,Only used for stcStruct,Variable upon which the thresholds should be performed,,,Variable set to not reliable value when the threshold is applied.,Comment line.
+3,1,snowCoverDay,,elevation,800,,snow_fraction,snowCoverDayMins.minElevation
+3,2,snowCoverDay,,snow_fraction,0.1,,snow_fraction,"snowCoverDayMins.minSnowCoverFraction. Beware it’s on STCube type single, divided by 100 :/"
+1,1,mosaic,,viewable_snow_fraction,5,,viewable_snow_fraction,
+1,2,mosaic,,viewable_snow_fraction,5,,deltavis,
+1,3,mosaic,,viewable_snow_fraction,5,,grain_size,
+1,4,mosaic,,viewable_snow_fraction,5,,drfs_grnsz,
+1,5,mosaic,,viewable_snow_fraction,5,,radiative_forcing,
+1,6,mosaic,,viewable_snow_fraction,0,,solar_azimuth,
+1,7,mosaic,,viewable_snow_fraction,0,,solar_zenith,
+1,8,mosaic,,viewable_snow_fraction,0,,snow_cover_days,
+1,9,mosaic,,viewable_snow_fraction,5,,snow_fraction,
+2,1,publish,,elevation,800,,snow_fraction,
+2,2,publish,,snow_fraction,10,,snow_fraction,
+2,3,publish,,elevation,800,,albedo_clean_mu0,
+2,4,publish,,elevation,800,,albedo_observed_mu0,
+2,5,publish,,elevation,800,,albedo_clean_muZ,
+2,6,publish,,elevation,800,,albedo_observed_muZ,
+2,7,publish,,elevation,800,,deltavis,
+2,8,publish,,elevation,800,,grain_size,
+2,9,publish,,elevation,800,,drfs_grnsz,
+2,10,publish,,elevation,800,,radiative_forcing,
+2,11,publish,,elevation,0,,solar_azimuth,
+2,12,publish,,elevation,0,,solar_zenith,
+2,13,publish,,elevation,800,,snow_cover_days,
+2,14,publish,,elevation,800,,viewable_snow_fraction,
+2,15,publish,,snow_fraction,10,,albedo_clean_mu0,
+2,16,publish,,snow_fraction,10,,albedo_observed_mu0,
+2,17,publish,,snow_fraction,10,,albedo_clean_muZ,
+2,18,publish,,snow_fraction,10,,albedo_observed_muZ,
+2,19,publish,,snow_fraction,10,,deltavis,
+2,20,publish,,snow_fraction,10,,grain_size,
+2,21,publish,,snow_fraction,10,,drfs_grnsz,
+2,22,publish,,snow_fraction,10,,radiative_forcing,
+2,23,publish,,snow_fraction,0,,solar_azimuth,
+2,24,publish,,snow_fraction,0,,solar_zenith,
+2,25,publish,,snow_fraction,0,,snow_cover_days,
+2,26,publish,,snow_fraction,10,,viewable_snow_fraction,
+4,1,statistic,,elevation,0,,snow_fraction,
+4,2,statistic,,snow_fraction,10,,snow_fraction,
+4,3,statistic,,elevation,800,,albedo_clean_mu0,
+4,4,statistic,,elevation,800,,albedo_observed_mu0,
+4,5,statistic,,elevation,800,,albedo_clean_muZ,
+4,6,statistic,,elevation,800,,albedo_observed_muZ,
+4,7,statistic,,elevation,800,,deltavis,
+4,8,statistic,,elevation,800,,grain_size,
+4,9,statistic,,elevation,800,,drfs_grnsz,
+4,10,statistic,,elevation,800,,radiative_forcing,
+4,11,statistic,,elevation,0,,solar_azimuth,
+4,12,statistic,,elevation,0,,solar_zenith,
+4,13,statistic,,elevation,800,,snow_cover_days,
+4,14,statistic,,elevation,0,,viewable_snow_fraction,
+4,15,statistic,,snow_fraction,30,,albedo_clean_mu0,
+4,16,statistic,,snow_fraction,30,,albedo_observed_mu0,
+4,17,statistic,,snow_fraction,30,,albedo_clean_muZ,
+4,18,statistic,,snow_fraction,30,,albedo_observed_muZ,
+4,19,statistic,,snow_fraction,30,,deltavis,
+4,20,statistic,,snow_fraction,30,,grain_size,
+4,21,statistic,,snow_fraction,30,,drfs_grnsz,
+4,22,statistic,,snow_fraction,30,,radiative_forcing,
+4,23,statistic,,snow_fraction,0,,solar_azimuth,
+4,24,statistic,,snow_fraction,0,,solar_zenith,
+4,25,statistic,,snow_fraction,0,,snow_cover_days,
+4,26,statistic,,snow_fraction,0,,viewable_snow_fraction,
+5,1,stc,mindays,,10,,,Gap/Stc filtering
+5,2,stc,sthreshForGS,,0.2,,,Gap/Stc filtering
+5,3,stc,sthreshForRF,,0.7,,,Gap/Stc filtering
+5,4,stc,zthresh,,800,800,,Gap/Stc filtering
+5,5,stc,minZForNonForestedAdjust,,800,,,Gap/Stc filtering
+5,6,stc,nonForestedScaleFactor,,0.08,,,Gap/Stc filtering. Not a threshold strictly speaking.
+5,7,stc,minSnowForVegAdjust,,0.07,,,Gap/Stc filtering
+5,8,stc,canopyToTrunkRatio,,0.08,,,Gap/Stc filtering. Not a threshold strictly speaking.
+5,9,stc,rawRovDV,,0,50,,Raw cube filtering. Introduced in v2023.1
+5,10,stc,rawRovRF,,0,375,,Raw cube filtering. Introduced in v2023.1
+5,11,stc,temporalRovDV,,0,70,,Raw cube filtering. Introduced in v2023.1
+5,12,stc,temporalRovRF,,0,500,,Raw cube filtering. Introduced in v2023.1
+103,1,snowCoverDay,,elevation,800,,snow_fraction,Unit test snowCoverDayMins.minElevation
+103,2,snowCoverDay,,snow_fraction,0.01,,snow_fraction,"Unit test snowCoverDayMins.minSnowCoverFraction. Beware it’s on STCube type single, divided by 100 :/"
+101,1,mosaic,,viewable_snow_fraction,5,,radiative_forcing,Unit test
+102,1,publish,,viewable_snow_fraction,30,,snow_fraction,Unit test
+102,2,publish,,elevation,800,,radiative_forcing,Unit test
