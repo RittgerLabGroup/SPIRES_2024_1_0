@@ -7,9 +7,13 @@ classdef ESPEnv < handle
         dirWith % struct with various STC pipeline directories
         mappingDir     % directory with MODIS tiles projection information   @deprecated
         modisData % MODISData Object.
-        myConf         % struct(filePath = Table, variable = Table). Pointing to tables
+        myConf         % struct(filePath = Table, filter = Table, region = Table, 
+            % regionlink = Table, variable = Table). Pointing to tables
             % that stores the parameters for each group: (1) ancillary data files,
-            % (2) variables, used at different steps of the process
+            % (2) filter and ratios definition at each step
+            % of the generation of data (raw, gap, stc, mosaic, geotiff, statistics
+            % (3) region properties, (4) links between big region and sub-regions 
+            % (tiles), (5) variables, used at different steps of the process
             % Step1, Step2, etc ...
         myConfigurationOfVariables  % Table storing the parameters for each variable
             % at different steps of the process Step1, Step2, etc ...        @deprecated
@@ -38,6 +42,9 @@ classdef ESPEnv < handle
     properties(Constant)
         configurationFilenames = struct( ...
             filePath = 'configuration_of_filepaths.csv', ...
+            filter = 'configuration_of_filters.csv', ...
+            region = 'configuration_of_regions.csv', ...
+            regionlink = 'configuration_of_regionlinks.csv', ...
             variable = 'configuration_of_variables.csv');
         defaultArchivePath = '/pl/active/rittger_esp/';
         defaultHostName = 'CURCScratchAlpine';
@@ -105,6 +112,10 @@ classdef ESPEnv < handle
             % Limit the table of file paths to the version of ancillary data.
             obj.myConf.filePath = obj.myConf.filePath(strcmp( ...
                 obj.myConf.filePath.version, obj.modisData.versionOf.ancillary), :);
+            
+            % Order the filter table by the order in which the filtering should be
+            % processed.
+            obj.myConf.filter = sortrows(obj.myConf.filter, [1, 2]);            
                 
             obj.myConfigurationOfVariables = obj.configurationOfVariables();
                 % @deprecated. replaced by obj.myConf.variable.

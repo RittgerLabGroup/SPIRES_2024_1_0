@@ -4,6 +4,12 @@ classdef Regions < handle
     %   subregions by state (county) and watersheds at several levels
     properties      % public properties
         archiveDir    % top-level directory with region data
+        filter        % struct(stc = Table, snowCoverDay = Table, mosaic = Table,
+                    % publish = Table, statistic = Table). Pointing to tables
+                    % that stores the filter parameters at each generation step of the
+                    % pipeline: (1) raw/gap/stc monthly cube files,
+                    % (2) snow_cover_days calculation, (3) daily mosaic files,
+                    % (4) published geotiff and netcdf files, (5) statistic files.
         name          % name of region set
         regionName    % name of the big region which encompasses all the
                       % subregions
@@ -94,7 +100,7 @@ classdef Regions < handle
             obj.modisData = espEnv.modisData;
 
             % Fetch the structure with the requested region information
-            [regionFilePath, ~] = getFilePathForObjectNameDataLabel(espEnv, ...
+            [regionFilePath, ~] = espEnv.getFilePathForObjectNameDataLabel( ...
                 maskName, 'region');
             mObj = matfile(regionFilePath);            
             varNames = who(mObj);
@@ -113,13 +119,91 @@ classdef Regions < handle
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
-            obj.atmosphericProfile = mObj.atmosphericProfile;
-            obj.snowCoverDayMins = mObj.snowCoverDayMins;
-            obj.geotiffCrop = mObj.geotiffCrop;
-            obj.STC = STC(mObj.stcStruct); % SIER_289
-            obj.tileIds = mObj.tileIds;
-            obj.thresholdsForMosaics = mObj.thresholdsForMosaics;
-            obj.thresholdsForPublicMosaics = mObj.thresholdsForPublicMosaics;
+                        
+            % Configuration of region, links with subregions/tiles, and filtering.
+            % In the following we modify the tables and column names stored in 
+            % configuration_of_thresholds.csv to fit the code elsewhere. This is a 
+            % temporary solution which should evolve in the future (i.e. we should 
+            % take the fieldnames in the file                                      @todo
+            regionConf = espEnv.myConf.region(find(strcmp(espEnv.myConf.region.name, ...
+                regionName)), :);
+            obj.atmosphericProfile = regionConf.atmosphericProfile{1};            
+            obj.geotiffCrop.xLeft = regionConf.geotiffCropXLeft;
+            obj.geotiffCrop.xRight = regionConf.geotiffCropXRight;
+            obj.geotiffCrop.yBottom = regionConf.geotiffCropYBottom;
+            obj.geotiffCrop.yTop = regionConf.geotiffCropYTop; 
+
+            regionLinkConf = espEnv.myConf.regionlink( ...
+                find(strcmp(espEnv.myConf.regionlink.supRegionName, regionName)), ...
+                'subRegionName');
+            obj.tileIds = table2cell(regionLinkConf);            
+
+            obj.filter.snowCoverDay = espEnv.myConf.filter( ...
+                espEnv.myConf.filter.id == regionConf.snowCoverDayConfId, :);
+            % renaming/copying columns: should edit Variables.calcSnowCoverDays()  @todo
+            obj.snowCoverDayMins.minElevation = ...
+                table2array(obj.filter.snowCoverDay( ...
+                    strcmp(obj.filter.snowCoverDay.thresholdedVarName, ...
+                        'elevation'), 'minValue'));
+            obj.snowCoverDayMins.minSnowCoverFraction = ...
+                table2array(obj.filter.snowCoverDay( ...
+                    strcmp(obj.filter.snowCoverDay.thresholdedVarName, ...
+                        'snow_fraction'), 'minValue')); 
+                        
+            obj.filter.stc = espEnv.myConf.filter( ...
+                espEnv.myConf.filter.id == regionConf.stcConfId, :); 
+            % STC format should be simplified and copied from other filters        @todo
+            stcStruct = struct();
+            stcParam = {'rawRovDV', 'rawRovRF', 'temporalRovDV', ...
+                'temporalRovRF', 'zthresh'};
+            for paramIdx = 1:length(stcParam)
+                thisLineName = stcParam{paramIdx};
+                thisFilter = obj.filter.stc( ...
+                    strcmp(obj.filter.stc.lineName, thisLineName), :);
+                stcStruct.(thisLineName) = [thisFilter.minValue thisFilter.maxValue];
+            end
+            stcParam = {'mindays', 'sthreshForGS', 'sthreshForRF'};
+            for paramIdx = 1:length(stcParam)
+                thisLineName = stcParam{paramIdx};
+                thisFilter = obj.filter.stc( ...
+                    strcmp(obj.filter.stc.lineName, thisLineName), :);
+                stcStruct.(thisLineName) = thisFilter.minValue;
+            end
+            stcStruct.canopyAdj = zeros([1 4], 'single');
+            stcParam = {'minZForNonForestedAdjust', ...
+                'nonForestedScaleFactor', 'minSnowForVegAdjust', 'canopyToTrunkRatio'};
+            for paramIdx = 1:length(stcParam)
+                thisLineName = stcParam{paramIdx};
+                thisFilter = obj.filter.stc( ...
+                    strcmp(obj.filter.stc.lineName, thisLineName), :);
+                stcStruct.canopyAdj(paramIdx) = thisFilter.minValue;
+            end            
+            obj.STC = STC(stcStruct);
+                        
+            obj.filter.mosaic = espEnv.myConf.filter( ...
+                espEnv.myConf.filter.id == regionConf.mosaicConfId, :);
+            % renaming/copying of table columns: should edit Mosaic                @todo
+            obj.filter.mosaic.threshold_value = ...
+                obj.filter.mosaic.minValue;
+            obj.filter.mosaic.thresholded_varname = ...
+                obj.filter.mosaic.thresholdedVarName;
+            obj.filter.mosaic.replaced_varname = ...
+                obj.filter.mosaic.replacedVarName;
+            obj.thresholdsForMosaics = obj.filter.mosaic;
+            
+            obj.filter.publish = espEnv.myConf.filter( ...
+                espEnv.myConf.filter.id == regionConf.publishConfId, :);
+            % renaming/copying of table columns: should edit Mosaic                @todo
+            obj.filter.publish.threshold_value = ...
+                obj.filter.publish.minValue;
+            obj.filter.publish.thresholded_varname = ...
+                obj.filter.publish.thresholdedVarName;
+            obj.filter.publish.replaced_varname = ...
+                obj.filter.publish.replacedVarName;   
+            obj.thresholdsForPublicMosaics = obj.filter.publish;
+            
+            obj.filter.statistic = espEnv.myConf.filter( ...
+                espEnv.myConf.filter.id == regionConf.statisticConfId, :);
         end
 %{
         function elevations = getElevations(obj)
