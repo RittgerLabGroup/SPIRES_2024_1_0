@@ -4,15 +4,16 @@ classdef MODISData < handle
     %   data, including MOD09, modscag and moddrfs
     properties      % public properties
         archiveDir    % top-level directory with tile data
-                        % NB: check hownot to duplicate information with ESPEnv dirs 
+                        % NB: check hownot to duplicate information with ESPEnv dirs
                         %                                                          @todo
         alternateDir  % top-level directory with tile data on scratch
+        espEnv      % ESPEnv obj.
         fileNamePrefix % Struct(char).
         georeferencing = struct(northwest = struct(x0 = - pi * 6.371007181e+06, ...
             y0 = pi * 6.371007181e+06 / 2), tileInfo = struct( ...
                 dx = 2 * pi * 6.371007181e+06 / 36 / 2400, ...
                 dy = 2 * pi * 6.371007181e+06 / 36 / 2400, ...
-                columnCount = 2400, rowCount = 2400)); % Inspired from Jeff Dozier's 
+                columnCount = 2400, rowCount = 2400)); % Inspired from Jeff Dozier's
                                                        % RasterReprojection package.
 %{
 % Before 2023-06-19:
@@ -30,6 +31,13 @@ classdef MODISData < handle
         versionOf % version structure for various stages of processing
     end
     properties(Constant)
+        beginWaterYear = 2001;
+        bitValues = 0:15; % Values of bits in state_1km_1 and QC_500m bit variables of
+            % mod09ga files.
+        defaultArchiveDir = '/pl/active/rittger_esp/modis';
+        defaultVersionOf = struct(ancillary = 'v3.1', ...
+            modisCollection = 6);
+        sensorProperties = struct(orbitHeight = 705); % constant for spires. Units?
         projection = struct(modisSinusoidal = struct( ...
             ... % GeoKeyDirectoryTag to generate the geotiffs in sinusoidal projection.
             ... % Tag documentation: http://geotiff.maptools.org/spec/geotiff6.html
@@ -53,17 +61,20 @@ classdef MODISData < handle
             ... % Well-known text to generate the projection crs. Necessary because
             ... % there is no EPSG code for sinusoidal, and Matlab don't accept code
             ... % other than from EPSG.
-            wkt = "PROJCS[""MODIS Sinusoidal"",BASEGEOGCRS[""User"",DATUM[""World Geodetic Survey 1984"",SPHEROID[""Authalic_Spheroid"",6371007.181,0.0]],PRIMEM[""Greenwich"",0.0],UNIT[""Degree"",0.0174532925199433]],PROJECTION[""Sinusoidal""],PARAMETER[""False_Easting"",0.0],PARAMETER[""False_Northing"",0.0],PARAMETER[""Central_Meridian"",0.0],UNIT[""Meter"",1.0]]" ...
+            wkt = "PROJCRS[""MODIS Sinusoidal"",BASEGEOGCRS[""User"",DATUM[""World Geodetic Survey 1984"",SPHEROID[""Authalic_Spheroid"",6371007.181,0.0]],PRIMEM[""Greenwich"",0.0],UNIT[""Degree"",0.0174532925199433]],PROJECTION[""Sinusoidal""],PARAMETER[""False_Easting"",0.0],PARAMETER[""False_Northing"",0.0],PARAMETER[""Central_Meridian"",0.0],UNIT[""Meter"",1.0]]" ...
             ));
         %tileRows_500m = 2400;
         %tileCols_500m = 2400;
         %pixSize_1000m = pixSize_500m * 2;
         %tileRows_1000m = 1200;
         %tileCols_1000m = 1200;
-        beginWaterYear = 2001;
-        defaultArchiveDir = '/pl/active/rittger_esp/modis';
-        defaultVersionOf = struct(ancillary = 'v3.1', ...
-            modisCollection = 6);
+        % Band values for Modis v6.
+        reflectanceBandIds = struct( ...
+            green = 4, ... 
+            nir = 2, ...
+            red = 1, ...
+            swir = 6 ... % SWIR band, 6 for MODIS and L8
+            );
     end
     methods         % public methods
         function obj = MODISData(varargin)
@@ -75,7 +86,7 @@ classdef MODISData < handle
             % The default location is PetaLibrary, so that
             % inventory paths are always set to the definitive PL
             % location; in practice, alternateDir (user's scratch)
-            % will be checked and used since it is faster            
+            % will be checked and used since it is faster
             checkArchiveDir = @(x) exist(x, 'dir');
             addOptional(p, 'archiveDir', obj.defaultArchiveDir, ...
                 checkArchiveDir);
@@ -142,6 +153,8 @@ classdef MODISData < handle
                 'MODISCollection', obj.defaultVersionOf.modisCollection, ...
                 'MOD09Raw', label, ...
                 'SCAGDRFSRaw', label, ...
+                'modisspirescube', label, ...
+                'modisspiresdaily', label, ...
                 'SCAGDRFSGap',  label, ...
                 'SCAGDRFSSTC',  label, ...
                 'VariablesMatlab',  label, ...
@@ -149,11 +162,142 @@ classdef MODISData < handle
                 'RegionalStatsMatlab',  label, ...
                 'RegionalStatsCsv',  label);
         end
+        function [varData, bitData] = getDataForDateAndVarName(obj, ...
+            objectName, dataLabel, thisDate, varName, varData)
+            % Get mod09ga/modisspiresdaily data for a certain date and variable name.
+            %
+            % Parameters
+            % ----------
+            % objectName: char. Name of the tile or region as found in the modis files
+            %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
+            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
+            % dataLabel: char. Label (type) of data for which the file is required,
+            %   should be a key of ESPEnv.dirWith struct, e.g. MOD09Raw, .
+            % thisDate: datetime. Cover the day for which we want the
+            %   files.
+            % varName: name of the variable to load. Should be the output name
+            %   (see configuration_of_variables.csv).
+            % varData: 2D or 3D array(single). Value of the variable stored in the
+            %   original file if previously
+            %   obtained by the same method (avoid reloading the data). Only used if the
+            %   variable required is a bit-part of the variable stored in the file, for
+            %   instance cloud from state_1km_1. Otherwise, can be set to [].
+            %
+            % Return
+            % ------
+            % varData: 2D or 3D array(single or uint16/32) read from the variable 
+            %   stored in the file
+            %   (e.g. a 3D array of the 7 reflectance bands, a 2D array of solar zenith
+            %   scaled to the 500m resolution, or state_1km_1).
+            %   If absent file, return an array of NaN
+            % bitData: 2D array(uint8). Filled if the variable is a bit part of a
+            %   variable stored in the original file, for instance cloud from the
+            %   variable state_1km_1.
+            %   Void otherwise (e.g. for reflectance or solar zenith).
+            %   If file absent, return an array of intmax('uint8').
+            %
+            % NB: only works for dataLabel in mod09ga.
+            % NB: doesn't check if the variable is present in file.                @todo
+            % NB: I put this method here rather than ESPEnv
+            % because it's really dependent on the source,
+            % modis or viirs and what the source contain as data. I'm not sure this
+            % method should or shouldn't be extended to other type of files
+            %  (intermediary for instance).
+
+            % 1. Check valid dataLabel and get list of files for which the variable is
+            % to be loaded.
+            %---------------------------------------------------------------------------
+            if ~ismember(dataLabel, {'mod09ga', 'modisspiresdaily'})
+                errorStruct.identifier = ...
+                    'modisData:getDataForDateAndVarName:BadDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be mod09ga.'], mfilename(), dataLabel);
+                error(errorStruct);
+            end
+
+            % Configuration of the variable.
+            varConf = obj.espEnv.myConf.variable(strcmp( ...
+                obj.espEnv.myConf.variable.output_name, varName), :);
+
+            % 2. Construction of varData, the array of values extracted from the file.
+            %---------------------------------------------------------------------------
+            if isempty(varData)
+                % Configuration of the source variable, different only if the variable
+                % is a bit part of a variable stored in the file.
+                originalVarConf = obj.espEnv.myConf.variable(ismember( ...
+                    obj.espEnv.myConf.variable.([dataLabel, '_name']), ...
+                    varConf.([dataLabel, '_name'])) & ...
+                    obj.espEnv.myConf.variable.([dataLabel, '_bitPosition']) == 255, :);
+
+                region = Regions(objectName, [objectName, '_mask'], obj.espEnv, obj);
+                [filePath, fileExists] = ...
+                    obj.espEnv.Step0ModisFilename(region, thisDate, dataLabel);
+                    % call should be modified when method is extended to other source
+                    % files                                                        @todo
+                if fileExists == 1
+                    varData = hdfread(filePath, ...
+                        originalVarConf.([dataLabel, '_name']){1});
+                    varDataIsNotNoData = 1;
+                else
+                    varData = NaN(size(varData, 1), size(varData, 2));
+                    warning('%s: Absent file %s. Data filled by NaN.\n', ...
+                        mfilename(), filePath);
+                end
+                    % 2D array.
+
+                % If variable is reflectance, construct a 3D array to assemble the
+                % 7 bands.
+                if size(originalVarConf, 1) > 1
+                    tmpVarData = NaN(size(varData, 1), size(varData, 2), ...
+                        size(originalVarConf, 1));
+                    tmpVarData(:, :, 1) = varData;
+                    varData = tmpVarData;
+                    if fileExists == 1
+                        for sourceIdx = 2:size(originalVarConf, 1)
+                            varData(:, :, sourceIdx) = hdfread(filePath, ...
+                                originalVarConf.([dataLabel, '_name']){sourceIdx});
+                        end
+                    end
+                end
+                % check the min/max and no data only for non bit-composed variable
+                % otherwise there might be a problem of precision ...
+                % we suppose that the scale for these bit-variable is always 1.
+                if varConf.([dataLabel, '_bitPosition'])(1) == 255
+                    varData = single(varData);
+                    varData(varData == ...
+                        originalVarConf.([dataLabel, '_nodata_value'])(1) ...
+                        | varData < originalVarConf.([dataLabel, '_min'])(1) | ...
+                        varData > originalVarConf.([dataLabel, '_max'])(1)) = NaN;
+                    varData = varData * ...
+                        originalVarConf.([dataLabel, '_scale'])(1);                    
+                end
+                varData = imresize(varData, ...
+                        originalVarConf.([dataLabel, '_resamplingFactor'])(1), ...
+                        'nearest');
+            else
+                varDataIsNotNoData = 1;
+            end
+
+            % 3. Construction of bitData, the bit-value of the variable required.
+            %---------------------------------------------------------------------------
+            bitData = [];
+            if varConf.([dataLabel, '_bitPosition'])(1) ~= 255
+                if varDataIsNotNoData == 1
+                    bitData = cast(bitand(bitshift(varData, ...
+                        -varConf.([dataLabel, '_bitPosition'])(1)), ...
+                        2^varConf.([dataLabel, '_bitCount'])(1) - 1), 'uint8');
+                else
+                    bitData = intmax('uint8') * ones(size(varData,1), ...
+                    size(varData, 2), 'uint8');
+                end
+            end
+        end
         function firstMonth = getFirstMonthOfWaterYear(obj, tileRegionName)
             % Parameters
             % ----------
             % tileRegionName: char. Tile region name (format h00v00).
-            % 
+            %
             % Return
             % ------
             % firstMonth: int. First month of the waterYear on which stats will be
@@ -197,7 +341,7 @@ classdef MODISData < handle
                 positionalData.verticalId * ...
                 obj.georeferencing.tileInfo.rowCount * dy;
             refMatrix = [[0 -dy];[dx 0];[northWestX + dx  / 2 - dx, ...
-                northWestY - dy / 2 + dy]]; % Should give result same as deprecated 
+                northWestY - dy / 2 + dy]]; % Should give result same as deprecated
                                             % makerefmat()
             mapCellsReference = refmatToMapRasterReference(refMatrix,...
                     [positionalData.rowCount positionalData.columnCount]);
