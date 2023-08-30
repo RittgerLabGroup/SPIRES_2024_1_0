@@ -7,9 +7,13 @@ classdef ESPEnv < handle
         dirWith % struct with various STC pipeline directories
         mappingDir     % directory with MODIS tiles projection information   @deprecated
         modisData % MODISData Object.
-        myConf         % struct(filePath = Table, variable = Table). Pointing to tables
+        myConf         % struct(filePath = Table, filter = Table, region = Table,
+            % regionlink = Table, variable = Table). Pointing to tables
             % that stores the parameters for each group: (1) ancillary data files,
-            % (2) variables, used at different steps of the process
+            % (2) filter and ratios definition at each step
+            % of the generation of data (raw, gap, stc, mosaic, geotiff, statistics
+            % (3) region properties, (4) links between big region and sub-regions
+            % (tiles), (5) variables, used at different steps of the process
             % Step1, Step2, etc ...
         myConfigurationOfVariables  % Table storing the parameters for each variable
             % at different steps of the process Step1, Step2, etc ...        @deprecated
@@ -38,6 +42,9 @@ classdef ESPEnv < handle
     properties(Constant)
         configurationFilenames = struct( ...
             filePath = 'configuration_of_filepaths.csv', ...
+            filter = 'configuration_of_filters.csv', ...
+            region = 'configuration_of_regions.csv', ...
+            regionlink = 'configuration_of_regionlinks.csv', ...
             variable = 'configuration_of_variables.csv');
         defaultArchivePath = '/pl/active/rittger_esp/';
         defaultHostName = 'CURCScratchAlpine';
@@ -73,6 +80,8 @@ classdef ESPEnv < handle
             else
                 obj.modisData = p.Results.modisData;
             end
+            obj.modisData.espEnv = obj;
+
             % Scratch path should exist.
             if ~isfolder(p.Results.scratchPath)
                 errorStruct.identifier = ...
@@ -105,7 +114,11 @@ classdef ESPEnv < handle
             % Limit the table of file paths to the version of ancillary data.
             obj.myConf.filePath = obj.myConf.filePath(strcmp( ...
                 obj.myConf.filePath.version, obj.modisData.versionOf.ancillary), :);
-                
+
+            % Order the filter table by the order in which the filtering should be
+            % processed.
+            obj.myConf.filter = sortrows(obj.myConf.filter, [1, 2]);
+
             obj.myConfigurationOfVariables = obj.configurationOfVariables();
                 % @deprecated. replaced by obj.myConf.variable.
 
@@ -299,43 +312,43 @@ classdef ESPEnv < handle
             % objectName: char. Name of the tile or region as found in the modis files
             %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
             %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
-            % label: char. Label (type) of data for which the file is required, should
+            % dataLabel: char. Label (type) of data for which the file is required, should
             %   be a key of ESPEnv.dirWith struct, e.g. MOD09Raw.
             % waterYearDate: WaterYearDate. Cover the period for which we want the
             %   files.
-            % varName: name of the variable to load.
+            % varName: name of the variable to load (name in the file, not output_name
+            %   of configuration_of_variables.csv).
             %
             % Return
             % ------
-            %   varData: concatenated data arrays read.
+            % varData: concatenated data arrays read. We hypothesize that the files
+            %   have continuous dates, without gaps (you can have files filled by NaN
+            %   or nodata.
             %
             % NB: only works for dataLabel in MOD09Raw or SCAGRaw.
             % NB: doesn't check if the variable is present in file.                @todo
-            
+
             % 1. Check valid dataLabel and get list of files for which the variable is
             % to be loaded.
             %---------------------------------------------------------------------------
-            if ~ismember(dataLabel, fieldnames(obj.dirWith)) || ...
-                ~ismember(dataLabel, fieldnames(obj.modisData.versionOf)) || ...
-                ~ismember(dataLabel, {'MOD09Raw', 'SCAGDRFSRaw'})
-                errorStruct.identifier = ...
-                    'ESPEnv:getDataForWaterYearDateAndVarName:BadDataLabel';
-                errorStruct.message = sprintf( ...
-                    ['%s: invalid dataLabel=%s, ' ...
-                     'should be in ESPEnv.dirWith and MODISData.versionOf ', ...
-                     'fieldnames and either MOD09Raw or SCAGDRFSRaw.'], ...
-                    mfilename(), dataLabel);
-                error(errorStruct);
-            end
-            
+            filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
+                dataLabel), :);
+            varConf = obj.myConf.variable(strcmp(obj.myConf.variable.output_name, ...
+                varName), :);
+
             [filePath, fileExists, ~, ~] = ...
                 obj.getFilePathForWaterYearDate(objectName, dataLabel, waterYearDate);
-            filePath = filePath(fileExists == 1);
-            
+                % Raises error if dataLabel not in configuration_of_filenames.csv and
+                % in modisData.versionOf.
+            filePath = filePath(fileExists == 1); % In regular process, a proper
+                % handling of waterYearDate and of the generation of files (potentially
+                % with nodata/NaN-filled variables) should make all files present and
+                % this command useless.
+
             % 2. Construction of the array of values extracted from the files.
             %---------------------------------------------------------------------------
             varData = [];
-            if ismember(varName, {'umdays', 'usdays'})
+            if strcmp(varName, filePathConf.dateFieldName{1})
                 for fileIdx = 1:size(filePath, 2)
                     [varDataT] = parloadDts(filePath{fileIdx}, varName);
                     if fileIdx == 1
@@ -344,13 +357,13 @@ classdef ESPEnv < handle
                         varData = [varData varDataT{1}'];
                     end
                 end
-                varData = datenum(varData); 
+                varData = datenum(varData);
             elseif strcmp(varName, 'RefMatrix')
                 varData = parloadMatrices(filePath{1}, 'RefMatrix');
             else
                 for fileIdx = 1:size(filePath, 2)
                     varDataT = parloadMatrices(filePath{fileIdx}, varName);
-                    if strcmp(varName, 'NoValues') && fileIdx == 1 
+                    if strcmp(varName, 'NoValues') && fileIdx == 1
                         varData = varDataT;
                     elseif strcmp(varName, 'refl')
                         varData = cat(4, varData, varDataT);
@@ -358,6 +371,81 @@ classdef ESPEnv < handle
                         varData = cat(3, varData, varDataT);
                     end
                 end
+            end
+        end
+        function [filePath, fileExists, lastDateInFile] = ...
+            getFilePathForDate(obj, objectName, dataLabel, thisDate)
+            % Parameters
+            % ----------
+            % objectName: char. Name of the tile or region as found in the modis files
+            %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
+            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
+            % label: char. Label (type) of data for which the file is required, should
+            %   be a key of ESPEnv.dirWith struct, e.g. spiresDaily.
+            % thisDate: datetime. For which we want the file.
+            %
+            % Return
+            % ------
+            % filePath: char.
+            % existFile: uint8. 0 if file doesn't exist.
+
+            % 1. Generation and check existence of the file directory path.
+            %---------------------------------------------------------------------------
+            modisData = obj.modisData;
+            filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
+                dataLabel), :);
+            if isempty(filePathConf)
+                errorStruct.identifier = ...
+                    'ESPEnv:getFilePathForDate:NoConfForDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in configuration_of_filepaths.csv file.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+            if ~ismember(dataLabel, fieldnames(modisData.versionOf))
+                errorStruct.identifier = ...
+                    'ESPEnv:getFilePathForDate:BadDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in MODISData.versionOf fieldnames.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+            sepChar = '';
+            if ~isempty(modisData.versionOf.(dataLabel))
+                sepChar = '_';
+            end
+            directoryPath = fullfile( ...
+                    obj.scratchPath, ...
+                    filePathConf.topSubDirectory{1}, ...
+                    filePathConf.fileSubDirectory{1}, ...
+                    sprintf('%s%s%s', filePathConf.fileSubDirectory2{1}, sepChar, ...
+                        modisData.versionOf.(dataLabel)), ...
+                    sprintf('v%03d', modisData.versionOf.MODISCollection), ...
+                    objectName, ...
+                    string(thisDate, 'yyyy'));
+            if ~isfolder(directoryPath)
+                mkdir(directoryPath);
+            end
+
+            % 2. Generation of the filename, check existence and determine last date
+            %   in file.
+            %---------------------------------------------------------------------------
+            fileName = [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
+            fileName = replace(fileName, '{platform}', modisData.versionOf.platform);
+            fileName = replace(fileName, '{objectName}', objectName);
+            fileName = replace(fileName, '{version}', modisData.versionOf.(dataLabel));
+            fileName = replace(fileName, '{thisDate}', string(thisDate, ...
+                filePathConf.dateInFileName{1}));
+
+            filePath = fullfile(directoryPath, fileName);
+            fileExists = isfile(filePath);
+            lastDateInFile = [];
+            if fileExists == 1
+                lastDateInFile = max( ...
+                        load(filePath, filePathConf.dateFieldName{1}).( ...
+                            filePathConf.dateFieldName{1}));
             end
         end
         function [filePath, fileExists] = getFilePathForObjectNameDataLabel(obj, ...
@@ -377,6 +465,16 @@ classdef ESPEnv < handle
             % existFile: uint8. 0 if file doesn't exist.
             filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
+            if isempty(filePathConf)
+                errorStruct.identifier = ...
+                    'ESPEnv:getFilePathForObjectNameDataLabel:NoConfForDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in configuration_of_filepaths.csv file.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+
             % Default directory for ancillary dataType.
             directoryPath = fullfile(obj.scratchPath, ...
                 filePathConf.topSubDirectory{1}, ...
@@ -384,8 +482,13 @@ classdef ESPEnv < handle
             if ~isfolder(directoryPath)
                 mkdir(directoryPath)
             end
-            fileName = [objectName, '_', ...
-                filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
+            if filePathConf.objectDependent == 0
+                fileName = [ ...
+                    filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
+            else
+                fileName = [objectName, '_', ...
+                    filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
+            end
             % Temporary specific case for region masks                             @todo
             if isempty(filePathConf.fileLabel{1})
                 fileName = [objectName, filePathConf.fileExtension{1}];
@@ -409,85 +512,99 @@ classdef ESPEnv < handle
             % ------
             % filePath: char or 1-D array(char) if several files (e.g. waterYearDate
             %   having a window > 1.
-            % existFile: uint8 or 1-D array(uint8) if several files. 
+            % existFile: uint8 or 1-D array(uint8) if several files.
             %   0 if file doesn't exist.
             % lastDateInFile: datetime or 1-D array(datetime). Last date present in the file.
             %   NB: because of the design of raw files, which are filled up to the day
-            %   before run, lastDate is similar to the number of days in file. 
+            %   before run, lastDate is similar to the number of days in file.
             %   Not to be used when existFile = 0.
             % waterYearDate: WaterYearDate. Adjusted to the last available date.
-            
+            %
+            % NB: method which retakes some of the code of getFilePathForDate(). Maybe
+            %   some mutualization is possible?                                    @todo
+
             % 1. Generation and check existence of the file directory path.
             %---------------------------------------------------------------------------
             modisData = obj.modisData;
-            if ~ismember(dataLabel, fieldnames(obj.dirWith)) || ...
-                ~ismember(dataLabel, fieldnames(modisData.versionOf)) || ...
-                ~ismember(dataLabel, {'MOD09Raw', 'SCAGDRFSRaw', 'SCAGDRGSGap', ...
-                    'SCAGDRFSSTC'})
+            filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
+                dataLabel), :);
+
+            if isempty(filePathConf)
+                errorStruct.identifier = ...
+                    'ESPEnv:getFilePathForWaterYearDate:NoConfForDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in configuration_of_filepaths.csv file.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+            if ~ismember(dataLabel, fieldnames(modisData.versionOf))
                 errorStruct.identifier = ...
                     'ESPEnv:getFilePathForWaterYearDate:BadDataLabel';
                 errorStruct.message = sprintf( ...
                     ['%s: invalid dataLabel=%s, ' ...
-                     'should be in ESPEnv.dirWith and MODISData.versionOf ', ...
-                     'fieldnames.'], ...
+                     'should be in MODISData.versionOf fieldnames.'], ...
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
+            sepChar = '';
             if ~isempty(modisData.versionOf.(dataLabel))
                 sepChar = '_';
-            else
-                sepChar = '';
             end
-            
+
             % 2. Generation of the filenames, check existence, detection of the
             % last date recorded in file and update of the waterYearDate.
             %---------------------------------------------------------------------------
-            theseDates = waterYearDate.getMonthlyFirstDatetimeRange();
+            % Either each file is a montly cube or a daily file:
+            if strcmp(filePathConf.dateInFileName{1}, 'yyyyMM')
+                theseDates = waterYearDate.getMonthlyFirstDatetimeRange();
+            else
+                theseDates = waterYearDate.getDailyDatetimeRange();
+            end
             filePath = {};
             fileExists = zeros([1, length(theseDates)], 'uint8');
             lastDateInFile = theseDates;
-            switch dataLabel
-                case 'MOD09Raw'
-                    dateFieldName = 'umdays'; % in file. make fieldnames same in all files @todo
-                case 'SCAGDRFSRaw'
-                    dateFieldName = 'usdays';
-                case 'SCAGDRFSGap'
-                    dateFieldName = 'datevals';
-                case 'SCAGDRFSSTC'
-                    dateFieldName = 'datevals';
-            end
-            
+
             for dateIdx = 1:length(theseDates)
                 thisDate = theseDates(dateIdx);
+                % Determine directoryPath and generate it if doesn't exist:
                 directoryPath = fullfile( ...
-                    sprintf('%s%s%s', obj.dirWith.(dataLabel), sepChar, ...
-                    modisData.versionOf.(dataLabel)), ...
-                    sprintf('v%03d', modisData.versionOf.MODISCollection), ...
-                    objectName, ...
-                    string(thisDate, 'yyyy'));
+                        obj.scratchPath, ...
+                        filePathConf.topSubDirectory{1}, ...
+                        filePathConf.fileSubDirectory{1}, ...
+                        sprintf('%s%s%s', filePathConf.fileSubDirectory2{1}, sepChar, ...
+                            modisData.versionOf.(dataLabel)), ...
+                        sprintf('v%03d', modisData.versionOf.MODISCollection), ...
+                        objectName, ...
+                        string(thisDate, 'yyyy'));
                 if ~isfolder(directoryPath)
                     mkdir(directoryPath);
                 end
-                if strcmp(dataLabel, 'MOD09Raw')
-                    % These files should have the same naming structure as SCAG    @todo
-                    fileName = sprintf('%s_%s_%s_%s.mat', ...
-                            modisData.fileNamePrefix.(dataLabel), ...
-                            modisData.versionOf.platform, objectName, ...
-                            string(thisDate, 'yyyyMM'));
-                else
-                    % SCAGDRFSRaw, SCAGDRFSGap, or SCAGDRFSSTC case.
-                    fileName = sprintf('%s_%s_%s_%s.%s.mat', ...
-                            modisData.fileNamePrefix.(dataLabel), ...
-                            modisData.versionOf.platform, objectName, ...
-                            string(thisDate, 'yyyyMM'), ...
-                            modisData.versionOf.(dataLabel));
-                end
+
+                % Determine filename.
+                fileName = [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
+                fileName = replace(fileName, '{platform}', ...
+                    modisData.versionOf.platform);
+                fileName = replace(fileName, '{objectName}', objectName);
+                fileName = replace(fileName, '{version}', ...
+                    modisData.versionOf.(dataLabel));
+                fileName = replace(fileName, '{thisDate}', string(thisDate, ...
+                    filePathConf.dateInFileName{1}));
+
                 filePath{dateIdx} = fullfile(directoryPath, fileName);
+
+                % Determine existence of file and last date in file (for daily file,
+                % if present, the last date is automatically the date in the filename):
                 if isfile(filePath{dateIdx})
-                    fileExists(dateIdx) = 1;                    
-                    lastDateInFile(dateIdx) = max( ...
-                        load(filePath{dateIdx}, dateFieldName).(dateFieldName));
-                end    
+                    fileExists(dateIdx) = 1;
+                    if strcmp(filePathConf.dateInFileName{1}, 'yyyyMM')
+                        lastDateInFile(dateIdx) = max( ...
+                            load(filePath{dateIdx}, filePathConf.dateFieldName{1}).( ...
+                                filePathConf.dateFieldName{1}));
+                    else
+                        lastDateInFile(dateIdx) = thisDate;
+                    end
+                end
             end
             lastDateInFileWhichExists = lastDateInFile(fileExists == 1);
             waterYearDate = WaterYearDate( ...
