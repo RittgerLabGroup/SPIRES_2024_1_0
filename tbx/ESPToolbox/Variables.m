@@ -441,6 +441,9 @@ classdef Variables
                 phi0(phi0 > 180) = phi0(phi0 > 180) - 360;
                 phi0(nans) = NaN;
 
+                % Based on conversation with Dozier, Aug 2023:
+		        % N.B.: phi0 and aspect must be referenced to the same
+		        % angular convention for this function to work properly
                 muZ = sunslope(mu0, phi0, slope, aspect);
 
                 grainSizeForSpires = mosaicData.grain_size;

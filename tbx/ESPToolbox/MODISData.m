@@ -36,9 +36,8 @@ classdef MODISData < handle
             % mod09ga files.
         defaultArchiveDir = '/pl/active/rittger_esp/modis';
         defaultVersionOf = struct(ancillary = 'v3.1', ...
-            modisCollection = 6);
-        sensorProperties = struct(orbitHeight = 705); % constant for spires. Units?
-        projection = struct(modisSinusoidal = struct( ...
+            modisCollection = 6);        
+        projection = struct(modisSinusoidal = struct( ...            
             ... % GeoKeyDirectoryTag to generate the geotiffs in sinusoidal projection.
             ... % Tag documentation: http://geotiff.maptools.org/spec/geotiff6.html
             ... % or https://svn.osgeo.org/metacrs/geotiff/trunk/geotiff/html/usgs_geotiff.html
@@ -61,8 +60,11 @@ classdef MODISData < handle
             ... % Well-known text to generate the projection crs. Necessary because
             ... % there is no EPSG code for sinusoidal, and Matlab don't accept code
             ... % other than from EPSG.
-            wkt = "PROJCRS[""MODIS Sinusoidal"",BASEGEOGCRS[""User"",DATUM[""World Geodetic Survey 1984"",SPHEROID[""Authalic_Spheroid"",6371007.181,0.0]],PRIMEM[""Greenwich"",0.0],UNIT[""Degree"",0.0174532925199433]],PROJECTION[""Sinusoidal""],PARAMETER[""False_Easting"",0.0],PARAMETER[""False_Northing"",0.0],PARAMETER[""Central_Meridian"",0.0],UNIT[""Meter"",1.0]]" ...
+            wkt = "PROJCS[""MODIS Sinusoidal"",BASEGEOGCRS[""User"",DATUM[""World Geodetic Survey 1984"",SPHEROID[""Authalic_Spheroid"",6371007.181,0.0]],PRIMEM[""Greenwich"",0.0],UNIT[""Degree"",0.0174532925199433]],PROJECTION[""Sinusoidal""],PARAMETER[""False_Easting"",0.0],PARAMETER[""False_Northing"",0.0],PARAMETER[""Central_Meridian"",0.0],UNIT[""Meter"",1.0]]", ...
+            wkt2 = 'PROJCS["MODIS Sinusoidal",GEOGCS["User with datum World Geodetic Survey 1984",DATUM["unnamed",SPHEROID["unnamed",6371007.181,0]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]]],PROJECTION["Sinusoidal"],PARAMETER["longitude_of_center",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]', ...
+            geocrsWkt = 'GEOGCRS["User",DATUM["World Geodetic Survey 1984",ELLIPSOID["Authalic_Spheroid",6371007.181,0,LENGTHUNIT["metre",1,ID["EPSG",9001]]]],PRIMEM["Greenwich",0,ANGLEUNIT["Degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["longitude",east,ORDER[1],ANGLEUNIT["Degree",0.0174532925199433]],AXIS["latitude",north,ORDER[2],ANGLEUNIT["Degree",0.0174532925199433]]]' ...
             ));
+            % proj4 = '+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m +no_defs +nadgrids=@null +wktext', ...
         %tileRows_500m = 2400;
         %tileCols_500m = 2400;
         %pixSize_1000m = pixSize_500m * 2;
@@ -75,6 +77,9 @@ classdef MODISData < handle
             red = 1, ...
             swir = 6 ... % SWIR band, 6 for MODIS and L8
             );
+        sensorProperties = struct(orbitHeight = 705, ...
+            tiling = struct(columnCount = 36, ...
+                rowCount = 18)); % constant for spires. Units?
     end
     methods         % public methods
         function obj = MODISData(varargin)
@@ -158,6 +163,7 @@ classdef MODISData < handle
                 'SCAGDRFSGap',  label, ...
                 'SCAGDRFSSTC',  label, ...
                 'VariablesMatlab',  label, ...
+                'VariablesNetCDF',  label, ...
                 'VariablesGeotiff',  label, ...
                 'RegionalStatsMatlab',  label, ...
                 'RegionalStatsCsv',  label);
@@ -323,6 +329,10 @@ classdef MODISData < handle
             % ------
             % mapCellsReference: MapCellsReference object.
             % SIER_320.
+            %
+            % NB/NetCDF: Beware that before matlab 2022, the ProjectedCRS.GeographicCRS 
+            %   property of the mapCellsReference object is not set.
+            % To access this property, you should call geocrs(MODISData.geocrsWkt);
 
             theseFieldnames = fieldnames(positionalData);
             for fieldIdx = 1:length(theseFieldnames)
@@ -356,6 +366,9 @@ classdef MODISData < handle
 %}
             mapCellsReference.ProjectedCRS = ...
                     projcrs(obj.projection.modisSinusoidal.wkt);
+            % Patch for matlab 2021, to remove when transitioned to matlab 2022:   @todo
+            %mapCellsReference.ProjectedCRS.GeographicCRS = geocrs(obj.geocrsWkt);
+            
         end
         function positionalData = getTilePositionIdsAndColumnRowCount( ...
             obj, tileRegionName)
