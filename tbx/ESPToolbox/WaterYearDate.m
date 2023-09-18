@@ -17,7 +17,7 @@ classdef WaterYearDate < handle
     properties(Constant) 
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultFirstMonthForNorthTiles = 10;
-        defaultFirstMonthForSouthTiles = 7;
+        defaultFirstMonthForSouthTiles = 4; % 7 for New Zealand, dev a new call    @todo
         monthFirstDay = 1;
         cubeMonthWindow = 3;
         yearMonthWindow = 12;
