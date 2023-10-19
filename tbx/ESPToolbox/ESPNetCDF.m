@@ -6,16 +6,25 @@ classdef ESPNetCDF < handle
     % Use case
     % --------
 %{
-    modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
-    % if version v03 of STC, you can edit:
-    % modisData.versionOf.VariablesMatlab = 'v03';
-    espEnv = ESPEnv(modisData = modisData);
-    regionName = 'h08v04';
+    label = 'v2023.1'; % or 'v2022.0' for v03 HMA ASHimalaya.
+    if strcmp(label, 'v2023.1')
+        modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
+        regionName = 'h08v04';        
+        thisDate = datetime(2023, 1, 1);
+    elseif strcmp(label, 'v2022.0')
+        modisData = MODISData(label = 'v03', versionOfAncillary = 'v3.2');  
+        modisData.versionOf.VariablesNetCDF = 'v2022.0';
+        regionName = 'h24v05';
+        thisDate = datetime(2022, 4, 1);
+    end
+    espEnv = ESPEnv(modisData = modisData, scratchPath = ESPEnv.defaultArchivePath);
     region = Regions(regionName, [regionName, '_mask'], espEnv, modisData);
-    thisDate = datetime(2023, 1, 1);
-    matFilePath = espEnv.getFilePathForDate(regionName, 'VariablesMatlab', thisDate);
-    netCDFFilePath = espEnv.getFilePathForDate(regionName, 'VariablesNetCDF', thisDate);
-    ESPNetCDF.generateNetCDFFromRegionAndMatFile(region, thisDate, matFilePath, netCDFFilePath);
+    matFilePath = espEnv.getFilePathForDateAndVarName(regionName, 'VariablesMatlab', ...
+        thisDate, '');
+    netCDFFilePath = espEnv.getFilePathForDateAndVarName(regionName, ...
+        'VariablesNetCDF', thisDate, '');
+    ESPNetCDF.generateNetCDFFromRegionAndMatFile(region, thisDate, matFilePath, ...
+        netCDFFilePath);
 %}
     properties
         globalAttribute      % global attributes to write
@@ -220,17 +229,15 @@ classdef ESPNetCDF < handle
             % See details:
             % https://gdal.org/tutorials/geotransforms_tut.html
             % After an e-mail exchange with Scott 2023-09-07, it appears that the
-            % Geotransform is a string separated by spaces an ended by a space.
-
+            % Geotransform is a string separated by spaces and ended by a space.
 
             myRR = obj.region.getMapCellsReference();
             GeoTransform = [...
-                num2str(myRR.XWorldLimits(1)), num2str(myRR.CellExtentInWorldX), ...
-                ' ', '0.0', ' ', ...
+                num2str(myRR.XWorldLimits(1)), ' ', ...
+                num2str(myRR.CellExtentInWorldX), ' ', '0.0', ' ', ...
                 num2str(myRR.YWorldLimits(2)), ' ', '0.0', ' ', ...
                 num2str(-1 * myRR.CellExtentInWorldY), ' '];
             params = myRR.ProjectedCRS.ProjectionParameters;
-
 
             % 3.Define the crs variable. It is instantiated first with name 'sinusoidal'
             % to be referable in the corresponding attributes of each variable,
@@ -743,7 +750,16 @@ classdef ESPNetCDF < handle
                 % 3. Add a few more global attributes from the .mat file
                 % that we want to carry along into the .nc file.
                 attribute = struct();
-                attribute.dataForDateYearMonthDay = string(thisDate, 'yyyy-MM-dd');
+                % Dates and duration in ISO8601. We arbitrarily set the start time to
+                % UTC (Z) midnight although it's not, and duration to 1 day.
+                attribute.time_coverage_start = string( ...
+                    datetime(year(thisDate), month(thisDate), day(thisDate), ...
+                    0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ');
+                attribute.time_coverage_end = string( ...
+                    datetime(year(thisDate), month(thisDate), day(thisDate) + 1, ...
+                    0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ');
+                attribute.time_coverage_duration = 'P0Y0M1DT0H0M0S';
+                
                 attribute.versionOf_SCAGDRFSSTC = ...
                     region.espEnv.modisData.versionOf.SCAGDRFSSTC;
                 attribute.versionOf_VariablesMatlab = ...
