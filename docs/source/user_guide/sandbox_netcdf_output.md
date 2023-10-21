@@ -40,7 +40,7 @@ end
 Snippet to generate test v2022.0 Netcdf output files for High Mountain Asia:
 ```
 modisData = MODISData(label = 'v03', versionOfAncillary = 'v3.2');
-modisData.versionOf.VariablesNetCDF = 'v2022.0');
+modisData.versionOf.VariablesNetCDF = 'v2022.0';
 espEnv = ESPEnv(modisData = modisData, scratchPath = getenv('espArchiveDir'));
 bigRegionName = 'ASHimalaya';
 bigRegion = Regions(bigRegionName, [bigRegionName, '_mask'], espEnv, modisData);
