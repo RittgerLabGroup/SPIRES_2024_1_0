@@ -169,6 +169,10 @@ classdef Tools
             % ------
             % value: any type. the Value at the indices yielded in varargin.
             value = thisArray(varargin{:});
+            % Case when return 1 cell only: convert to string.
+            if iscell(class(value)) & numel(value) == 1
+                value = string(value);
+            end
         end
     end
 end
