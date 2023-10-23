@@ -1,0 +1,13 @@
+code,name,comment
+0,Name (tranferred as category name to the website),
+groupadm0,Region,should be renamed adm0group
+adm0part,Country area,should be only sourced from adm0
+adm0,Country,
+adm1,State / Country subdivision level 1,
+adm1part,State area,should be only sourced from adm1
+huc2,U.S. Hydrologic Unit Code level 2,
+huc4,U.S. Hydrologic Unit Code level 4,
+huc6,U.S. Hydrologic Unit Code level 6,
+hydro3,Hydrosheds level 3,
+hydro4,Hydrosheds level 4,
+hydro5,Hydrosheds level 5,
