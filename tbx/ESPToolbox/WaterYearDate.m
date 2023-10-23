@@ -18,6 +18,7 @@ classdef WaterYearDate < handle
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultFirstMonthForNorthTiles = 10;
         defaultFirstMonthForSouthTiles = 4; % 7 for New Zealand, dev a new call    @todo
+        maxDaysByYear = 366;
         monthFirstDay = 1;
         cubeMonthWindow = 3;
         yearMonthWindow = 12;
@@ -84,7 +85,7 @@ classdef WaterYearDate < handle
             if ~exist('monthWindow', 'var')
                 monthWindow = WaterYearDate.yearMonthWindow;
             end
-            lastWYDateForWaterYear = WaterYearDate(datetime(waterYear + 1, ...
+            lastWYDateForWaterYear = WaterYearDate(datetime(waterYear, ...
                 firstMonth, WaterYearDate.monthFirstDay, ...
                 WaterYearDate.dayStartTime.HH, WaterYearDate.dayStartTime.MIN, ...
                 WaterYearDate.dayStartTime.SS) - caldays(1), firstMonth, monthWindow);
@@ -166,6 +167,8 @@ classdef WaterYearDate < handle
         function obj = WaterYearDate(thisDatetime, firstMonth, monthWindow)
             % WaterYearDate constructor
             % NB: datetimes are forced to obj.dayStartTime.HH, .MIN, .SS
+            % NB: WaterYearDate are capped to today - 1 (no WaterYearDate covering
+            % future.
             %
             % Parameters
             % ----------
@@ -177,7 +180,15 @@ classdef WaterYearDate < handle
             %   Number of months to handle before thisDatetime, knowing
             %   that only the months of the water year associated with
             %   thisDatetime will be handled.
-            
+%{
+            % NB: A default waterYearDate covering today only can be generated with:
+            modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
+            espEnv = ESPEnv(modisData = modisData);   
+            regionName = 'westernUS'; % we need this only for the water Year start.        
+            region = Regions(bigRegionName, [bigRegionName, '_mask'], espEnv, modisData);
+            waterYearDate = WaterYearDate(datetime('today'), ...
+                espEnv.modisData.getFirstMonthOfWaterYear(region), 0);
+%}            
             if ~exist('thisDatetime', 'var')
                 thisDatetime = datetime('today');
             end
@@ -239,7 +250,15 @@ classdef WaterYearDate < handle
 
             dateRange = firstDate:obj.thisDatetime;
         end
-        
+        function dayRange = getDayRange(obj)
+            % Return
+            % ------
+            % dayRange: array(int)
+            %   Get the arrays of days count since start of waterYear for each daily
+            %   date of the waterYearDate obj. Used for stat calculations.
+            dayRange = daysdif(obj.getFirstDatetimeOfWaterYear(), ...
+                obj.getDailyDatetimeRange()) + 1;            
+        end  
         function firstDatetimeOfWaterYear = getFirstDatetimeOfWaterYear(obj)
             % Return
             % ------
@@ -319,10 +338,11 @@ classdef WaterYearDate < handle
         function waterYear = getWaterYear(obj)
             % Gets the WaterYear associated with the date
             [waterYear, thisMonth, ~] = ymd(obj.thisDatetime);
+            waterYear = cast(waterYear, 'uint16');
             if thisMonth >= obj.firstMonth
                 waterYear = waterYear + 1;
             end
-        end
+        end        
         function lastMonth = getWaterYearLastMonth(obj)
             % Return
             % ------
