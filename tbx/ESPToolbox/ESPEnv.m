@@ -2,6 +2,11 @@ classdef ESPEnv < handle
     % ESPEnv - environment for ESP data dirs and algorithms
     %   Directories with locations of various types of data needed for ESP
     %   Major cleaning for SIER_352.
+    % NB: Dont use the text 'zzzzz' or '*' in filenames or name of subfolders.
+    %
+    % WARNING: The class uses specific environment variables (property 
+    %   espEnvironmentVars), which must be defined at the environment level, either 
+    %   with the .bashrc or using Matlab, setenv(varName, value).
     properties
         confDir         % directory with configuration files (including variable names)
         dirWith % struct with various STC pipeline directories
@@ -57,10 +62,12 @@ classdef ESPEnv < handle
             region = 'configuration_of_regions.csv', ...
             regionlink = 'configuration_of_regionlinks.csv', ...
             variable = 'configuration_of_variables.csv');
-        defaultArchivePath = '/pl/active/rittger_esp/';
-        defaultHostName = 'CURCScratchAlpine';
-        defaultPublicOutputPath = '/pl/active/rittger_esp_public/';
-        defaultScratchPath = fullfile('/scratch/alpine/', getenv('USER'));
+        defaultArchivePath = getenv('espArchiveDir');
+        defaultHostName = 'CURCScratchAlpine';        
+        defaultScratchPath = getenv('espScratchDir');
+        espEnvironmentVars = {'espArchiveDir', 'espProjectDir', 'espScratchDir'};
+            % List of the variables which MUST be defined at the OS environment level.
+        % defaultPublicOutputPath = 'xxx/esp_public/';
     end
     methods(Static)
         function espEnv = getESPEnvForRegionNameAndVersionLabel(regionName, ...
@@ -124,6 +131,13 @@ classdef ESPEnv < handle
 
             % 1. Parameters and check modisData/scratchPath.
             %---------------------------------------------------------------------------
+            for espEnvironementVarIdx = 1:length(obj.espEnvironmentVars)
+                if isempty(getenv(obj.espEnvironmentVars{espEnvironementVarIdx}))
+                    warning(['%s: UNDEFINED environment variable %s. ', ...
+                        'ESPEnv will not work correctly.\n'], mfilename(), ...
+                        obj.espEnvironmentVars{espEnvironementVarIdx});
+                end
+            end
             p = inputParser;
             addParameter(p, 'modisData', []);
                 % Impossible to have parameter w/o default value?
@@ -218,12 +232,11 @@ classdef ESPEnv < handle
                 'RegionalStatsMatlab', fullfile(path, 'regional_stats', ...
                 'scagdrfs_mat'), ...
                 'RegionalStatsCsv', fullfile(path, 'regional_stats', ...
-                'scagdrfs_csv'), ...
-                'publicFTP', ...
-                fullfile(obj.defaultPublicOutputPath, 'snow-today'));
+                'scagdrfs_csv'));
 %{
+            obj.dirWith.publicFTP =  fullfile(obj.defaultPublicOutputPath, 'snow-today'));
             % For top-level stuff, paths are on PetaLibrary
-            path = fullfile('/pl', 'active', 'rittger_esp');
+            path = fullfile('x', 'x');
 
             %                                                              @obsolete
             obj.MODISDir = fullfile(path, 'scag', 'MODIS', 'SSN', 'v01');
@@ -242,11 +255,15 @@ classdef ESPEnv < handle
             obj.shapefileDir = fullfile(path, 'shapefiles');
             obj.regionMaskDir = fullfile(path, 'region_masks', 'v3');
 %}
-            % Convert these from 1x1 cells to plain char arrays
-            props = properties(obj);
-            for i = 1:length(props)
-                if iscell(obj.(props{i}))
-                    obj.(props{i}) = obj.(props{i}){1};
+            % Convert these from 1x1 cells to plain char arrays, (put aside read-only
+            % constants).
+            metaEspEnv = ?ESPEnv;
+            theseProperties = metaEspEnv.PropertyList;
+            for propertyIdx = 1:length(theseProperties)
+                if ~theseProperties(propertyIdx).Constant & ...
+                    iscell(obj.(theseProperties(propertyIdx).Name))
+                    obj.(theseProperties(propertyIdx).Name) = ...
+                        obj.(theseProperties(propertyIdx).Name){1};
                 end
             end
 
@@ -506,13 +523,11 @@ classdef ESPEnv < handle
             % ----------
             % objectName: char. Name of the tile or region as found in the modis files
             %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
-            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'. TO CHECK IF COMMENT STILL VALID @tocheck            %
-            %   For csv files for the website, the dataLabel will be the concatenation
-            %   of 'SubdivisionStatsWebCsv_' and the name of the variable, e.g.
-            %   SubdivisionStatsWebCsv_snow_fraction.
-            %   This is dirty and may need cleaner solution                        @todo
-            % label: char. Label (type) of data for which the file is required, should
-            %   be a key of ESPEnv.dirWith struct, e.g. spiresDaily.
+            %   id of the landSubdivision. E.g. 26000 for 'westernUS'.
+            % dataLabel: char. Label (type) of data for which the file is required,
+            %   should be a key of ESPEnv.dirWith struct, e.g. spiresDaily.
+            %   For nrt/historic data,
+            %   the version of dataLabel must be in obj.modisData.versionOf.(dataLabel).
             % thisDate: datetime. For which we want the file.
             %   NB/trick: for the SubdivisionStatsWebCsv, this is a date which year is
             %   the ongoing waterYear.
@@ -533,10 +548,20 @@ classdef ESPEnv < handle
                 dataLabel), :);
             if isempty(filePathConf)
                 errorStruct.identifier = ...
-                    'ESPEnv:getFilePathForDate:NoConfForDataLabel';
+                    'ESPEnv:getFilePathForDateAndVarName:NoConfForDataLabel';
                 errorStruct.message = sprintf( ...
                     ['%s: invalid dataLabel=%s, ' ...
                      'should be in configuration_of_filepaths.csv file.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+            if ~filePathConf.isAncillary(1) & ...
+                ~ismember(dataLabel, fieldnames(modisData.versionOf))
+                errorStruct.identifier = ...
+                    'ESPEnv:getFilePathForDateAndVarName:BadDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in MODISData.versionOf fieldnames.'], ...
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
@@ -549,25 +574,8 @@ classdef ESPEnv < handle
                     directoryPath = fullfile(directoryPath, subFolder);
                 end
             end
-            directoryPath = replace( ...
-                replace( ...
-                    replace( ...
-                        replace(directoryPath, '{versionOfAncillary}', ...
-                            obj.modisData.versionOf.ancillary), ...
-                        '{versionOfDataCollection}', ...
-                        sprintf('v%03d', ...
-                            obj.modisData.versionOf.MODISCollection)), ...
-                    '{objectName}', string(objectName)), ...
-                '{thisYear}', string(thisDate, 'yyyy'));
-            if ismember(dataLabel, fieldnames(obj.modisData.versionOf))
-                directoryPath = replace(directoryPath, ...
-                    '{version}', obj.modisData.versionOf.(dataLabel));
-            end
-            if isnumeric(objectName)
-                objectId = objectName;
-                directoryPath = replace(directoryPath, '{objectName_1000}', ...
-                    string(floor(objectName / 1000)));
-            end
+            directoryPath = obj.replacePatternsInFileOrDirPaths(directoryPath, ...
+                objectName, dataLabel, thisDate, varName);
             if ~isfolder(directoryPath)
                 mkdir(directoryPath);
             end
@@ -576,12 +584,8 @@ classdef ESPEnv < handle
             %   in file.
             %---------------------------------------------------------------------------
             fileName = [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
-            fileName = replace(fileName, '{platform}', modisData.versionOf.platform);
-            fileName = replace(fileName, '{objectName}', string(objectName));
-            fileName = replace(fileName, '{varName}', varName);
-            fileName = replace(fileName, '{version}', modisData.versionOf.(dataLabel));
-            fileName = replace(fileName, '{thisDate}', string(thisDate, ...
-                filePathConf.dateInFileName{1}));
+            fileName = obj.replacePatternsInFileOrDirPaths(fileName, ...
+                objectName, dataLabel, thisDate, varName);
 
             filePath = fullfile(directoryPath, fileName);
             fileExists = isfile(filePath);
@@ -602,7 +606,7 @@ classdef ESPEnv < handle
             %   id of the landSubdivision. E.g. 26000 for 'westernUS'.
             %   If the filepath is not object dependent
             %   (column in configuration_of_filepaths.csv), objectName is unused.
-            % label: char. Label (type) of data for which the file is required, as in
+            % dataLabel: char. Label (type) of data for which the file is required, as in
             %   configuration_of_filepaths: aspect,canopyheight, elevation, land,
             %   landsubdivision, region, slope, water.
             %
@@ -634,36 +638,16 @@ classdef ESPEnv < handle
                     directoryPath = fullfile(directoryPath, subFolder);
                 end
             end
-            directoryPath = replace( ...
-                replace( ...
-                    replace(directoryPath, '{versionOfAncillary}', ...
-                        obj.modisData.versionOf.ancillary), ...
-                    '{versionOfDataCollection}', ...
-                        sprintf('v%03d', obj.modisData.versionOf.MODISCollection)), ...
-                '{objectName}', string(objectName));
-            if ismember(dataLabel, fieldnames(obj.modisData.versionOf))
-                directoryPath = replace( ...
-                    directoryPath, '{version}', obj.modisData.versionOf.(dataLabel));
-            end
-            if isnumeric(objectName)
-                objectId = objectName;
-                directoryPath = replace(directoryPath, '{objectName_1000}', ...
-                    string(floor(objectName / 1000)));
-            end
+            directoryPath = obj.replacePatternsInFileOrDirPaths(directoryPath, ...
+                objectName, dataLabel, '', '');
             if ~isfolder(directoryPath)
                 mkdir(directoryPath)
             end
 
             % Construction of the filename.
-            fileName = [replace( ...
-                replace( ...
-                    filePathConf.fileLabel{1}, '{objectName}', string(objectName)), ...
-                    '{platform}', obj.modisData.versionOf.platform), ...
-                    filePathConf.fileExtension{1}];
-            if ismember(dataLabel, fieldnames(obj.modisData.versionOf))
-                fileName = replace(fileName, ...
-                    '{version}', obj.modisData.versionOf.(dataLabel));
-            end
+            fileName = [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
+            fileName = obj.replacePatternsInFileOrDirPaths(fileName, ...
+                objectName, dataLabel, '', '');
             % Temporary specific case for region masks                             @todo
             if isempty(filePathConf.fileLabel{1})
                 fileName = [objectName, filePathConf.fileExtension{1}];
@@ -677,9 +661,11 @@ classdef ESPEnv < handle
             % ----------
             % objectName: char. Name of the tile or region as found in the modis files
             %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
-            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
-            % label: char. Label (type) of data for which the file is required, should
+            %   id of a landSubdivision. E.g. 26000.
+            % dataLabel: char. Label (type) of data for which the file is required, should
             %   be a key of ESPEnv.dirWith struct, e.g. MOD09Raw.
+            %   For nrt/historic data,
+            %   the version of dataLabel must be in obj.modisData.versionOf.(dataLabel).
             % waterYearDate: WaterYearDate. Cover the period for which we want the
             %   files.
             %
@@ -713,7 +699,8 @@ classdef ESPEnv < handle
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
-            if ~ismember(dataLabel, fieldnames(modisData.versionOf))
+            if ~filePathConf.isAncillary(1) & ...
+                ~ismember(dataLabel, fieldnames(modisData.versionOf))
                 errorStruct.identifier = ...
                     'ESPEnv:getFilePathForWaterYearDate:BadDataLabel';
                 errorStruct.message = sprintf( ...
@@ -749,33 +736,16 @@ classdef ESPEnv < handle
                         directoryPath = fullfile(directoryPath, subFolder);
                     end
                 end
-                directoryPath = replace( ...
-                    replace( ...
-                        replace( ...
-                            replace(directoryPath, '{versionOfAncillary}', ...
-                                obj.modisData.versionOf.ancillary), ...
-                            '{versionOfDataCollection}', ...
-                            sprintf('v%03d', ...
-                                obj.modisData.versionOf.MODISCollection)), ...
-                        '{objectName}', string(objectName)), ...
-                    '{thisYear}', string(thisDate, 'yyyy'));
-                if ismember(dataLabel, fieldnames(obj.modisData.versionOf))
-                    directoryPath = replace(directoryPath, ...
-                        '{version}', obj.modisData.versionOf.(dataLabel));
-                end
+                directoryPath = obj.replacePatternsInFileOrDirPaths(directoryPath, ...
+                    objectName, dataLabel, thisDate, '');
                 if ~isfolder(directoryPath)
                     mkdir(directoryPath);
                 end
 
                 % Determine filename.
                 fileName = [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
-                fileName = replace(fileName, '{platform}', ...
-                    modisData.versionOf.platform);
-                fileName = replace(fileName, '{objectName}', string(objectName));
-                fileName = replace(fileName, '{version}', ...
-                    modisData.versionOf.(dataLabel));
-                fileName = replace(fileName, '{thisDate}', string(thisDate, ...
-                    filePathConf.dateInFileName{1}));
+                fileName = obj.replacePatternsInFileOrDirPaths(fileName, ...
+                    objectName, dataLabel, thisDate, '');
 
                 filePath{dateIdx} = fullfile(directoryPath, fileName);
 
@@ -798,6 +768,105 @@ classdef ESPEnv < handle
                  modisData.getFirstMonthOfWaterYear(objectName), ...
                  length(find(fileExists == 1)));
             waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
+        end
+        function objectNames = getAvailableObjectNamesForDataLabelAndDate(obj, ...
+            dataLabel, thisDate)
+            % Parameters
+            % ----------
+            % dataLabel: char. Label (type) of nrt/historic data or ancillary data
+            % for which the file is required,
+            %   e.g. spiresDaily or landsubdivisionlinkinjson. For nrt/historic data,
+            %   the version of dataLabel must be in obj.modisData.versionOf.(dataLabel).
+            % thisDate: datetime. For which we want the file.
+            %
+            % Return
+            % ------
+            % objectNames: char cell array. List of object names for which a file is
+            %   available for the dataLabel and for thisDate (and either for the
+            %   version of dataLabel in modisData or versionOfAncillary, + platform +
+            %   version of collection if necessary.
+            %
+            % NB: we assume that if a file for one variable for an object has been
+            %   generated, the other files for the other variables have been generated
+            %   too. This can be consequential and creates bugs, improve!          @todo
+            %
+            % NB: we assume that the text zzzzz is not used in filenames or name of
+            %   subfolders, except if it's an id of region or subdivision.
+
+            % Initialize ...
+            fakeObjectName = 'zzzzz';
+                % arbitrary objectName = zzzzz, which gives objectName_1000 = zz,
+                % if files organized in subfolders to avoid to be > 1000 files/folder.
+                % varName is * to take any file containing the name of a variable in it.
+                % We can't directly do that for objectName because of the possible
+                % subfolders.
+
+            % Get the filePath regexp to get the list of files associated to the
+            % method arguments ...
+            [filePath, ~, ~] = ...
+                obj.getFilePathForDateAndVarName(fakeObjectName, ...
+                dataLabel, thisDate, '*'); % We set varName to '*' to get all files.
+            filePath = replace(filePath, ...
+                [filesep(), fakeObjectName(1:2), filesep()], ...
+                [filesep(), '*', filesep()]);
+            filePath = replace(filePath, ...
+                ['_', fakeObjectName, '_'], ['_*_']);
+            filePath = replace(filePath, ...
+                [filesep(), fakeObjectName, '_'], [filesep(), '*_']);
+
+            % Get the files:
+            objectNames = struct2table(dir(filePath)).name;
+            if isequal(objectNames, [])
+                return;
+            end
+            % Get the parts of filename to remove to only have the objectName.
+            fileNamePattern = split(filePath, filesep());
+            fileNamePattern = fileNamePattern(end);
+            fileNamePattern = split(fileNamePattern, '*');
+            fileNamePattern = fileNamePattern(~strcmp(fileNamePattern, ''));
+                % remove empties, otherwise replace below doesn't work.
+
+            replaceForFun = @(x) replace(x, fileNamePattern, ...
+                repelem({''}, size(fileNamePattern, 1))');
+                    % Anomymous function to apply to the cell array below.
+            objectNames = cellfun(replaceForFun, objectNames, 'UniformOutput', false);
+                % NB: don't write @replaceForFun, since replaceForFun already equals
+                % a handler.
+        end
+        function webRelativeFilePath = getRelativeFilePathForWebIngest(obj, ...
+            objectName, dataLabel, thisDate, varName)
+            % Parameters
+            % ----------
+            % objectName: char. Name of the tile or region as found in the modis files
+            %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
+            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'. TO CHECK IF COMMENT STILL VALID @tocheck
+            % label: char. Label (type) of data for which the file is required, should
+            %   be a key of ESPEnv.dirWith struct, e.g. spiresDaily.
+            % thisDate: datetime. For which we want the file.
+            %   NB/trick: for the SubdivisionStatsWebCsv, this is a date which year is
+            %   the ongoing waterYear.
+            % varName: name of the variable. Currently only used for
+            %   SubdivisionStatsWebCsv (2023-09-30), otherwise set to ''.
+            %
+            % Return
+            % ------
+            % filePath: char. Relative filePath on the web ingest domain.
+
+            filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
+                dataLabel), :);
+            if isempty(filePathConf)
+                errorStruct.identifier = ...
+                    'ESPEnv:getFilePathForDate:NoConfForDataLabel';
+                errorStruct.message = sprintf( ...
+                    ['%s: invalid dataLabel=%s, ' ...
+                     'should be in configuration_of_filepaths.csv file.'], ...
+                    mfilename(), dataLabel);
+                error(errorStruct);
+            end
+            webRelativeFilePath = [filePathConf.webDirectory{1}, ...
+                filePathConf.webFileLabel{1}, fileExtension];
+            webRelativeFilePath = obj.replacePatternsInFileOrDirPaths( ...
+                webRelativeFilePath, objectName, dataLabel, thisDate, varName);
         end
         function f = MOD09File(obj, MData, regionName, yr, mm)
             % MOD09File returns the name of a monthly MOD09 cubefile
@@ -972,6 +1041,55 @@ classdef ESPEnv < handle
                 files.MOD09{nextIndex} = mod09file;
                 files.SCAGDRFS{nextIndex} = scagfile;
                 nextIndex = nextIndex + 1;
+            end
+        end
+        function newPath = replacePatternsInFileOrDirPaths(obj, path, objectName, ...
+            dataLabel, thisDate, varName)
+            % Parameters
+            % ----------
+            % path: char. FileName, directoryPath or filePath containing parameter
+            % patterns in the form {objectName}, {varName}, etc...
+            % objectName: char. Name of the tile or region as found in the modis files
+            %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
+            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
+            % dataLabel: char. Label (type) of data for which the file is required.
+            % thisDate: datetime. Cover the period for which we want the files.
+            % varName: name of the variable (output_name in
+            %   configuration_of_variables.csv.
+            %
+            % Return
+            % ------
+            % newPath: char. FileName, directoryPath or filePath with the patterns
+            %   replaced by values of the parameters contained in the patterns.
+            filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
+                dataLabel), :);
+            varConf = obj.myConf.variable(strcmp(obj.myConf.variable.output_name, ...
+                varName), :);
+
+            newPath = replace(path, '{versionOfAncillary}', ...
+                obj.modisData.versionOf.ancillary);
+            newPath = replace(newPath, '{versionOfDataCollection}', ...
+                sprintf('v%03d', obj.modisData.versionOf.MODISCollection));
+            newPath = replace(newPath, '{objectName}', string(objectName));
+            newPath = replace(newPath, '{platform}', obj.modisData.versionOf.platform);
+            newPath = replace(newPath, '{varName}', varName);
+
+            % In the following, if conditions = false, the pattern is kept in place.
+            % E.g. if a pattern contains '{thisYear}' and it thisDate is not a datetime,
+            % the filePath will keep having the text '{thisYear}'.
+            if ismember(dataLabel, fieldnames(obj.modisData.versionOf))
+                newPath = replace(newPath, ...
+                    '{version}', obj.modisData.versionOf.(dataLabel));
+            end
+            if isnumeric(objectName)
+                objectId = objectName;
+                newPath = replace(newPath, '{objectName_1000}', ...
+                    string(floor(objectName / 1000)));
+            end
+            if strcmp(class(thisDate), 'datetime')
+                newPath = replace(newPath, '{thisYear}', string(thisDate, 'yyyy'));
+                newPath = replace(newPath, '{thisDate}', string(thisDate, ...
+                    filePathConf.dateInFileName{1}));
             end
         end
         function setAdditionalConf(obj, confLabel)
