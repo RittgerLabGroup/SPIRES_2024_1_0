@@ -2,13 +2,15 @@ classdef ESPEnv < handle
     % ESPEnv - environment for ESP data dirs and algorithms
     %   Directories with locations of various types of data needed for ESP
     %   Major cleaning for SIER_352.
-    % NB: Dont use the text 'zzzzz' or '*' in filenames or name of subfolders.
+    % NB: Don't use the text 'zzzzz' or '*' in filenames or name of subfolders.
     %
     % WARNING: The class uses specific environment variables (property 
     %   espEnvironmentVars), which must be defined at the environment level, either 
     %   with the .bashrc or using Matlab, setenv(varName, value).
     properties
         confDir         % directory with configuration files (including variable names)
+        defaultArchivePath % getenv('espArchiveDir');
+        defaultScratchPath % getenv('espScratchDir');
         dirWith % struct with various STC pipeline directories
         mappingDir     % directory with MODIS tiles projection information   @deprecated
         modisData % MODISData Object.
@@ -61,10 +63,9 @@ classdef ESPEnv < handle
             filter = 'configuration_of_filters.csv', ...
             region = 'configuration_of_regions.csv', ...
             regionlink = 'configuration_of_regionlinks.csv', ...
-            variable = 'configuration_of_variables.csv');
-        defaultArchivePath = getenv('espArchiveDir');
-        defaultHostName = 'CURCScratchAlpine';        
-        defaultScratchPath = getenv('espScratchDir');
+            variable = 'configuration_of_variables.csv', ...
+            variableregion = 'configuration_of_variablesregions.csv');
+        defaultHostName = 'CURCScratchAlpine';
         espEnvironmentVars = {'espArchiveDir', 'espProjectDir', 'espScratchDir'};
             % List of the variables which MUST be defined at the OS environment level.
         % defaultPublicOutputPath = 'xxx/esp_public/';
@@ -138,6 +139,9 @@ classdef ESPEnv < handle
                         obj.espEnvironmentVars{espEnvironementVarIdx});
                 end
             end
+            obj.defaultArchivePath = getenv('espArchiveDir');
+            obj.defaultScratchPath = getenv('espScratchDir');
+        
             p = inputParser;
             addParameter(p, 'modisData', []);
                 % Impossible to have parameter w/o default value?
@@ -555,7 +559,7 @@ classdef ESPEnv < handle
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
-            if ~filePathConf.isAncillary(1) & ...
+            if filePathConf.isAncillary(1) == 0 & ...
                 ~ismember(dataLabel, fieldnames(modisData.versionOf))
                 errorStruct.identifier = ...
                     'ESPEnv:getFilePathForDateAndVarName:BadDataLabel';
@@ -699,7 +703,7 @@ classdef ESPEnv < handle
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
-            if ~filePathConf.isAncillary(1) & ...
+            if filePathConf.isAncillary(1) == 0 & ...
                 ~ismember(dataLabel, fieldnames(modisData.versionOf))
                 errorStruct.identifier = ...
                     'ESPEnv:getFilePathForWaterYearDate:BadDataLabel';
@@ -769,8 +773,8 @@ classdef ESPEnv < handle
                  length(find(fileExists == 1)));
             waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
         end
-        function objectNames = getAvailableObjectNamesForDataLabelAndDate(obj, ...
-            dataLabel, thisDate)
+        function objectNames = getObjectNamesForDataLabelAndDateAndVarName(obj, ...
+            dataLabel, thisDate, varName)
             % Parameters
             % ----------
             % dataLabel: char. Label (type) of nrt/historic data or ancillary data
@@ -778,13 +782,15 @@ classdef ESPEnv < handle
             %   e.g. spiresDaily or landsubdivisionlinkinjson. For nrt/historic data,
             %   the version of dataLabel must be in obj.modisData.versionOf.(dataLabel).
             % thisDate: datetime. For which we want the file.
+            % varName: char. Variable name. Can be '' if files of the dataLabel are not
+            %   split between variables.
             %
             % Return
             % ------
             % objectNames: char cell array. List of object names for which a file is
-            %   available for the dataLabel and for thisDate (and either for the
-            %   version of dataLabel in modisData or versionOfAncillary, + platform +
-            %   version of collection if necessary.
+            %   available for the combination dataLabel - thisDate - varName (and
+            %   either for the version of dataLabel in modisData or
+            %   versionOfAncillary, + platform + version of collection if necessary.
             %
             % NB: we assume that if a file for one variable for an object has been
             %   generated, the other files for the other variables have been generated
@@ -794,8 +800,8 @@ classdef ESPEnv < handle
             %   subfolders, except if it's an id of region or subdivision.
 
             % Initialize ...
-            fakeObjectName = 'zzzzz';
-                % arbitrary objectName = zzzzz, which gives objectName_1000 = zz,
+            fakeObjectName = num2str(intmax('uint16'));
+                % arbitrary objectName = 65535, which gives objectName_1000 = 65,
                 % if files organized in subfolders to avoid to be > 1000 files/folder.
                 % varName is * to take any file containing the name of a variable in it.
                 % We can't directly do that for objectName because of the possible
@@ -805,9 +811,10 @@ classdef ESPEnv < handle
             % method arguments ...
             [filePath, ~, ~] = ...
                 obj.getFilePathForDateAndVarName(fakeObjectName, ...
-                dataLabel, thisDate, '*'); % We set varName to '*' to get all files.
+                dataLabel, thisDate, varName);
             filePath = replace(filePath, ...
-                [filesep(), fakeObjectName(1:2), filesep()], ...
+                [filesep(), num2str(floor( ...
+                    cast(str2num(fakeObjectName), 'single') / 1000)), filesep()], ...
                 [filesep(), '*', filesep()]);
             filePath = replace(filePath, ...
                 ['_', fakeObjectName, '_'], ['_*_']);
@@ -818,6 +825,11 @@ classdef ESPEnv < handle
             objectNames = struct2table(dir(filePath)).name;
             if isequal(objectNames, [])
                 return;
+            end
+            if strcmp(class(objectNames), 'char')
+                objectNames = {objectNames}; 
+                    % this is so weird from Matlab, when 1 element only, gives a char
+                    % and not a cell array!
             end
             % Get the parts of filename to remove to only have the objectName.
             fileNamePattern = split(filePath, filesep());
@@ -864,7 +876,7 @@ classdef ESPEnv < handle
                 error(errorStruct);
             end
             webRelativeFilePath = [filePathConf.webDirectory{1}, ...
-                filePathConf.webFileLabel{1}, fileExtension];
+                filePathConf.webFileLabel{1}, filePathConf.fileExtension{1}];
             webRelativeFilePath = obj.replacePatternsInFileOrDirPaths( ...
                 webRelativeFilePath, objectName, dataLabel, thisDate, varName);
         end
@@ -1044,7 +1056,7 @@ classdef ESPEnv < handle
             end
         end
         function newPath = replacePatternsInFileOrDirPaths(obj, path, objectName, ...
-            dataLabel, thisDate, varName)
+            dataLabel, thisDate, varName, complementaryLabel)
             % Parameters
             % ----------
             % path: char. FileName, directoryPath or filePath containing parameter
@@ -1054,8 +1066,11 @@ classdef ESPEnv < handle
             %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
             % dataLabel: char. Label (type) of data for which the file is required.
             % thisDate: datetime. Cover the period for which we want the files.
-            % varName: name of the variable (output_name in
+            % varName: char. Name of the variable (output_name in
             %   configuration_of_variables.csv.
+            % complementaryLabel: char. This Label, if available may precise a 
+            %   characteristic of the file, e.g. the epsg code of the projection, 
+            %   e.g. EPSG_3857
             %
             % Return
             % ------
@@ -1063,16 +1078,30 @@ classdef ESPEnv < handle
             %   replaced by values of the parameters contained in the patterns.
             filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
-            varConf = obj.myConf.variable(strcmp(obj.myConf.variable.output_name, ...
-                varName), :);
 
             newPath = replace(path, '{versionOfAncillary}', ...
                 obj.modisData.versionOf.ancillary);
             newPath = replace(newPath, '{versionOfDataCollection}', ...
                 sprintf('v%03d', obj.modisData.versionOf.MODISCollection));
-            newPath = replace(newPath, '{objectName}', string(objectName));
+            if isnumeric(objectName)
+                objectName = num2str(objectName);
+            end
+            newPath = replace(newPath, '{objectName}', objectName);
             newPath = replace(newPath, '{platform}', obj.modisData.versionOf.platform);
+            if isnumeric(varName)
+                varName = num2str(varName);                
+            end
+            newPath = replace(newPath, '{varId}', varName); 
+                % Here we don't follow the logic when objectId is objectName in the
+                % patterns and we have varId and varName in the patterns. Check what
+                % we can do to be cleaner.   @todo
             newPath = replace(newPath, '{varName}', varName);
+            if ~exist('complementaryLabel', 'var')
+                complementaryLabel = '';
+            end
+            newPath = replace(newPath, '{ESPGCode}', complementaryLabel);
+            newPath = replace(newPath, '{geotiffCompression}', ...
+                Regions.geotiffCompression);            
 
             % In the following, if conditions = false, the pattern is kept in place.
             % E.g. if a pattern contains '{thisYear}' and it thisDate is not a datetime,
@@ -1081,10 +1110,20 @@ classdef ESPEnv < handle
                 newPath = replace(newPath, ...
                     '{version}', obj.modisData.versionOf.(dataLabel));
             end
-            if isnumeric(objectName)
+            objectId = [];
+            % we get objectId from objectName. Code below is to make certain that
+            % objectId is numeric and single, I don't trust Matlab and its automatic
+            % conversion which can make the division below a integer division we don't
+            % want to because it will round to the closest int and not the floor int.
+            if strcmp(class(objectName), 'char')
+                objectId = str2num(objectName);
+            elseif isnumeric(objectName)
                 objectId = objectName;
+            end
+            if ~isempty(objectId)
+                objectId = cast(objectId, 'single');
                 newPath = replace(newPath, '{objectName_1000}', ...
-                    string(floor(objectName / 1000)));
+                    string(floor(objectId / 1000)));
             end
             if strcmp(class(thisDate), 'datetime')
                 newPath = replace(newPath, '{thisYear}', string(thisDate, 'yyyy'));
