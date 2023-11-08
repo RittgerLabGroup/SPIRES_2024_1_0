@@ -80,7 +80,7 @@ error_exit() {
 # NB: dependency should be afterany and not any, otherwise it would generate a killing
 # lock.
 printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
-if [ ! -z isBatch ]; then
+if [ ! -z ${isBatch} ]; then
     echo "${PROGNAME}: SLURM_SCRATCH=$SLURM_SCRATCH"
     echo "${PROGNAME}: SLURM_JOB_ID=$SLURM_JOB_ID"
     sbatch --dependency=afterany:$SLURM_JOB_ID ./scripts/toolsJobAchieved.sh \
@@ -92,23 +92,41 @@ fi
 set_slurm_array_task_id
 
 # Caller script arguments.
+# NB: Not all scripts can be parametered with these arguments. Check the script codes
+# for details.
+filterConfId=0
+# id of the filter configuration (in configuration_of_filters.csv). 0 indicates take
+# the filter id of the region configuration, other value points to another specific
+# filter configuration.
 inputFromArchive=
+# copy input files from archive to scratch.
 LABEL="test"
+# is inputLabel, that is the version label of the input files, and also outputLabel,
+# if outputLabel not supplied.
 noPipeline=
+# if set to 1, the following script in the pipeline is not called.
 outputToArchive=
+# copy output files from scratch to archive.
+outputLabel=
+# version label of the output files.
 startyyyymmdd=
+# start date for import.
 testing=
+# if set to 1, doesn't send emails to everybody.
 VERSION_OF_ANCILLARY="v3.1"
-while getopts "A:ihL:nos:t" opt
+while getopts "A:c:hiL:noO:s:t" opt
+# NB: add a : in string above when option expects a value.
 do
     case $opt in
     A) VERSION_OF_ANCILLARY="$OPTARG";;
+    c) filterConfId="$OPTARG";;
 	h) usage
 	   exit 1;;
     i) inputFromArchive=1;;
 	L) LABEL="$OPTARG";;
     n) noPipeline=1;;
     o) outputToArchive=1;;
+    O) outputLabel="$OPTARG";;
     s) startyyyymmdd="$OPTARG";;
     t) testing=1;;
 	?) printf "Unknown option %s\n" $opt
@@ -116,10 +134,15 @@ do
            exit 1;;
 	esac
 done
+if [ ! outputLabel ]; then
+    outputLabel=LABEL
+fi
 
-echo "ancillary: ${VERSION_OF_ANCILLARY}, inputFromArchive: ${inputFromArchive}, " \
-"label: ${LABEL}, noPipeline: ${noPipeline}, outputToArchive: ${outputToArchive}, " \
-"testing: ${testing}."
+echo "ancillary: ${VERSION_OF_ANCILLARY}, " \
+"filterConfId for ${filterConfLabel}: ${filterConfId}, " \
+"inputFromArchive: ${inputFromArchive}, inputLabel: ${LABEL}, " \
+"noPipeline: ${noPipeline}, outputLabel: ${outputLabel}, " \
+"outputToArchive: ${outputToArchive}, testing: ${testing}."
 
 shift $(($OPTIND - 1))
 
@@ -133,6 +156,20 @@ version_of_ancillary_option=""
 # pl/archive).
 inputForModisData="label = '${LABEL}', versionOfAncillary = '${VERSION_OF_ANCILLARY}'"
 printf "inputForModisData: ${inputForModisData}\n"
+modisDataInstantiation="modisData = MODISData(${inputForModisData}); "
+if [[ ${LABEL} != ${outputLabel} ]] & [ outputDataLabels ]; then
+    for thisLabel in ${outputDataLabels[*]}; 
+        do modisDataInstantiation=${modisDataInstantiation}"modisData.versionOf.${thisLabel}='${outputLabel}'; "; 
+    done
+    printf "modisDataInstantiation: ${modisDataInstantiation}.\n"
+fi
+
+inputForESPEnv="modisData = modisData"
+espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); "
+if [[ ${filterConfId} -ne 0 ]]; then
+    espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region.${filterConfLabel}ConfId(:)=${filterConfId}; ";    
+    printf "espEnvInstantiation: ${espEnvInstantiation}.\n"
+fi
 
 shuffleAncillaryOptions="-A ${VERSION_OF_ANCILLARY}"
 nextStepOptions="${shuffleAncillaryOptions} -L ${LABEL}"
