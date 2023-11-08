@@ -76,24 +76,12 @@ error_exit() {
 
 # Script core.
 #---------------------------------------------------------------------------------------
-# Submit sbatch script updating the efficiency statistics at the end of the log file.
-# NB: dependency should be afterany and not any, otherwise it would generate a killing
-# lock.
 printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
-if [ ! -z ${isBatch} ]; then
-    echo "${PROGNAME}: SLURM_SCRATCH=$SLURM_SCRATCH"
-    echo "${PROGNAME}: SLURM_JOB_ID=$SLURM_JOB_ID"
-    sbatch --dependency=afterany:$SLURM_JOB_ID ./scripts/toolsJobAchieved.sh \
-        $SLURM_JOB_ID $SBATCH_OUTPUT
-
-    stdoutDir=$(get_slurm_std_out_directory ${SLURM_JOB_ID})
-    echo "stdoutDir: " ${stdoutDir}
-fi
-set_slurm_array_task_id
 
 # Caller script arguments.
 # NB: Not all scripts can be parametered with these arguments. Check the script codes
 # for details.
+dateOfToday=
 filterConfId=0
 # id of the filter configuration (in configuration_of_filters.csv). 0 indicates take
 # the filter id of the region configuration, other value points to another specific
@@ -109,17 +97,20 @@ outputToArchive=
 # copy output files from scratch to archive.
 outputLabel=
 # version label of the output files.
+scratchPath=${espScratchDir}
+# scratch path, by default environment variable.
 startyyyymmdd=
 # start date for import.
 testing=
 # if set to 1, doesn't send emails to everybody.
 VERSION_OF_ANCILLARY="v3.1"
-while getopts "A:c:hiL:noO:s:t" opt
+while getopts "A:c:d:hiL:noO:s:tx:" opt
 # NB: add a : in string above when option expects a value.
 do
     case $opt in
     A) VERSION_OF_ANCILLARY="$OPTARG";;
     c) filterConfId="$OPTARG";;
+    d) dateOfToday="$OPTARG";;
 	h) usage
 	   exit 1;;
     i) inputFromArchive=1;;
@@ -129,6 +120,7 @@ do
     O) outputLabel="$OPTARG";;
     s) startyyyymmdd="$OPTARG";;
     t) testing=1;;
+    x) scratchPath="$OPTARG";;
 	?) printf "Unknown option %s\n" $opt
 	   usage
            exit 1;;
@@ -139,10 +131,31 @@ if [ ! outputLabel ]; then
 fi
 
 echo "ancillary: ${VERSION_OF_ANCILLARY}, " \
+"dateOfToday: ${dateOfToday}, " \
 "filterConfId for ${filterConfLabel}: ${filterConfId}, " \
 "inputFromArchive: ${inputFromArchive}, inputLabel: ${LABEL}, " \
 "noPipeline: ${noPipeline}, outputLabel: ${outputLabel}, " \
-"outputToArchive: ${outputToArchive}, testing: ${testing}."
+"outputToArchive: ${outputToArchive}, testing: ${testing}, "\
+"scratchPath: ${scratchPath}."
+
+# Output file. This variable is not transferred from sbatch to bash, so we define it.
+# NB: to split a string, don't put indent otherwise there will be two variables.
+SBATCH_OUTPUT="${scratchPath}slurm_out/${SLURM_JOB_NAME}-${SLURM_ARRAY_JOB_ID}_"\
+"${SLURM_ARRAY_TASK_ID}.out"
+# Submit sbatch script updating the efficiency statistics at the end of the log file.
+# NB: dependency should be afterany and not any, otherwise it would generate a killing
+# lock.
+if [ ! -z ${isBatch} ]; then
+    echo "${PROGNAME}: SLURM_SCRATCH=$SLURM_SCRATCH"
+    echo "${PROGNAME}: SLURM_JOB_ID=$SLURM_JOB_ID"
+    sbatch --dependency=afterany:$SLURM_JOB_ID ./scripts/toolsJobAchieved.sh \
+        $SLURM_JOB_ID $SBATCH_OUTPUT
+
+    stdoutDir=$(get_slurm_std_out_directory ${SLURM_JOB_ID})
+    echo "stdoutDir: " ${stdoutDir}
+fi
+set_slurm_array_task_id
+
 
 shift $(($OPTIND - 1))
 
@@ -159,19 +172,28 @@ printf "inputForModisData: ${inputForModisData}\n"
 modisDataInstantiation="modisData = MODISData(${inputForModisData}); "
 if [[ ${LABEL} != ${outputLabel} ]] & [ outputDataLabels ]; then
     for thisLabel in ${outputDataLabels[*]}; 
-        do modisDataInstantiation=${modisDataInstantiation}"modisData.versionOf.${thisLabel}='${outputLabel}'; "; 
+        do modisDataInstantiation=${modisDataInstantiation}""\
+"modisData.versionOf.${thisLabel}='${outputLabel}'; "; 
     done
     printf "modisDataInstantiation: ${modisDataInstantiation}.\n"
 fi
 
-inputForESPEnv="modisData = modisData"
+inputForESPEnv="modisData = modisData, scratchPath = '${scratchPath}'"
 espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); "
 if [[ ${filterConfId} -ne 0 ]]; then
-    espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region.${filterConfLabel}ConfId(:)=${filterConfId}; ";    
+    espEnvInstantiation=${espEnvInstantiation}" "\
+"espEnv.myConf.region.${filterConfLabel}ConfId(:)=${filterConfId}; ";    
     printf "espEnvInstantiation: ${espEnvInstantiation}.\n"
 fi
+waterYearDateSetToday=""
+if [ ! -z ${dateOfToday} ]; then
+    waterYearDateSetToday="waterYearDate.dateOfToday = datetime(${dateOfToday:0:4}, "\
+"${dateOfToday:4:6}, ${dateOfToday:6:8}); ";    
+    printf "waterYearDateSetToday: ${waterYearDateSetToday}.\n"
+fi
+# NB: month and day can be input as 09 and 01 apparently with Matlab 2021b.
 
-shuffleAncillaryOptions="-A ${VERSION_OF_ANCILLARY}"
+shuffleAncillaryOptions="-A ${VERSION_OF_ANCILLARY} -x ${scratchPath}"
 nextStepOptions="${shuffleAncillaryOptions} -L ${LABEL}"
 if [ inputFromArchive ]; then
     nextStepOptions="${nextStepOptions} -i"
