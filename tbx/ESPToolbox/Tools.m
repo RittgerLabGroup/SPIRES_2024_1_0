@@ -170,8 +170,37 @@ classdef Tools
             % value: any type. the Value at the indices yielded in varargin.
             value = thisArray(varargin{:});
             % Case when return 1 cell only: convert to string.
-            if iscell(class(value)) & numel(value) == 1
+            if iscell(value) & numel(value) == 1
                 value = string(value);
+            end
+        end
+        function value = valueInTableForThisField(thisTable, comparedField, ...
+            comparedValue, returnedField)
+            % Parameter
+            % ---------
+            % thisTable: Table of any dimension.
+            % comparedField: char. Name of the field where compareValue will be looked
+            %   for.
+            % comparedValue: char or numeric. Value that comparedField should equal.
+            %   NB: this value should be unique in Table/comparedField.
+            % returnedField: char. Name of the field for which the value is returned.
+            % 
+            % Return
+            % ------
+            % value: char or numeric. the value looked in the table at the line for
+            %   which the value of comparedField is expected to equal the value of
+            %   argument compared value.
+            if ischar(comparedValue)
+                value = thisTable( ...
+                    strcmp(thisTable.(comparedField), comparedValue), :). ...
+                    (returnedField);
+            else
+                value = thisTable( ...
+                    thisTable.(comparedField) == comparedValue, :). ...
+                    (returnedField);
+            end
+            if iscell(value)
+                value = value{1};
             end
         end
     end
