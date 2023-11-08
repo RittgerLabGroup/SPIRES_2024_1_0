@@ -188,7 +188,7 @@ fi
 waterYearDateSetToday=""
 if [ ! -z ${dateOfToday} ]; then
     waterYearDateSetToday="waterYearDate.dateOfToday = datetime(${dateOfToday:0:4}, "\
-"${dateOfToday:4:6}, ${dateOfToday:6:8}); ";    
+"${dateOfToday:4:2}, ${dateOfToday:6:2}); ";    
     printf "waterYearDateSetToday: ${waterYearDateSetToday}.\n"
 fi
 # NB: month and day can be input as 09 and 01 apparently with Matlab 2021b.
