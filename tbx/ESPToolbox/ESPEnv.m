@@ -522,7 +522,8 @@ classdef ESPEnv < handle
             end
         end
         function [filePath, fileExists, lastDateInFile] = ...
-            getFilePathForDateAndVarName(obj, objectName, dataLabel, thisDate, varName)
+            getFilePathForDateAndVarName(obj, objectName, dataLabel, thisDate, ...
+            varName, complementaryLabel)
             % Parameters
             % ----------
             % objectName: char. Name of the tile or region as found in the modis files
@@ -537,6 +538,8 @@ classdef ESPEnv < handle
             %   the ongoing waterYear.
             % varName: name of the variable. Currently only used for
             %   SubdivisionStatsWebCsv (2023-09-30), otherwise set to ''.
+            % complementaryLabel: char. Only used to add EPSG code for geotiffs. E.g.
+            %   EPSG_3857.
             %
             % Return
             % ------
@@ -571,7 +574,7 @@ classdef ESPEnv < handle
             end
             directoryPath = fullfile(obj.scratchPath, ...
                 filePathConf.topSubDirectory{1});
-            for subFolderIdx = 1:6
+            for subFolderIdx = 1:7
                 subFolder = ...
                     filePathConf.(['fileSubDirectory', num2str(subFolderIdx)]){1};
                 if ~isempty(subFolder)
@@ -579,7 +582,7 @@ classdef ESPEnv < handle
                 end
             end
             directoryPath = obj.replacePatternsInFileOrDirPaths(directoryPath, ...
-                objectName, dataLabel, thisDate, varName);
+                objectName, dataLabel, thisDate, varName, complementaryLabel);
             if ~isfolder(directoryPath)
                 mkdir(directoryPath);
             end
@@ -589,7 +592,7 @@ classdef ESPEnv < handle
             %---------------------------------------------------------------------------
             fileName = [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
             fileName = obj.replacePatternsInFileOrDirPaths(fileName, ...
-                objectName, dataLabel, thisDate, varName);
+                objectName, dataLabel, thisDate, varName, complementaryLabel);
 
             filePath = fullfile(directoryPath, fileName);
             fileExists = isfile(filePath);
@@ -635,7 +638,7 @@ classdef ESPEnv < handle
             % exists.
             directoryPath = fullfile(obj.scratchPath, ...
                 filePathConf.topSubDirectory{1});
-            for subFolderIdx = 1:6
+            for subFolderIdx = 1:7
                 subFolder = ...
                     filePathConf.(['fileSubDirectory', num2str(subFolderIdx)]){1};
                 if ~isempty(subFolder)
@@ -733,7 +736,7 @@ classdef ESPEnv < handle
                 % create the directory if doesn't exist.
                 directoryPath = fullfile(obj.scratchPath, ...
                     filePathConf.topSubDirectory{1});
-                for subFolderIdx = 1:6
+                for subFolderIdx = 1:7
                     subFolder = ...
                         filePathConf.(['fileSubDirectory', num2str(subFolderIdx)]){1};
                     if ~isempty(subFolder)
