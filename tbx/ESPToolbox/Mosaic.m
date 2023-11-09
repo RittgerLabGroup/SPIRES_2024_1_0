@@ -195,12 +195,15 @@ classdef Mosaic
                     % This indirection is due to matfile 7.3 limitation
                     % It won't allow us to directly index into 
                     % structure fields
-                    thisSTC = tileRegionsArray(tileId).STC;
-                    mosaicData.mindays(tileId) = {thisSTC.mindays};
-                    mosaicData.zthresh(tileId) = {thisSTC.zthresh};
+                    % thisSTC = tileRegionsArray(tileId).STC;                  @obsolete                    
+                    mosaicData.stcStruct(tileId) = tileSTCData.stcStruct; % new, 2023-11-09.
+                    mosaicData.mindays(tileId) = {mosaicData.stcStruct(tileId).mindays};
+                    mosaicData.zthresh(tileId) = {mosaicData.stcStruct(tileId).zthresh};
                 end
                 warning('off', 'MATLAB:structOnObject');
-                mosaicData.stcStruct = struct(region.STC); % SIER_289
+                mosaicData.stcStruct = mosaicData.stcStruct(1); % 2023-11-09, was formerly struct(region.STC); % SIER_289
+                    % This changed after the inline possibility to override the stc conf 
+                    % of the region in bash runUpdateSTCMonthCubes.sh
                 warning('on', 'MATLAB:structOnObject');
                 mosaicData.RefMatrix = zeros(3,2);
                 mosaicData.RefMatrix(3, 1) = min(tileData.RefMatrices(:, 3, 1));
