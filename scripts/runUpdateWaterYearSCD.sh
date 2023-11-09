@@ -33,7 +33,8 @@
 #---------------------------------------------------------------------------------------
 usage() {
     echo "" 1>&2
-    echo "Usage: ${PROGNAME} [-A LABEL_ANCILLARY] [-h] [-L LABEL] REGIONNAME" 1>&2
+    echo "Usage: ${PROGNAME} [-A LABEL_ANCILLARY] [-h] [-L LABEL] " 1>&2
+    echo " [-O outputLabel] [-x scratchPath] REGIONNAME" 1>&2
     echo "  Job array to update REGIONNAMES Interp STC cubes " 1>&2
     echo "  with SCD for complete water years" 1>&2
     echo "Options: "  1>&2
@@ -43,6 +44,10 @@ usage() {
     echo "  -h: display help message and exit" 1>&2
     echo "  -L LABEL: string with version label for directories" 1>&2
     echo "     e.g. for operational processing, use -L v2023.x" 1>&2
+    echo "  -O outputLabel: string with version label for output files" 1>&2
+    echo "     If -O not precised, LABEL is used for both input and output files" 1>&2
+    echo "  -x scratchPath: string indicating where is the scratch, where are " 1>&2
+    echo "     temporarily input and ouput files, and permanently the logs. " 1>&2
     echo "Arguments: " 1>&2
     echo "  REGIONNAME : regionName (tile id, e.g. h08v04) to update" 1>&2
     echo "Output: " 1>&2
@@ -63,10 +68,6 @@ usage() {
 scriptId=scdInCub
 defaultSlurmArrayTaskId=2022
 expectedCountOfArguments=1
-# Output file. This variable is not transferred from sbatch to bash, so we define it.
-# NB: to split a string, don't put indent otherwise there will be two variables.
-SBATCH_OUTPUT="/scratch/alpine/${USER}/slurm_out/${SLURM_JOB_NAME}-${SLURM_ARRAY_JOB_ID}_"\
-"${SLURM_ARRAY_TASK_ID}.out"
 
 isBatch=
 if [[ ${BASH_SOURCE} == *"slurm_script"* ]]; then
@@ -99,10 +100,10 @@ source scripts/toolsMatlab.sh
 
 # Matlab.
 #---------------------------------------------------------------------------------------
-matlab -nodesktop -nodisplay -r "clear; "\
+matlabString="clear; "\
 "try; "\
-"modisData = MODISData(${inputForModisData}); "\
-"espEnv = ESPEnv(${inputForESPEnv}); "\
+"${modisDataInstantiation}"\
+"${espEnvInstantiation}"\
 "region = Regions(${inputForRegion}); "\
 "waterYearDate = WaterYearDate.getLastWYDateForWaterYear(${inputForWaterYearDate}); "\
 "variables = Variables(region); "\
@@ -111,6 +112,9 @@ matlab -nodesktop -nodisplay -r "clear; "\
 "fprintf('%s: %s\n', e.identifier, e.message); "\
 "exit(-1); "\
 "end; "\
-"exit(0);" || error_exit "Line $LINENO: matlab error."
+"exit(0);"
+
+echo "\n"$matlabString
+matlab -nodesktop -nodisplay -r "${matlabString}" || error_exit "Line $LINENO: matlab error."
 
 source scripts/toolsStop.sh
