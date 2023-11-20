@@ -13,6 +13,9 @@ classdef WaterYearDate < handle
         overlapOtherYear = 0; % 1: overlap possible for interpolation. 0: not possible. 
                             % SIER_365.
         thisDatetime    % datetime of the object        
+        dateOfToday % datetime of the date which is considered today, allows
+            % handling of stop of data supply by JPL or DAAC for more than 1 month 2023-11-07.
+            % this property value can be changed manually in scripts.
     end
     properties(Constant) 
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
@@ -211,6 +214,7 @@ classdef WaterYearDate < handle
             if exist('monthWindow', 'var') & monthWindow <= 12
                 obj.monthWindow = monthWindow;
             end
+            obj.dateOfToday = datetime('today'); % 2023-11-07 following JPL stop.               
             fprintf('%s: WaterYearDate: %s, firstMonth %d, monthWindow: %d.\n', ...
                 mfilename(), string(obj.thisDatetime, 'yyyyMMdd'), ...
                 obj.firstMonth, obj.monthWindow);
@@ -351,6 +355,16 @@ classdef WaterYearDate < handle
             if month <= 0
                 lastMonth = 12 + lastMonth;
             end
+        end
+        function waterYearDateChar = toChar(obj)
+            % Return
+            % ------
+            % waterYearDateChar: char. Text corresponding to the waterYearDate, used
+            %   in logs for instance.
+            waterYearDateChar = [char(obj.thisDatetime, 'yyyy-MM-dd'), ...
+                ' firstMonth: ', num2str(obj.firstMonth), ' monthWindow: ', ...
+                num2str(obj.monthWindow)];
+                % NB: num2str returns a char, not a string.
         end
     end
 end
