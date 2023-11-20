@@ -76,6 +76,7 @@ error_exit() {
 
 # Script core.
 #---------------------------------------------------------------------------------------
+ml slurmtools
 printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
 
 # Caller script arguments.
