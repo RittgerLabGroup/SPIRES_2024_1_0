@@ -4,8 +4,8 @@ classdef ESPEnv < handle
     %   Major cleaning for SIER_352.
     % NB: Don't use the text 'zzzzz' or '*' in filenames or name of subfolders.
     %
-    % WARNING: The class uses specific environment variables (property 
-    %   espEnvironmentVars), which must be defined at the environment level, either 
+    % WARNING: The class uses specific environment variables (property
+    %   espEnvironmentVars), which must be defined at the environment level, either
     %   with the .bashrc or using Matlab, setenv(varName, value).
     properties
         confDir         % directory with configuration files (including variable names)
@@ -150,7 +150,7 @@ classdef ESPEnv < handle
             end
             obj.defaultArchivePath = getenv('espArchiveDir');
             obj.defaultScratchPath = getenv('espScratchDir');
-        
+
             p = inputParser;
             addParameter(p, 'modisData', []);
                 % Impossible to have parameter w/o default value?
@@ -231,21 +231,21 @@ classdef ESPEnv < handle
             % Order the filter table by the order in which the filtering should be
             % processed. Redundant with precedent?                              @tocheck
             obj.myConf.filter = sortrows(obj.myConf.filter, [1, 2]);
-                        fprintf('%s: Sorted filter configuration.\n', mfilename());
-            
+            fprintf('%s: Sorted filter configuration.\n', mfilename());
+
             % Restrict region to value of modisData versionOfAncillary.
             if obj.filterMyConfByVersionOfAncillary
                 obj.myConf.region = obj.myConf.region( ...
                     strcmp(obj.myConf.region.versionOfAncillary, ...
                     obj.modisData.versionOf.ancillary), :);
             end
-            
+
             % Restrict region/subregion links to active (e.g. USAlaska/h08v03).
             % NB: Should also restrict to value of versionOfAncillary.             @todo
             obj.myConf.regionlink = obj.myConf.regionlink( ...
                 obj.myConf.regionlink.isActive == 1, :);
             fprintf('%s: Restricted region links to isActive = 1.\n', mfilename());
-            
+
             % Variables associated to regions:
             % - Determine the name of variables.
             % - Restrict the variable region to the regions of the version of ancillary
@@ -409,7 +409,7 @@ classdef ESPEnv < handle
             f = obj.myConf.variable;
         end
         function varData = getDataForDateAndVarName(obj, ...
-            objectName, dataLabel, thisDate, varName)
+            objectName, dataLabel, thisDate, varName, complementaryLabel)
             % Parameters
             % ----------
             % objectName: char. Name of the tile or region as found in the modis files
@@ -421,6 +421,8 @@ classdef ESPEnv < handle
             %   files. If not necessary, put ''.
             % varName: name of the variable to load (name in the file, not output_name
             %   of configuration_of_variables.csv).
+            % complementaryLabel: char. Only used to add EPSG code for geotiffs. E.g.
+            %   EPSG_3857. If not necessary, put ''.
             %
             % Return
             % ------
@@ -434,7 +436,7 @@ classdef ESPEnv < handle
             %---------------------------------------------------------------------------
             [filePath, fileExists, ~] = ...
                 obj.getFilePathForDateAndVarName(objectName, dataLabel, thisDate, ...
-                    varName);
+                    varName, complementaryLabel);
                 % Raises error if dataLabel not in configuration_of_filenames.csv and
                 % in modisData.versionOf.
 
@@ -453,7 +455,7 @@ classdef ESPEnv < handle
                         % loops.
                 end
             end
-        end           
+        end
         function [data, mapCellsReference, metaData] = ...
             getDataForObjectNameDataLabel(obj, objectName, dataLabel)
             % Parameters
@@ -840,7 +842,7 @@ classdef ESPEnv < handle
             waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
         end
         function objectNames = getObjectNamesForDataLabelAndDateAndVarName(obj, ...
-            dataLabel, thisDate, varName)
+            dataLabel, thisDate, varName, complementaryLabel)
             % Parameters
             % ----------
             % dataLabel: char. Label (type) of nrt/historic data or ancillary data
@@ -850,6 +852,8 @@ classdef ESPEnv < handle
             % thisDate: datetime. For which we want the file.
             % varName: char. Variable name. Can be '' if files of the dataLabel are not
             %   split between variables.
+            % complementaryLabel: char. Only used to add EPSG code for geotiffs. E.g.
+            %   EPSG_3857. If not necessary, put ''.
             %
             % Return
             % ------
@@ -881,7 +885,7 @@ classdef ESPEnv < handle
             % method arguments ...
             [filePath, ~, ~] = ...
                 obj.getFilePathForDateAndVarName(fakeObjectName, ...
-                dataLabel, thisDate, varName);
+                dataLabel, thisDate, varName, complementaryLabel);
             filePath = replace(filePath, ...
                 [filesep(), num2str(floor( ...
                     cast(str2num(fakeObjectName), 'single') / 1000)), filesep()], ...
@@ -896,13 +900,13 @@ classdef ESPEnv < handle
             % Get the files:
             fprintf('%s: Getting the list of files in %s...\n', mfilename(), ...
                 obj.scratchPath);
-            objectNames = struct2table(dir(filePath)).name;      
+            objectNames = struct2table(dir(filePath)).name;
             fprintf('%s: Got the list of files.\n', mfilename());
             if isequal(objectNames, [])
                 return;
             end
             if strcmp(class(objectNames), 'char')
-                objectNames = {objectNames}; 
+                objectNames = {objectNames};
                     % this is so weird from Matlab, when 1 element only, gives a char
                     % and not a cell array!
             end
@@ -919,6 +923,7 @@ classdef ESPEnv < handle
             objectNames = cellfun(replaceForFun, objectNames, 'UniformOutput', false);
                 % NB: don't write @replaceForFun, since replaceForFun already equals
                 % a handler.
+
             % Filter objectNames by the versionOfAncillary
             % (necessary for versionOfAncillary independent filePaths).
             % NB:This is a bit convoluted but required by the current dirty structure of
@@ -935,7 +940,7 @@ classdef ESPEnv < handle
                 else
                     obj.setAdditionalConf('landsubdivision');
                     if strcmp(class(objectNames.objectNames), ...
-                        class(obj.myConf.landsubdivision.id))              
+                        class(obj.myConf.landsubdivision.id))
                         tempObjectNames = innerjoin(objectNames, ...
                             obj.myConf.landsubdivision, ...
                             LeftKeys = 'objectNames', RightKeys = 'id', ...
@@ -951,47 +956,47 @@ classdef ESPEnv < handle
                     else
                         fprintf(['%s: Undetected objectName as region or ', ...
                                 'landsubdivision, return empty.\n'], mfilename());
-                    end    
+                    end
                 end
                 objectNames = table2cell(objectNames);
             end
             fprintf('%s: Determined the list of objectNames.\n', mfilename());
         end
-        function webRelativeFilePath = getRelativeFilePathForWebIngest(obj, ...
-            objectName, dataLabel, thisDate, varName)
-            % Parameters
-            % ----------
-            % objectName: char. Name of the tile or region as found in the modis files
-            %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
-            %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'. TO CHECK IF COMMENT STILL VALID @tocheck
-            % label: char. Label (type) of data for which the file is required, should
-            %   be a key of ESPEnv.dirWith struct, e.g. spiresDaily.
-            % thisDate: datetime. For which we want the file.
-            %   NB/trick: for the SubdivisionStatsWebCsv, this is a date which year is
-            %   the ongoing waterYear.
-            % varName: name of the variable. Currently only used for
-            %   SubdivisionStatsWebCsv (2023-09-30), otherwise set to ''.
-            %
-            % Return
-            % ------
-            % filePath: char. Relative filePath on the web ingest domain.
 
-            filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
-                dataLabel), :);
-            if isempty(filePathConf)
-                errorStruct.identifier = ...
-                    'ESPEnv:getFilePathForDate:NoConfForDataLabel';
-                errorStruct.message = sprintf( ...
-                    ['%s: invalid dataLabel=%s, ' ...
-                     'should be in configuration_of_filepaths.csv file.'], ...
-                    mfilename(), dataLabel);
-                error(errorStruct);
-            end
-            webRelativeFilePath = [filePathConf.webDirectory{1}, ...
-                filePathConf.webFileLabel{1}, filePathConf.fileExtension{1}];
-            webRelativeFilePath = obj.replacePatternsInFileOrDirPaths( ...
-                webRelativeFilePath, objectName, dataLabel, thisDate, varName);
-        end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         function f = MOD09File(obj, MData, regionName, yr, mm)
             % MOD09File returns the name of a monthly MOD09 cubefile
             % if versionOf value is not empty, use underscore separator
@@ -1180,8 +1185,8 @@ classdef ESPEnv < handle
             % thisDate: datetime. Cover the period for which we want the files.
             % varName: char. Name of the variable (output_name in
             %   configuration_of_variables.csv.
-            % complementaryLabel: char. This Label, if available may precise a 
-            %   characteristic of the file, e.g. the epsg code of the projection, 
+            % complementaryLabel: char. This Label, if available may precise a
+            %   characteristic of the file, e.g. the epsg code of the projection,
             %   e.g. EPSG_3857
             %
             % Return
@@ -1201,9 +1206,9 @@ classdef ESPEnv < handle
             newPath = replace(newPath, '{objectName}', objectName);
             newPath = replace(newPath, '{platform}', obj.modisData.versionOf.platform);
             if isnumeric(varName)
-                varName = num2str(varName);                
+                varName = num2str(varName);
             end
-            newPath = replace(newPath, '{varId}', varName); 
+            newPath = replace(newPath, '{varId}', varName);
                 % Here we don't follow the logic when objectId is objectName in the
                 % patterns and we have varId and varName in the patterns. Check what
                 % we can do to be cleaner.   @todo
@@ -1213,7 +1218,7 @@ classdef ESPEnv < handle
             end
             newPath = replace(newPath, '{EPSGCode}', complementaryLabel);
             newPath = replace(newPath, '{geotiffCompression}', ...
-                Regions.geotiffCompression);            
+                Regions.geotiffCompression);
 
             % In the following, if conditions = false, the pattern is kept in place.
             % E.g. if a pattern contains '{thisYear}' and it thisDate is not a datetime,
@@ -1274,16 +1279,17 @@ classdef ESPEnv < handle
                 readtable(fullfile(obj.confDir, ...
                 obj.additionalConfigurationFilenames.(confLabel)), 'Delimiter', ',');
             tmp([1],:) = []; % delete comment line
+
             % Add the versionOfAncillary for landsubdivision.
             if strcmp(confLabel, 'landsubdivision')
-                tmp = tmp(tmp.used > 0, :); 
-                    % Might be necessary to change to == 1 2023-11-15 @todo 
+                tmp = tmp(tmp.used > 0, :);
+                    % Might be necessary to change to == 1 2023-11-15 @todo
                 tmp = innerjoin(tmp, obj.myConf.region, ...
                     LeftKeys = 'sourceRegionName', RightKeys = 'name', ...
                     RightVariables = 'versionOfAncillary');
                 tmp = tmp(~isnan(tmp.id), :);
             end
-            
+
             obj.myConf.(confLabel) = tmp;
         end
         function f = SCAGDRFSFile(obj, region, ...
