@@ -1,8 +1,8 @@
 classdef WaterYearDate < handle
 % Handles the dates for ESP, in particular the several-month
 % window to calculates some variables and statistics
-    properties        
-        firstMonth = 10; % SIER_288. Possibility to change first month of 
+    properties
+        firstMonth = 10; % SIER_288. Possibility to change first month of
             % wateryear to 7 (south hemisphere). This should be a constant, and we may
             % tryhave an inherited south hemisphere waterYearDate, but unfortunately
             % constant properties are not editable in inherited classes and inheritance
@@ -10,14 +10,14 @@ classdef WaterYearDate < handle
             % everything else remains the same.
         monthWindow = 3; % Int [1-12]. Number of months over which to
                         % recalculate variables or stats.
-        overlapOtherYear = 0; % 1: overlap possible for interpolation. 0: not possible. 
+        overlapOtherYear = 0; % 1: overlap possible for interpolation. 0: not possible.
                             % SIER_365.
-        thisDatetime    % datetime of the object        
+        thisDatetime    % datetime of the object
         dateOfToday % datetime of the date which is considered today, allows
             % handling of stop of data supply by JPL or DAAC for more than 1 month 2023-11-07.
             % this property value can be changed manually in scripts.
     end
-    properties(Constant) 
+    properties(Constant)
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultFirstMonthForNorthTiles = 10;
         defaultFirstMonthForSouthTiles = 4; % 7 for New Zealand, dev a new call    @todo
@@ -79,7 +79,7 @@ classdef WaterYearDate < handle
             % ----------
             % waterYear: int.
             % firstMonth: int[1-12]. First month of the waterYear.
-            % monthWindow: int[1-12], optional. Extent of the waterYearDate in months. 
+            % monthWindow: int[1-12], optional. Extent of the waterYearDate in months.
             %
             % Return
             % ------
@@ -117,15 +117,17 @@ classdef WaterYearDate < handle
             end
         end
         function [waterYearDate, trailingMonthStatus] = ...
-            getWaterYearDateForInterpAndTrailingStatus(thisDate, firstMonth, ...
-            monthWindow)
+            getWaterYearDateForInterpAndTrailingStatus(thisDate, monthWindow, ...
+            referenceWaterYearDate)
             % Parameters
             % ----------
             % thisDate: datetime. For which we want the set of months. Should be 1st of
             %   the month.
-            % firstMonth: int[1-12]. First month of the waterYear.
             % monthWindow: int[1-12], optional. Window over which interpolation will be
-            % done.
+            %   done.            %
+            % referenceWaterYearDate: WaterYearDate, that allows to get the first month
+            %   of the waterYear and the date of today (which can be changed to take
+            %   into account stop of data supply by JPL or DAAC 2023-11-07.
             %
             % Return
             % ------
@@ -135,28 +137,32 @@ classdef WaterYearDate < handle
             %   month, waterYearDate doesn't include the future month. If January of
             %   this year and we are in Jan or Feb, monthStatus = trailing,
             %   waterYearDate covers the ongoing month + the two previous months.
-            % trailingMonthStatus: uint8. 'trailing' or 'centered'. Presently, 
+            % trailingMonthStatus: uint8. 'trailing' or 'centered'. Presently,
             %   only january can be trailing in some specific cases
             %
-            % NB: Code refactored from ESPEnv.rawFilesFor3months().           
+            % NB: Code refactored from ESPEnv.rawFilesFor3months().
             if ~exist('monthWindow', 'var')
                 monthWindow = WaterYearDate.cubeMonthWindow;
             end
             % Cases trailing or centered without the subsequent month.
-            if (1 == month(thisDate) && year(thisDate) == year(datetime("today")) ...
-                && month(datetime("today")) < 3)
-                waterYearDate = WaterYearDate(thisDate, firstMonth, monthWindow);
+            if (1 == month(thisDate) && year(thisDate) == ...
+                    year(referenceWaterYearDate.dateOfToday) ...
+                && month(referenceWaterYearDate.dateOfToday) < 3)
+                waterYearDate = WaterYearDate(thisDate, ...
+                    referenceWaterYearDate.firstMonth, monthWindow);
                 trailingMonthStatus = 'trailing';
-            elseif (month(thisDate) == month(datetime("today")) && ...
-                year(thisDate) == year(datetime("today")))
-                waterYearDate = WaterYearDate(thisDate, firstMonth, monthWindow - 1);
+            elseif (month(thisDate) == month(referenceWaterYearDate.dateOfToday) && ...
+                year(thisDate) == year(referenceWaterYearDate.dateOfToday))
+                waterYearDate = WaterYearDate(thisDate, ...
+                    referenceWaterYearDate.firstMonth, monthWindow - 1);
                 trailingMonthStatus = 'centered';
             % Default case: centered.
             else
                 thisDatePlusOneMonth = thisDate + calmonths(1);
                 waterYearDate = WaterYearDate(datetime(year(thisDatePlusOneMonth), ...
                     month(thisDatePlusOneMonth), eomday(year(thisDatePlusOneMonth), ...
-                    month(thisDatePlusOneMonth))), firstMonth, monthWindow);
+                    month(thisDatePlusOneMonth))), ...
+                    referenceWaterYearDate.firstMonth, monthWindow);
                 trailingMonthStatus = 'centered';
             end
 
@@ -186,16 +192,16 @@ classdef WaterYearDate < handle
 %{
             % NB: A default waterYearDate covering today only can be generated with:
             modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
-            espEnv = ESPEnv(modisData = modisData);   
-            regionName = 'westernUS'; % we need this only for the water Year start.        
+            espEnv = ESPEnv(modisData = modisData);
+            regionName = 'westernUS'; % we need this only for the water Year start.
             region = Regions(bigRegionName, [bigRegionName, '_mask'], espEnv, modisData);
             waterYearDate = WaterYearDate(datetime('today'), ...
                 espEnv.modisData.getFirstMonthOfWaterYear(region), 0);
-%}            
+%}
             if ~exist('thisDatetime', 'var')
                 thisDatetime = datetime('today');
             end
-            
+
             % Cap to Yesterday. No calculations for the future right now.
             % SIER_245 we handle all dates of waterYearDate until the day before today
             % if last month = today's month.
@@ -214,7 +220,7 @@ classdef WaterYearDate < handle
             if exist('monthWindow', 'var') & monthWindow <= 12
                 obj.monthWindow = monthWindow;
             end
-            obj.dateOfToday = datetime('today'); % 2023-11-07 following JPL stop.               
+            obj.dateOfToday = datetime('today'); % 2023-11-07 following JPL stop.
             fprintf('%s: WaterYearDate: %s, firstMonth %d, monthWindow: %d.\n', ...
                 mfilename(), string(obj.thisDatetime, 'yyyyMMdd'), ...
                 obj.firstMonth, obj.monthWindow);
@@ -261,16 +267,16 @@ classdef WaterYearDate < handle
             %   Get the arrays of days count since start of waterYear for each daily
             %   date of the waterYearDate obj. Used for stat calculations.
             dayRange = daysdif(obj.getFirstDatetimeOfWaterYear(), ...
-                obj.getDailyDatetimeRange()) + 1;            
-        end  
+                obj.getDailyDatetimeRange()) + 1;
+        end
         function firstDatetimeOfWaterYear = getFirstDatetimeOfWaterYear(obj)
             % Return
             % ------
             % firstDateOfWaterYear: datetime.
             %   First date of the wateryear of the current waterYearDate.
-            
+
             % Northern Hemisphere. Adapt for Southern Hemisphere @todo
-            yearForFirstDate = obj.getWaterYear() - 1;            
+            yearForFirstDate = obj.getWaterYear() - 1;
             firstDatetimeOfWaterYear = datetime(yearForFirstDate, ...
                 obj.firstMonth, ...
                 obj.monthFirstDay, ...
@@ -346,7 +352,7 @@ classdef WaterYearDate < handle
             if thisMonth >= obj.firstMonth
                 waterYear = waterYear + 1;
             end
-        end        
+        end
         function lastMonth = getWaterYearLastMonth(obj)
             % Return
             % ------
