@@ -46,7 +46,7 @@ classdef Regions < handle
                         % that constitute the upper level region.
         myConf          % struct(variable = table). Stores the info extracted from
                         % the configuration files.
-       thresholdsForMosaics % table (thresholded_varname (char),
+        thresholdsForMosaics % table (thresholded_varname (char),
                         % threshold_value (int), replaced_varname (char)
                         % Minimum values of variables below which the data are
                         % considered unreliable and shouldn't be included in the
@@ -90,8 +90,6 @@ classdef Regions < handle
             %    'USCO', etc ...
             % modisData: MODISData object
             %    Modis environment, with paths . SIER_322/345                @deprecated
-
-
             % Mask variable
             %---------------
             if ~exist('maskName', 'var')
@@ -229,6 +227,114 @@ classdef Regions < handle
                 LeftKeys = 'varId', RightKeys = 'id', ...
                 LeftVariables = {'writeGeotiffs', 'writeStats', 'isDefault'});
             obj.myConf.variable = thisTable;
+        end
+        function coordinates = buildModisSinuCoordinatesForReprojection(obj, ...
+            geotiffEPSG)
+            % Generate coordinates and save it in a file.
+            %
+            % Parameters
+            % ----------
+            % geotiffEPSG: int. EPSG code of the target reprojection.
+            %
+            % Then we start as if we reproject, using the functions within the
+            % RasterProjection package, to obtain the coordinates Xq, Yq required for
+            % interpolation in the output projection or geographic system.
+            %
+            % Return
+            % ------
+            % coordinates: struct(inMapCellsReference = mapCellsReference,
+            %   outCellsReference = CellsReference, Xq = double(1xn), Yq = double(1xn)).
+            %   Xq, Yq coordinates in Modis Sinusoidal
+            %   projection for which the data have to be interpolated before projection
+            %   into geotiffEPSG. The file additionally contains input and output
+            %   cell reference (inMapCellsReference and outCellsReference).
+            %   (outCellsReference can be geographic, this is why the name is not
+            %   outMapCellsReference).
+
+            % Reprojection
+            % ------------
+            % using RasterReprojection package with parameters:
+            % - varData (publicMosaicData.(varName)) (A): input 2D raster
+            % - inMapCellsReference (InR): mapping raster reference of varData
+            % - outputProjection (OutProj): projcrs projection object, indicates
+            % the target projection for output
+            % - pixelSize (pixelsize): removed SIER_163 because unnecessary
+            %   (and generates error for geographic).
+            % - xLimit (Xlimit): vector of length 2: minimum & maximum
+            %           of output x-coordinates (default is to cover extent of A)
+            % - yLimit (YLimit): vector of length 2: minimum & maximum
+            %           of output y-coordinates (default is to cover extent of A)
+            % Add different cases for SIER_163. SIER_333. We put this outside of the
+            % parforloop
+            % by not using the rasterProjection function any more, because the
+            % calculation of the Xq, Yq coordinates consume cpu and memory
+            % and is expected to give identic results for all variables of all mosaics.
+            %
+            % Code adapted from the RasterReprojection package by Jeff Dozier.
+            % This is to bypass the array copies present in the
+            % rasterReprojection functions (for reduce memory use).
+            % NB: @todo. Might be better in a dedicated class, but presently
+            % only used here. Might be better to use gdal too. SIER_163.    TODO
+            % parse inputs.
+            % BEWARE: only accepts 4326 as geographic system.
+
+            % Obtain the output CellsReference, either geographic or map
+            % projected. The outCellsReference is used to calculate the coordinates Xq,
+            % Yq of the output raster and to generate the geotiff file.
+            %
+            % BEWARE: We stored this projMetadata. If the region changes of extent,
+            % this file must be regenerated in a new version of Ancillary data.
+
+            fprintf(['%s: Starting calculation of the input coordinates for ', ...
+                'reprojection to EPSG:%s...\n'], mfilename(), num2str(geotiffEPSG));
+            coordinates = struct();
+            inMapCellsReference = obj.getMapCellsReference();
+            outCellsReference = obj.getOutCellsReference(geotiffEPSG);
+
+            % Obtain the coordinates in the input CellsReference
+            % for which values will be interpolated to get the output in the
+            % ouput CellsReference.
+            fprintf('%s: Calculating the meshgrid ...\n', mfilename());
+            if contains(class(outCellsReference), 'map.rasterref.Map', ...
+                'IgnoreCase', true)
+                [XWorld, YWorld] = meshgrid( ...
+                    (outCellsReference.XWorldLimits(1) + ...
+                        outCellsReference.CellExtentInWorldX / 2 : ...
+                    outCellsReference.CellExtentInWorldX: ...
+                    outCellsReference.XWorldLimits(2) - ...
+                        outCellsReference.CellExtentInWorldX / 2), ...
+                    (outCellsReference.YWorldLimits(2) - ...
+                        outCellsReference.CellExtentInWorldY / 2: ...
+                    -outCellsReference.CellExtentInWorldY: ...
+                    outCellsReference.YWorldLimits(1) + ...
+                        outCellsReference.CellExtentInWorldY / 2));
+                [lat,lon] = projinv(outCellsReference.ProjectedCRS, ...
+                    XWorld, YWorld);
+            elseif contains(class(outCellsReference),'Geographic')
+                [lat, lon] = meshgrid( ...
+                    (outCellsReference.LatitudeLimits(2) - ...
+                        outCellsReference.CellExtentInLatitude / 2 : ...
+                    -outCellsReference.CellExtentInLatitude: ...
+                    outCellsReference.LatitudeLimits(1) + ...
+                        outCellsReference.CellExtentInLatitude / 2), ...
+                    (outCellsReference.LongitudeLimits(1) + ...
+                        outCellsReference.CellExtentInLongitude / 2 : ...
+                    outCellsReference.CellExtentInLongitude: ...
+                    outCellsReference.LongitudeLimits(2) - ...
+                        outCellsReference.CellExtentInLongitude / 2));
+                lat = lat';
+                lon = lon';
+            end
+            fprintf('%s: Calculating the input coordinates...\n', mfilename());
+            [Xq, Yq] = projfwd(inMapCellsReference.ProjectedCRS, ...
+                lat, lon);
+            [filePath, ~, ~] = obj.espEnv.getFilePathForDateAndVarName( ...
+                obj.name, 'reprojectioncoordinates', '', '', ['EPSG_', geotiffEPSG]);
+            coordinates.Xq = Xq;
+            coordinates.Yq = Yq;
+            save(filePath, '-struct', 'coordinates', '-v7.3');
+            fprintf(['%s: Saved the input coordinates for reprojection ', ...
+                'to EPSG:%s in file .\n'], mfilename(), num2str(geotiffEPSG), filePath);
         end
 %{
         function elevations = getElevations(obj)
@@ -378,6 +484,79 @@ classdef Regions < handle
 
             mapCellsReference = obj.modisData.getMapCellsReference(positionalData);
         end
+        function outCellsReference = getOutCellsReference(obj, geotiffEPSG)
+            % Parameters
+            % ----------
+            % geotiffEPSG: int. EPSG code of the target reprojection.
+            %
+            % Then we start as if we reproject, using the functions within the
+            % RasterProjection package.
+            %
+            % Return
+            % ------
+            % outCellsReference: matlab cell reference object. outCellsReference can be
+            %   geographic, this is why the name is not outMapCellsReference.
+
+            % Reprojection
+            % ------------
+            % using RasterReprojection package with parameters:
+            % - varData (publicMosaicData.(varName)) (A): input 2D raster
+            % - inMapCellsReference (InR): mapping raster reference of varData
+            % - outputProjection (OutProj): projcrs projection object, indicates
+            % the target projection for output
+            % - pixelSize (pixelsize): removed SIER_163 because unnecessary
+            %   (and generates error for geographic).
+            % - xLimit (Xlimit): vector of length 2: minimum & maximum
+            %           of output x-coordinates (default is to cover extent of A)
+            % - yLimit (YLimit): vector of length 2: minimum & maximum
+            %           of output y-coordinates (default is to cover extent of A)
+            % Add different cases for SIER_163. SIER_333. We put this outside of the
+
+            %
+            % Code adapted from the RasterReprojection package by Jeff Dozier.
+            % This is to bypass the array copies present in the
+            % rasterReprojection functions (for reduce memory use).
+            % NB: @todo. Might be better in a dedicated class, but presently
+            % only used here. Might be better to use gdal too. SIER_163.    TODO
+            % parse inputs.
+            % BEWARE: only accepts 4326 as geographic system.
+
+            % Obtain the output CellsReference, either geographic or map
+            % projected. The outCellsReference is used to calculate the coordinates Xq,
+            % Yq of the output raster and to generate the geotiff file.
+
+            fprintf(['%s: Starting calculation of the outCellsReference for ', ...
+                'reprojection to EPSG:%s...\n'], mfilename(), num2str(geotiffEPSG));
+
+            inMapCellsReference = obj.getMapCellsReference();
+            outCellsReference = [];
+            varData = ones(inMapCellsReference.RasterSize, 'uint8');
+            if geotiffEPSG == 4326
+                % output in geographic reference.
+                % NB: no crop possible becayse the Regions.getGeotiffExtent()
+                % only work with projected EPSG 3857 (coordinates in the Regions object)
+                %                                                                  @todo
+                [~, outCellsReference, ~, ~, ~, ~, ~, ~, ~] = ...
+                    parseReprojectionInput(varData, inMapCellsReference);
+            elseif geotiffEPSG == Regions.webGeotiffEPSG
+                % output in projected system.
+                % EPSG 3857 for website snowToday and other projections
+                % are possible.
+                [xLimit, yLimit] = obj.getGeotiffExtentMinusCrop(geotiffEPSG);
+                [~, outCellsReference, ~, ~, ~, ~, ~, ~, ~] = ...
+                    parseReprojectionInput(varData, inMapCellsReference, ...
+                    OutProj = projcrs(geotiffEPSG), ...
+                    Xlimit = xLimit, Ylimit = yLimit);
+            else
+                % Other projection cases.
+                [~, outCellsReference, ~, ~, ~, ~, ~, ~, ~] = ...
+                    parseReprojectionInput(varData, inMapCellsReference, ...
+                    OutProj = projcrs(geotiffEPSG));
+            end
+            clear varData;
+            fprintf(['%s: Determined the output cell reference for ', ...
+                'EPSG:%s.\n'], mfilename(), num2str(geotiffEPSG));
+        end
         function size1 = getSizeInPixels(obj)
             % Return
             % ------
@@ -486,10 +665,10 @@ classdef Regions < handle
                 index = find(strcmp(availableVariables.output_name, varName));
                 if isempty(index)
                     ME = MException('Regions:WriteGeotiffs_UnauthorizedVarName', ...
-                        sprintf('%s: varName %s not found in the ', ...
+                        sprintf(['%s: varName %s not found in the ', ...
                         'list of authorized outputnames in ', ...
-                        'ESPEnv.configurationOfVariables()\n',  ...
-                        mfilename(), varName));
+                        'ESPEnv.variableregion limited to the region %s\n'],  ...
+                        mfilename(), varName, obj.name));
                     throw(ME)
                 else
                     varIndexes = index;
@@ -505,7 +684,7 @@ classdef Regions < handle
             % Convert matlab-obsolete RefMatrix to new class RasterReference matlab
             % function.
             inMapCellsReference = obj.getMapCellsReference();% RasterReprojection
-            % package.
+                        % package.
             % NB mstruct of regions are wrong and cannot be used here.
 
             % We'll preload the variables used for thresholding in the parforloops.
@@ -514,130 +693,32 @@ classdef Regions < handle
             % and quicken the process. SIER_163.
             % NB: We suppose that the preloaded variable is only thresholded by itself
             % or by elevation.
+            % NB: this implies that viewable_snow_fraction must be write_geotiffs =1
+            % in the configuration_of_variableregion.csv file.
             varnamesToPreLoad = intersect( ...
                 availableVariables.output_name, ...
                 unique(obj.thresholdsForPublicMosaics.thresholded_varname));
 
             % Obtain output projection/system.
-            % For this we load the first available mosaic values for variable
-            % viewable_snow_fraction.
-            % This is required to use the functions within the RasterProjection package.
-            % @todo. Maybe we could use a different function to avoid that.         TODO
-            varDataIsObtained = 0;
-            varName = varnamesToPreLoad{1};
-            for dateIdx=1:length(dateRange)
-                thisDatetime = dateRange(dateIdx);
-                publicMosaicData = publicMosaic.getThresholdedData(varName, ...
-                    thisDatetime, struct());
-                if ~isempty(fieldnames(publicMosaicData))
-                    varData = publicMosaicData.(varName);
-                    publicMosaicData = [];
-                    varDataIsObtained = 1;
-                    fprintf(['%s: Output reference system determined from ', ...
-                        'variable %s for date %s.\n'], mfilename(), ...
-                        varName, string(thisDatetime, 'yyyy-MM-dd'));
-                    break;
-                end
-                if varDataIsObtained == 1
-                    break;
-                end
-            end
 
             % Then we start as if we reproject, using the functions within the
             % RasterProjection package, to obtain the coordinates Xq, Yq required for
-            % interpolation in the output projection or geographic system.
-            % @todo. We could save these coordinates in a file rather than recalculate
-            % them every time.                                                      TODO
+            % interpolation in the output projection or geographic system.         
 
             % Reprojection
             % ------------
-            % using RasterReprojection package with parameters:
-            % - varData (publicMosaicData.(varName)) (A): input 2D raster
-            % - inMapCellsReference (InR): mapping raster reference of varData
-            % - outputProjection (OutProj): projcrs projection object, indicates
-            % the target projection for output
-            % - pixelSize (pixelsize): removed SIER_163 because unnecessary
-            %   (and generates error for geographic).
-            % - xLimit (Xlimit): vector of length 2: minimum & maximum
-            %           of output x-coordinates (default is to cover extent of A)
-            % - yLimit (YLimit): vector of length 2: minimum & maximum
-            %           of output y-coordinates (default is to cover extent of A)
-            % Add different cases for SIER_163. SIER_333. We put this outside of the
-            % parforloop
-            % by not using the rasterProjection function any more, because the
-            % calculation of the Xq, Yq coordinates consume cpu and memory
-            % and is expected to give identic results for all variables of all mosaics.
 
-            % Code adapted from the RasterReprojection package by Jeff Dozier.
-            % This is to bypass the array copies present in the
-            % rasterReprojection functions (for reduce memory use).
-            % NB: @todo. Might be better in a dedicated class, but presently
-            % only used here. Might be better to use gdal too. SIER_163.    TODO
-            % parse inputs.
-            % BEWARE: only accepts 4326 as geographic system.
+            % Determine outCellsReference.
+            outCellsReference = obj.getOutCellsReference(geotiffEPSG);
+            % Determine Xq and Yq ...
+            coordinates = obj.espEnv.getDataForDateAndVarName( ...
+                obj.name, 'reprojectioncoordinates', '', '', ['EPSG_', geotiffEPSG]);
+            if isempty(coordinates)
+                coordinates = ...
+                    obj.buildModisSinuCoordinatesForReprojection(geotiffEPSG);
 
-            % Obtain the output CellsReference, either geographic or map
-            % projected. The outCellsReference is used to calculate the coordinates Xq,
-            % Yq of the output raster and to generate the geotiff file.
-            if geotiffEPSG == 4326
-                % output in geographic reference.
-                % NB: no crop possible becayse the Regions.getGeotiffExtent()
-                % only work with projected EPSG 3857 (coordinates in the Regions object)
-                %                                                                  @todo
-                [~, outCellsReference, ~, ~, ~, ~, ~, ~, ~] = ...
-                    parseReprojectionInput(varData, inMapCellsReference);
-            elseif geotiffEPSG == Regions.webGeotiffEPSG
-                % output in projected system.
-                % EPSG 3857 for website snowToday and other projections
-                % are possible.
-                [xLimit, yLimit] = obj.getGeotiffExtentMinusCrop(geotiffEPSG);
-                [~, outCellsReference, ~, ~, ~, ~, ~, ~, ~] = ...
-                    parseReprojectionInput(varData, inMapCellsReference, ...
-                    OutProj = projcrs(geotiffEPSG), ...
-                    Xlimit = xLimit, Ylimit = yLimit);
-            else
-                % Other projection cases.
-                [~, outCellsReference, ~, ~, ~, ~, ~, ~, ~] = ...
-                    parseReprojectionInput(varData, inMapCellsReference, ...
-                    OutProj = projcrs(geotiffEPSG));
             end
-            clear varData;
-
-            % Obtain the coordinates in the input CellsReference
-            % for which values will be interpolated to get the output in the
-            % ouput CellsReference.
-            if contains(class(outCellsReference), 'map.rasterref.Map', ...
-                'IgnoreCase', true)
-                [XWorld, YWorld] = meshgrid( ...
-                    (outCellsReference.XWorldLimits(1) + ...
-                        outCellsReference.CellExtentInWorldX / 2 : ...
-                    outCellsReference.CellExtentInWorldX: ...
-                    outCellsReference.XWorldLimits(2) - ...
-                        outCellsReference.CellExtentInWorldX / 2), ...
-                    (outCellsReference.YWorldLimits(2) - ...
-                        outCellsReference.CellExtentInWorldY / 2: ...
-                    -outCellsReference.CellExtentInWorldY: ...
-                    outCellsReference.YWorldLimits(1) + ...
-                        outCellsReference.CellExtentInWorldY / 2));
-                [lat,lon] = projinv(outCellsReference.ProjectedCRS, ...
-                    XWorld, YWorld);
-            elseif contains(class(outCellsReference),'Geographic')
-                [lat, lon] = meshgrid( ...
-                    (outCellsReference.LatitudeLimits(2) - ...
-                        outCellsReference.CellExtentInLatitude / 2 : ...
-                    -outCellsReference.CellExtentInLatitude: ...
-                    outCellsReference.LatitudeLimits(1) + ...
-                        outCellsReference.CellExtentInLatitude / 2), ...
-                    (outCellsReference.LongitudeLimits(1) + ...
-                        outCellsReference.CellExtentInLongitude / 2 : ...
-                    outCellsReference.CellExtentInLongitude: ...
-                    outCellsReference.LongitudeLimits(2) - ...
-                        outCellsReference.CellExtentInLongitude / 2));
-                lat = lat';
-                lon = lon';
-            end
-            [Xq, Yq] = projfwd(inMapCellsReference.ProjectedCRS, ...
-                lat, lon);
+            fprintf('%s: Got the input coordinates.\n', mfilename());
 
             % Generation
             % ----------
@@ -647,29 +728,20 @@ classdef Regions < handle
             % So, plan to run this system on alpine with 32 tasks in order
             % to get all the memory on the node, and then limit workers here
             % SIER_163 and SIER_333 should have solve this problem.
-            espEnv.configParallelismPool(length(varIndexes)); % currently 8 variables
+            espEnv.configParallelismPool(4); %length(varIndexes)); % currently 8 variables
 
             for dateIdx=1:length(dateRange)
                 logger = Logger('geotiffDate');
-                thisDatetime = dateRange(dateIdx);
+                thisDate = dateRange(dateIdx);
                 fprintf('%s: Starting geotiff generation for date %s.\n', ...
-                    mfilename(), string(thisDatetime, 'yy-MM-dd'));
+                    mfilename(), string(thisDate, 'yyyy-MM-dd'));
                 % Check if Mosaic file is available.
-                if ~isfile(espEnv.MosaicFile(obj, thisDatetime))
+                if ~isfile(espEnv.MosaicFile(obj, thisDate))
                     warning(['%s: Unavailable mosaic. No Geotiff generation for ', ...
-                        '%s\n'], mfilename(), string(thisDatetime, 'yyyy-MM-dd'));
+                        '%s\n'], mfilename(), string(thisDate, 'yyyy-MM-dd'));
                     continue;
                 end
-                outputDirectory = ...
-                    obj.espEnv.SnowTodayGeotiffDir(obj, geotiffEPSG, ...
-                    year(thisDatetime));
-                % Set up output directories by day
-                % This will make transfers to NSIDC easier
-                outputDirectory2 = fullfile(outputDirectory, ...
-            			string(thisDatetime, 'yyyyMMdd'));
-                if ~isfolder(outputDirectory2)
-                    mkdir(outputDirectory2);
-                end
+
                 % Get the variables necessary to filter/threshold the other variables.
                 % There should be only 1, snow_fraction (or viewable_snow_fraction) and
                 % elevation.
@@ -677,9 +749,9 @@ classdef Regions < handle
                 for varIdx = 1:length(varnamesToPreLoad)
                     varName = varnamesToPreLoad{varIdx};
                     initPublicMosaicData = publicMosaic.getThresholdedData(varName, ...
-                        thisDatetime, initPublicMosaicData);
+                        thisDate, initPublicMosaicData);
                 end
-
+                fprintf('%s: Got the data for filter.\n', mfilename());
                 % We handle each variable to generate a geotiff.
                 parfor varIdx=1:length(varIndexes)
                     % varName info
@@ -687,18 +759,24 @@ classdef Regions < handle
                     % get the output name and units
                     varNameInfos = availableVariables(varIndexes(varIdx), :);
                     varName = varNameInfos.('output_name'){1};
+                    fprintf('%s: Handling variable %s...\n', mfilename(), varName);
+
+                    % We only handle notprocessed variable in association to snow_fraction.
+                    if strcmp(varName(1:12), 'notprocessed')
+                        continue;
+                    end
                     fprintf('%s: Starting geotiff generation for variable %s ...\n', ...
                         mfilename(), varName);
 
                     % Data load
                     % ---------
                     publicMosaicData = publicMosaic.getThresholdedData(varName, ...
-                        thisDatetime, initPublicMosaicData);
+                        thisDate, initPublicMosaicData);
                     fprintf('%s: Public mosaic for variable %s OK.\n', ...
                         mfilename(), varName);
                     if ~ismember(varName, fieldnames(publicMosaicData))
                         warning('%s: No Geotiff generation for %s on %s\n', ...
-                            mfilename(), varName, string(thisDatetime, 'yyyy-MM-dd'));
+                            mfilename(), varName, string(thisDate, 'yyyy-MM-dd'));
                     else
                         varData = publicMosaicData.(varName);
                         publicMosaicData = [];
@@ -708,8 +786,16 @@ classdef Regions < handle
                         %---------------------------------------------------------------
                         varData = single(varData);
                         varData(varData == varNameInfos.nodata_value) = NaN;
-                        varData = mapinterp(varData, inMapCellsReference, ...
-                                Xq, Yq, 'nearest');
+                        fprintf('%s: Interpolation to the output reference...\n', ...
+                            mfilename());
+                        varData = mapinterp(varData, ...
+                                inMapCellsReference, ...
+                                coordinates.Xq, coordinates.Yq, 'nearest');
+                           % NB: varData and inMapCellsReference should be the same
+                           % size, beware that had generated a pb for USAlaska for which
+                           % we lately removed h07v03.
+                        fprintf('%s: Done interpolation to the output reference.\n', ...
+                            mfilename());
                         varData(isnan(varData)) = varNameInfos.nodata_value;
                         varData = cast(varData, varNameInfos.type{1});
                         fprintf('%s: Interpolated variable %s OK.\n', ...
@@ -717,40 +803,42 @@ classdef Regions < handle
                         % Geotiff writing
                         % ---------------
 
-                        outFilename = obj.espEnv.SnowTodayGeotiffFile(...
-                            obj, outputDirectory2, 'Terra', thisDatetime, ...
-                            varName);
-                        geotiffwrite(outFilename, ...
+                        [outFilePath, ~, ~] = ...
+                            obj.espEnv.getFilePathForDateAndVarName( ...
+                            obj.name, 'VariablesGeotiff', thisDate, varName, ...
+                            ['EPSG_', num2str(geotiffEPSG)]);
+                        geotiffwrite(outFilePath, ...
                             varData, ...
                             outCellsReference, ...
                             'CoordRefSysCode', geotiffEPSG, ...
                             'TiffTags', struct('Compression', obj.geotiffCompression));
-                        fprintf('%s: Wrote %s\n', mfilename(), outFilename);
+                        fprintf('%s: Wrote %s\n', mfilename(), outFilePath);
 
                         % Generation of the no-processed layer which indicates the NaNs
                         if strcmp(varName, 'snow_fraction')
                             notProcessedData = varData == Variables.uint8NoData;
                             varData = [];
-                            outFilename = obj.espEnv.SnowTodayGeotiffFile(...
-                                obj, outputDirectory2, 'Terra', thisDatetime, ...
-                                'notprocessed');
-                            geotiffwrite(outFilename, ...
+                            outFilePath = ...
+                                obj.espEnv.getFilePathForDateAndVarName( ...
+                                obj.name, 'VariablesGeotiff', thisDate, ...
+                                'notprocessed', ['EPSG_', num2str(geotiffEPSG)]);
+                            geotiffwrite(outFilePath, ...
                                 notProcessedData, ...
                                 outCellsReference, ...
                                 'CoordRefSysCode', geotiffEPSG, ...
                                 'TiffTags', ...
                                 struct('Compression', obj.geotiffCompression));
                             fprintf('%s: Wrote %s\n', mfilename(), ...
-                                outFilename);
+                                outFilePath);
                             notProcessedData = [];
                         end
                         varData = [];
-                    end
-                end
+                    end % end if
+                end % end parfor varIdx
                 logger.printDurationAndMemoryUse(dbstack);
                 fprintf('%s: Ended geotiff generation for date %s.\n', ...
-                    mfilename(), string(thisDatetime, 'yy-MM-dd'));
-            end
+                    mfilename(), string(thisDate, 'yyyy-MM-dd'));
+            end % end dateIdx
             t2 = toc;
             fprintf('%s: Finished regional geotiffs generation and writing in %s seconds.\n', ...
                 mfilename(), num2str(roundn(t2, -2)));
