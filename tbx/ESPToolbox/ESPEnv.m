@@ -12,6 +12,10 @@ classdef ESPEnv < handle
         defaultArchivePath % getenv('espArchiveDir');
         defaultScratchPath % getenv('espScratchDir');
         dirWith % struct with various STC pipeline directories
+        filterMyConfByVersionOfAncillary = 1; % 1: configuration is filtered by
+            % versionOfAncillary, which means that only regions and subdivisions
+            % having the versionOfAncillary indicated in .modisData will be available
+            % through .myConf of the object. 0: versionOfAncillary filter not applied.
         mappingDir     % directory with MODIS tiles projection information   @deprecated
         modisData % MODISData Object.
         myConf         % struct(filePath = Table, filter = Table, region = Table,
@@ -125,10 +129,15 @@ classdef ESPEnv < handle
             % based on locale
             %
             % Parameters
+            % ----------
             % modisData: MODISData obj.
             %   NB: modisData should now be obligatory 2023/06/14                  @todo
             % scratchPath: char. Top path where ancillary and data will be got and
             %   transferred to.
+            % filterMyConfByVersionOfAncillary: int. 1 (default): filter the
+            %   configuration .myConf according to the versionOfAncillary of .modisData.
+            %   0: filter not applied (this is used when we need to construct a file
+            %   containing all region/subdivision metadata, e.g. for snow-today webapp.
 
             % 1. Parameters and check modisData/scratchPath.
             %---------------------------------------------------------------------------
@@ -147,6 +156,8 @@ classdef ESPEnv < handle
                 % Impossible to have parameter w/o default value?
             % User's scratch locale is default, because it is fast
             addParameter(p, 'scratchPath', obj.defaultScratchPath);
+            addParameter(p, 'filterMyConfByVersionOfAncillary', ...
+                obj.filterMyConfByVersionOfAncillary);
 
             p.KeepUnmatched = false;
             parse(p, varargin{:});
@@ -171,6 +182,13 @@ classdef ESPEnv < handle
             end
             obj.scratchPath = p.Results.scratchPath;
             fprintf('%s: scratch path %s\n', mfilename(), obj.scratchPath);
+
+            % change default filtering behavior if filterMyConfByVersionOfAncillary set
+            % to 0.
+            if ~isempty(p.Results.filterMyConfByVersionOfAncillary)
+                obj.filterMyConfByVersionOfAncillary = ...
+                    p.Results.filterMyConfByVersionOfAncillary;
+            end
 
             % 2. Load configuration files (paths of ancillary data files,
             % thresholds / region / variable configuration data.
@@ -208,10 +226,50 @@ classdef ESPEnv < handle
                         num2str(subFolderIdx)]) = subFolder;
                 end
             end
+            fprintf('%s: Filtered filepath configuration.\n', mfilename());
 
             % Order the filter table by the order in which the filtering should be
             % processed. Redundant with precedent?                              @tocheck
             obj.myConf.filter = sortrows(obj.myConf.filter, [1, 2]);
+                        fprintf('%s: Sorted filter configuration.\n', mfilename());
+            
+            % Restrict region to value of modisData versionOfAncillary.
+            if obj.filterMyConfByVersionOfAncillary
+                obj.myConf.region = obj.myConf.region( ...
+                    strcmp(obj.myConf.region.versionOfAncillary, ...
+                    obj.modisData.versionOf.ancillary), :);
+            end
+            
+            % Restrict region/subregion links to active (e.g. USAlaska/h08v03).
+            % NB: Should also restrict to value of versionOfAncillary.             @todo
+            obj.myConf.regionlink = obj.myConf.regionlink( ...
+                obj.myConf.regionlink.isActive == 1, :);
+            fprintf('%s: Restricted region links to isActive = 1.\n', mfilename());
+            
+            % Variables associated to regions:
+            % - Determine the name of variables.
+            % - Restrict the variable region to the regions of the version of ancillary
+            % - and extend the variable region conf to the tiles part of the big region.
+            obj.myConf.variableregion.output_name = [];
+            obj.myConf.variableregion = innerjoin(obj.myConf.variableregion, ...
+                obj.myConf.variable, LeftKeys = 'varId', RightKeys = 'id', ...
+                RightVariables = {'output_name'});
+            obj.myConf.variableregion = innerjoin(obj.myConf.variableregion, ...
+                obj.myConf.region, LeftKeys = 'regionName', RightKeys = 'name', ...
+                RightVariables = {});
+            additionalVariableRegion = ...
+                outerjoin(obj.myConf.regionlink, obj.myConf.variableregion, ...
+                    LeftKeys = 'supRegionName', RightKeys = 'regionName', ...
+                    LeftVariables = 'subRegionName', Type = 'left');
+            additionalVariableRegion = ...
+                additionalVariableRegion(~isnan(additionalVariableRegion.varId), :);
+            additionalVariableRegion = renamevars( ...
+                removevars(additionalVariableRegion, ...
+                    {'regionName'}), {'subRegionName'}, {'regionName'});
+            obj.myConf.variableregion = vertcat(obj.myConf.variableregion, ...
+                additionalVariableRegion);
+            fprintf('%s: Extended variable region to tiles (subregions).\n', ...
+                mfilename());
 
             obj.myConfigurationOfVariables = obj.configurationOfVariables();
                 % @deprecated. replaced by obj.myConf.variable.
@@ -360,7 +418,7 @@ classdef ESPEnv < handle
             % dataLabel: char. Label (type) of data for which the file is required, should
             %   be a key of ESPEnv.dirWith struct, e.g. MOD09Raw.
             % thisDate: datetime. Cover the period for which we want the
-            %   files.
+            %   files. If not necessary, put ''.
             % varName: name of the variable to load (name in the file, not output_name
             %   of configuration_of_variables.csv).
             %
@@ -388,9 +446,14 @@ classdef ESPEnv < handle
                 % handling of thisDate and of the generation of files (potentially
                 % with nodata/NaN-filled variables) should make all files present and
                 % the last condition useless.
-                varData = parloadMatrices(filePath, varName);
+                if ~strcmp(varName, '')
+                    varData = parloadMatrices(filePath, varName);
+                else
+                    varData = load(filePath); % Not sure whether that works in parfor
+                        % loops.
+                end
             end
-        end
+        end           
         function [data, mapCellsReference, metaData] = ...
             getDataForObjectNameDataLabel(obj, objectName, dataLabel)
             % Parameters
@@ -574,7 +637,7 @@ classdef ESPEnv < handle
             end
             directoryPath = fullfile(obj.scratchPath, ...
                 filePathConf.topSubDirectory{1});
-            for subFolderIdx = 1:7
+            for subFolderIdx = 1:8
                 subFolder = ...
                     filePathConf.(['fileSubDirectory', num2str(subFolderIdx)]){1};
                 if ~isempty(subFolder)
@@ -638,7 +701,7 @@ classdef ESPEnv < handle
             % exists.
             directoryPath = fullfile(obj.scratchPath, ...
                 filePathConf.topSubDirectory{1});
-            for subFolderIdx = 1:7
+            for subFolderIdx = 1:8
                 subFolder = ...
                     filePathConf.(['fileSubDirectory', num2str(subFolderIdx)]){1};
                 if ~isempty(subFolder)
@@ -736,7 +799,7 @@ classdef ESPEnv < handle
                 % create the directory if doesn't exist.
                 directoryPath = fullfile(obj.scratchPath, ...
                     filePathConf.topSubDirectory{1});
-                for subFolderIdx = 1:7
+                for subFolderIdx = 1:8
                     subFolder = ...
                         filePathConf.(['fileSubDirectory', num2str(subFolderIdx)]){1};
                     if ~isempty(subFolder)
@@ -801,8 +864,12 @@ classdef ESPEnv < handle
             %
             % NB: we assume that the text zzzzz is not used in filenames or name of
             %   subfolders, except if it's an id of region or subdivision.
+            % NB: We assume that a dataLabel has only 1 type of objectName, either the
+            %   name of a region ('h08v04', 'westernUS') or the id of a landsubdivision
+            %   (26001).
 
             % Initialize ...
+            fprintf('%s: Starting to get the list of objectNames...\n', mfilename());
             fakeObjectName = num2str(intmax('uint16'));
                 % arbitrary objectName = 65535, which gives objectName_1000 = 65,
                 % if files organized in subfolders to avoid to be > 1000 files/folder.
@@ -823,9 +890,14 @@ classdef ESPEnv < handle
                 ['_', fakeObjectName, '_'], ['_*_']);
             filePath = replace(filePath, ...
                 [filesep(), fakeObjectName, '_'], [filesep(), '*_']);
+            filePath = replace(filePath, ...
+                [filesep(), fakeObjectName, filesep()], [filesep(), '*', filesep()]);
 
             % Get the files:
-            objectNames = struct2table(dir(filePath)).name;
+            fprintf('%s: Getting the list of files in %s...\n', mfilename(), ...
+                obj.scratchPath);
+            objectNames = struct2table(dir(filePath)).name;      
+            fprintf('%s: Got the list of files.\n', mfilename());
             if isequal(objectNames, [])
                 return;
             end
@@ -836,7 +908,7 @@ classdef ESPEnv < handle
             end
             % Get the parts of filename to remove to only have the objectName.
             fileNamePattern = split(filePath, filesep());
-            fileNamePattern = fileNamePattern(end);
+            fileNamePattern = fileNamePattern{end};
             fileNamePattern = split(fileNamePattern, '*');
             fileNamePattern = fileNamePattern(~strcmp(fileNamePattern, ''));
                 % remove empties, otherwise replace below doesn't work.
@@ -847,6 +919,43 @@ classdef ESPEnv < handle
             objectNames = cellfun(replaceForFun, objectNames, 'UniformOutput', false);
                 % NB: don't write @replaceForFun, since replaceForFun already equals
                 % a handler.
+            % Filter objectNames by the versionOfAncillary
+            % (necessary for versionOfAncillary independent filePaths).
+            % NB:This is a bit convoluted but required by the current dirty structure of
+            % configuration_of_filepaths.csv. 2023-11-15.
+            if Tools.valueInTableForThisField(obj.myConf.filePath, 'dataLabel', ...
+                dataLabel, 'isAncillary') == 0
+                objectNames = cell2table(objectNames);
+                tempObjectNames = innerjoin(objectNames, obj.myConf.region, ...
+                    LeftKeys = 'objectNames', RightKeys = 'name', RightVariables = {});
+                if ~isempty(tempObjectNames)
+                    objectNames = tempObjectNames;
+                    fprintf(['%s: objectNames detected as region and ', ...
+                        'filtered by versionOfAncillary.\n'], mfilename());
+                else
+                    obj.setAdditionalConf('landsubdivision');
+                    if strcmp(class(objectNames.objectNames), ...
+                        class(obj.myConf.landsubdivision.id))              
+                        tempObjectNames = innerjoin(objectNames, ...
+                            obj.myConf.landsubdivision, ...
+                            LeftKeys = 'objectNames', RightKeys = 'id', ...
+                            RightVariables = {});
+                        if ~isempty(tempObjectNames)
+                            objectNames = tempObjectNames;
+                            fprintf(['%s: objectNames detected as landsubdivision ', ...
+                                'and filtered by versionOfAncillary.\n'], mfilename());
+                        else
+                            fprintf(['%s: Undetected objectName as region or ', ...
+                                'landsubdivision, return empty.\n'], mfilename());
+                        end
+                    else
+                        fprintf(['%s: Undetected objectName as region or ', ...
+                                'landsubdivision, return empty.\n'], mfilename());
+                    end    
+                end
+                objectNames = table2cell(objectNames);
+            end
+            fprintf('%s: Determined the list of objectNames.\n', mfilename());
         end
         function webRelativeFilePath = getRelativeFilePathForWebIngest(obj, ...
             objectName, dataLabel, thisDate, varName)
@@ -1102,7 +1211,7 @@ classdef ESPEnv < handle
             if ~exist('complementaryLabel', 'var')
                 complementaryLabel = '';
             end
-            newPath = replace(newPath, '{ESPGCode}', complementaryLabel);
+            newPath = replace(newPath, '{EPSGCode}', complementaryLabel);
             newPath = replace(newPath, '{geotiffCompression}', ...
                 Regions.geotiffCompression);            
 
@@ -1165,6 +1274,16 @@ classdef ESPEnv < handle
                 readtable(fullfile(obj.confDir, ...
                 obj.additionalConfigurationFilenames.(confLabel)), 'Delimiter', ',');
             tmp([1],:) = []; % delete comment line
+            % Add the versionOfAncillary for landsubdivision.
+            if strcmp(confLabel, 'landsubdivision')
+                tmp = tmp(tmp.used > 0, :); 
+                    % Might be necessary to change to == 1 2023-11-15 @todo 
+                tmp = innerjoin(tmp, obj.myConf.region, ...
+                    LeftKeys = 'sourceRegionName', RightKeys = 'name', ...
+                    RightVariables = 'versionOfAncillary');
+                tmp = tmp(~isnan(tmp.id), :);
+            end
+            
             obj.myConf.(confLabel) = tmp;
         end
         function f = SCAGDRFSFile(obj, region, ...
