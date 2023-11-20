@@ -59,7 +59,11 @@ classdef STC < handle
         nonForestedScaleFactor
         minSnowForVegAdjust
         canopyToTrunkRatio
-
+        
+        isViewableSnowFractionTheFilterBase
+        areWeightsXByViewableSnowFraction
+        applyFalsePositiveMask
+        gapAdjustMindaysWithoutNaNDays
     end
 
     % properties(Constant)
@@ -110,7 +114,12 @@ classdef STC < handle
             addOptional(p, 'nonForestedScaleFactor', 0.08);
             addOptional(p, 'minSnowForVegAdjust', 0.07);
             addOptional(p, 'canopyToTrunkRatio', 0.08);
-
+            
+            addOptional(p, 'isViewableSnowFractionTheFilterBase', 1);
+            addOptional(p, 'areWeightsXByViewableSnowFraction', 1);
+            addOptional(p, 'applyFalsePositiveMask', 0);
+            addOptional(p, 'gapAdjustMindaysWithoutNaNDays', 0);
+            
             p.KeepUnmatched = false;
             parse(p, varargin{:});
             
@@ -141,7 +150,14 @@ classdef STC < handle
     	    obj.set_sthresh(p.Results.sthreshForGS, p.Results.sthreshForRF);
             obj.set_zthresh(p.Results.zthresh);
             obj.set_canopyAdj(p.Results.canopyAdj);
-
+            obj.isViewableSnowFractionTheFilterBase = ...
+                p.Results.isViewableSnowFractionTheFilterBase;
+            obj.areWeightsXByViewableSnowFraction = ...
+                p.Results.areWeightsXByViewableSnowFraction;
+            obj.applyFalsePositiveMask = ...
+                p.Results.applyFalsePositiveMask;
+            obj.gapAdjustMindaysWithoutNaNDays = ...
+                p.Results.gapAdjustMindaysWithoutNaNDays;
         end
         function set_mindays(obj, mindays)
 

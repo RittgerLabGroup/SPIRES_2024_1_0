@@ -10,6 +10,14 @@ classdef Regions < handle
                     % pipeline: (1) raw/gap/stc monthly cube files,
                     % (2) snow_cover_days calculation, (3) daily mosaic files,
                     % (4) published geotiff and netcdf files, (5) statistic files.
+                    % table = table(thresholdedVarName (char),	
+                    % minValue (int), maxValue (int), replacedVarName (char)).
+                    % Minimum/max values of variables below which the data are
+                    % considered unreliable to perform the operation
+                    % (stc, snowCoverDay, etc ...).
+                    % If the thresholdedVarName < minValue then
+                    % the replacedVarName value is replaced by the value indicated
+                    % in the file configuration_of_filters.csv
         name          % name of region set
         regionName    % name of the big region which encompasses all the
                       % subregions
@@ -36,21 +44,23 @@ classdef Regions < handle
                         % Data to crop the geotiff reprojected raster for web use
         tileIds         % Names of the source tiles that are assembled in the Mosaic
                         % that constitute the upper level region.
-        thresholdsForMosaics % table (thresholded_varname (char),
+        myConf          % struct(variable = table). Stores the info extracted from
+                        % the configuration files.
+       thresholdsForMosaics % table (thresholded_varname (char),
                         % threshold_value (int), replaced_varname (char)
                         % Minimum values of variables below which the data are
                         % considered unreliable and shouldn't be included in the
                         % Mosaic files.
                         % If the thresholded_varname < threshold_value then
                         % the replaced_varname value is replaced by the value indicated
-                        % in the file configuration_of_variables
+                        % in the file configuration_of_filters.csv
         thresholdsForPublicMosaics % table (thresholded_varname (char),
                         % threshold_value (int), replaced_varname (char)
                         % Minimum values of variables below which the data are
                         % considered unreliable and shouldn't be released to public.
                         % If the thresholded_varname < threshold_value then
                         % the replaced_varname value is replaced by the value indicated
-                        % in the file configuration_of_variables
+                        % in the file configuration_of_filters.csv
         modisData       % MODISData object, modis environment paths and methods
                         %                                                    @deprecated
         STC             % STC thresholds
@@ -96,13 +106,14 @@ classdef Regions < handle
 
             obj.maskName = maskName;
             obj.regionName = regionName;
+            obj.name = regionName; % NB: duplicate attribute. Improve this!        @todo
             obj.espEnv = espEnv;
             obj.modisData = espEnv.modisData;
 
             % Fetch the structure with the requested region information
             [regionFilePath, ~] = espEnv.getFilePathForObjectNameDataLabel( ...
                 maskName, 'region');
-            mObj = matfile(regionFilePath);            
+            mObj = matfile(regionFilePath);
             varNames = who(mObj);
             if isempty(varNames)
                 ME = MException('Region:BadRegionFile', ...
@@ -119,24 +130,24 @@ classdef Regions < handle
             obj.percentCoverage = mObj.percentCoverage;
             obj.useForSnowToday = mObj.useForSnowToday;
             obj.lowIllumination = mObj.lowIllumination;
-                        
+
             % Configuration of region, links with subregions/tiles, and filtering.
-            % In the following we modify the tables and column names stored in 
-            % configuration_of_thresholds.csv to fit the code elsewhere. This is a 
-            % temporary solution which should evolve in the future (i.e. we should 
+            % In the following we modify the tables and column names stored in
+            % configuration_of_thresholds.csv to fit the code elsewhere. This is a
+            % temporary solution which should evolve in the future (i.e. we should
             % take the fieldnames in the file                                      @todo
             regionConf = espEnv.myConf.region(find(strcmp(espEnv.myConf.region.name, ...
                 regionName)), :);
-            obj.atmosphericProfile = regionConf.atmosphericProfile{1};            
+            obj.atmosphericProfile = regionConf.atmosphericProfile{1};
             obj.geotiffCrop.xLeft = regionConf.geotiffCropXLeft;
             obj.geotiffCrop.xRight = regionConf.geotiffCropXRight;
             obj.geotiffCrop.yBottom = regionConf.geotiffCropYBottom;
-            obj.geotiffCrop.yTop = regionConf.geotiffCropYTop; 
+            obj.geotiffCrop.yTop = regionConf.geotiffCropYTop;
 
             regionLinkConf = espEnv.myConf.regionlink( ...
-                find(strcmp(espEnv.myConf.regionlink.supRegionName, regionName)), ...
+                strcmp(espEnv.myConf.regionlink.supRegionName, regionName), ...
                 'subRegionName');
-            obj.tileIds = table2cell(regionLinkConf);            
+            obj.tileIds = table2cell(regionLinkConf);
 
             obj.filter.snowCoverDay = espEnv.myConf.filter( ...
                 espEnv.myConf.filter.id == regionConf.snowCoverDayConfId, :);
@@ -148,10 +159,10 @@ classdef Regions < handle
             obj.snowCoverDayMins.minSnowCoverFraction = ...
                 table2array(obj.filter.snowCoverDay( ...
                     strcmp(obj.filter.snowCoverDay.thresholdedVarName, ...
-                        'snow_fraction'), 'minValue')); 
-                        
+                        'snow_fraction'), 'minValue'));
+
             obj.filter.stc = espEnv.myConf.filter( ...
-                espEnv.myConf.filter.id == regionConf.stcConfId, :); 
+                espEnv.myConf.filter.id == regionConf.stcConfId, :);
             % STC format should be simplified and copied from other filters        @todo
             stcStruct = struct();
             stcParam = {'rawRovDV', 'rawRovRF', 'temporalRovDV', ...
@@ -162,7 +173,10 @@ classdef Regions < handle
                     strcmp(obj.filter.stc.lineName, thisLineName), :);
                 stcStruct.(thisLineName) = [thisFilter.minValue thisFilter.maxValue];
             end
-            stcParam = {'mindays', 'sthreshForGS', 'sthreshForRF'};
+            stcParam = {'mindays', 'sthreshForGS', 'sthreshForRF', ...
+                'isViewableSnowFractionTheFilterBase', ...
+                'areWeightsXByViewableSnowFraction', 'applyFalsePositiveMask', ...
+                'gapAdjustMindaysWithoutNaNDays'};
             for paramIdx = 1:length(stcParam)
                 thisLineName = stcParam{paramIdx};
                 thisFilter = obj.filter.stc( ...
@@ -177,9 +191,9 @@ classdef Regions < handle
                 thisFilter = obj.filter.stc( ...
                     strcmp(obj.filter.stc.lineName, thisLineName), :);
                 stcStruct.canopyAdj(paramIdx) = thisFilter.minValue;
-            end            
+            end
             obj.STC = STC(stcStruct);
-                        
+
             obj.filter.mosaic = espEnv.myConf.filter( ...
                 espEnv.myConf.filter.id == regionConf.mosaicConfId, :);
             % renaming/copying of table columns: should edit Mosaic                @todo
@@ -190,7 +204,7 @@ classdef Regions < handle
             obj.filter.mosaic.replaced_varname = ...
                 obj.filter.mosaic.replacedVarName;
             obj.thresholdsForMosaics = obj.filter.mosaic;
-            
+
             obj.filter.publish = espEnv.myConf.filter( ...
                 espEnv.myConf.filter.id == regionConf.publishConfId, :);
             % renaming/copying of table columns: should edit Mosaic                @todo
@@ -199,11 +213,22 @@ classdef Regions < handle
             obj.filter.publish.thresholded_varname = ...
                 obj.filter.publish.thresholdedVarName;
             obj.filter.publish.replaced_varname = ...
-                obj.filter.publish.replacedVarName;   
+                obj.filter.publish.replacedVarName;
             obj.thresholdsForPublicMosaics = obj.filter.publish;
-            
+
             obj.filter.statistic = espEnv.myConf.filter( ...
                 espEnv.myConf.filter.id == regionConf.statisticConfId, :);
+            obj.filter.stc = espEnv.myConf.filter( ...
+                espEnv.myConf.filter.id == regionConf.stcConfId, :);
+
+            % Variables associated to the region.
+            obj.myConf = struct();
+            thisTable = obj.espEnv.myConf.variableregion( ...
+                strcmp(obj.espEnv.myConf.variableregion.regionName, obj.name), :);
+            thisTable = join(thisTable, obj.espEnv.myConf.variable, ...
+                LeftKeys = 'varId', RightKeys = 'id', ...
+                LeftVariables = {'writeGeotiffs', 'writeStats', 'isDefault'});
+            obj.myConf.variable = thisTable;
         end
 %{
         function elevations = getElevations(obj)
@@ -239,7 +264,8 @@ classdef Regions < handle
             % firstMonth: int. First month of the waterYear on which stats will be
             %   calculated for the region, depends on location of the region.
             % NB: takes the coordinates of the NW corner of the region.
-            if max(obj.getMapCellsReference().YWorldLimits) >= 0 % North Hemisphere
+            % NB: implementation doesn't work for north region touching Equator    @todo
+            if max(obj.getMapCellsReference().YWorldLimits) > 0 % North Hemisphere
                 firstMonth = WaterYearDate.defaultFirstMonthForNorthTiles;
             else % South Hemisphere
                 firstMonth = WaterYearDate.defaultFirstMonthForSouthTiles;
@@ -274,7 +300,7 @@ classdef Regions < handle
             OutS = outputProjection;
             [XIntrinsic, YIntrinsic] =...
                 meshgrid([1 InRR.RasterSize(2)],[1 InRR.RasterSize(1)]);
-            % NB: @todo. this calculation of intrinsic coordinates seem incorrect. 
+            % NB: @todo. this calculation of intrinsic coordinates seem incorrect.
             % to investigate SIER_337                                               TODO
             [xWorld, yWorld] = intrinsicToWorld(InRR, XIntrinsic, YIntrinsic);
                 %RasterReprojection package
@@ -349,7 +375,7 @@ classdef Regions < handle
             positionalData.rowCount = ...
                 modisData.georeferencing.tileInfo.rowCount * ...
                 length(unique(verticalTileIds));
-                
+
             mapCellsReference = obj.modisData.getMapCellsReference(positionalData);
         end
         function size1 = getSizeInPixels(obj)
@@ -427,19 +453,26 @@ classdef Regions < handle
             %         Dates for which stats are calculated.
             % geotiffEPSG: int. Code EPSG of the projection or geographic system.
             %   SIER_163.
-    
+
             tic;
             fprintf(['%s: Start regional geotiffs generation and writing for', ...
                 ' region %s, EPSG %d, waterYear %d ...\n'], mfilename(), ...
                 obj.regionName, geotiffEPSG, year(waterYearDate.thisDatetime));
             espEnv = obj.espEnv;
             publicMosaic = PublicMosaic(obj);
-            
+
             % Variables and output directory
             %-------------------------------
-            confOfVar = espEnv.configurationOfVariables();
-            availableVariables = confOfVar(...
-                confOfVar.write_geotiffs == 1, :);                
+            % NB: Need to make dynamic (if no data for variable, don't try to generate
+            % the geotiff.                                                       @todo
+            availableVariables = espEnv.myConf.variableregion( ...
+                strcmp(espEnv.myConf.variableregion.regionName, obj.name) & ...
+                espEnv.myConf.variableregion.writeGeotiffs == 1, ...
+                {'varId'});
+            availableVariables = join(availableVariables, espEnv.myConf.variable, ...
+                LeftKeys = 'varId', ...
+                RightKeys = 'id', LeftVariables = {}, ...
+                RightVariables = {'id', 'output_name', 'nodata_value', 'type'});
 
             % instantiate the variable indexes on which to loop
             % ------------------------------------------------------------
@@ -474,7 +507,7 @@ classdef Regions < handle
             inMapCellsReference = obj.getMapCellsReference();% RasterReprojection
             % package.
             % NB mstruct of regions are wrong and cannot be used here.
-            
+
             % We'll preload the variables used for thresholding in the parforloops.
             % NB: the smaller nb of preloaded variables, the better is, given the
             % structure of the code. All this is done to lower memory consumption
@@ -486,14 +519,14 @@ classdef Regions < handle
                 unique(obj.thresholdsForPublicMosaics.thresholded_varname));
 
             % Obtain output projection/system.
-            % For this we load the first available mosaic values for variable 
+            % For this we load the first available mosaic values for variable
             % viewable_snow_fraction.
             % This is required to use the functions within the RasterProjection package.
             % @todo. Maybe we could use a different function to avoid that.         TODO
-            varDataIsObtained = 0;            
+            varDataIsObtained = 0;
             varName = varnamesToPreLoad{1};
             for dateIdx=1:length(dateRange)
-                thisDatetime = dateRange(dateIdx);                
+                thisDatetime = dateRange(dateIdx);
                 publicMosaicData = publicMosaic.getThresholdedData(varName, ...
                     thisDatetime, struct());
                 if ~isempty(fieldnames(publicMosaicData))
@@ -545,7 +578,7 @@ classdef Regions < handle
 
             % Obtain the output CellsReference, either geographic or map
             % projected. The outCellsReference is used to calculate the coordinates Xq,
-            % Yq of the output raster and to generate the geotiff file.            
+            % Yq of the output raster and to generate the geotiff file.
             if geotiffEPSG == 4326
                 % output in geographic reference.
                 % NB: no crop possible becayse the Regions.getGeotiffExtent()
@@ -556,7 +589,7 @@ classdef Regions < handle
             elseif geotiffEPSG == Regions.webGeotiffEPSG
                 % output in projected system.
                 % EPSG 3857 for website snowToday and other projections
-                % are possible.         
+                % are possible.
                 [xLimit, yLimit] = obj.getGeotiffExtentMinusCrop(geotiffEPSG);
                 [~, outCellsReference, ~, ~, ~, ~, ~, ~, ~] = ...
                     parseReprojectionInput(varData, inMapCellsReference, ...
@@ -593,13 +626,13 @@ classdef Regions < handle
                     (outCellsReference.LatitudeLimits(2) - ...
                         outCellsReference.CellExtentInLatitude / 2 : ...
                     -outCellsReference.CellExtentInLatitude: ...
-                    outCellsReference.LatitudeLimits(1) + ... 
+                    outCellsReference.LatitudeLimits(1) + ...
                         outCellsReference.CellExtentInLatitude / 2), ...
                     (outCellsReference.LongitudeLimits(1) + ...
                         outCellsReference.CellExtentInLongitude / 2 : ...
                     outCellsReference.CellExtentInLongitude: ...
                     outCellsReference.LongitudeLimits(2) - ...
-                        outCellsReference.CellExtentInLongitude / 2)); 
+                        outCellsReference.CellExtentInLongitude / 2));
                 lat = lat';
                 lon = lon';
             end
@@ -615,7 +648,7 @@ classdef Regions < handle
             % to get all the memory on the node, and then limit workers here
             % SIER_163 and SIER_333 should have solve this problem.
             espEnv.configParallelismPool(length(varIndexes)); % currently 8 variables
-              
+
             for dateIdx=1:length(dateRange)
                 logger = Logger('geotiffDate');
                 thisDatetime = dateRange(dateIdx);
@@ -646,7 +679,7 @@ classdef Regions < handle
                     initPublicMosaicData = publicMosaic.getThresholdedData(varName, ...
                         thisDatetime, initPublicMosaicData);
                 end
-                
+
                 % We handle each variable to generate a geotiff.
                 parfor varIdx=1:length(varIndexes)
                     % varName info
@@ -683,7 +716,7 @@ classdef Regions < handle
                             mfilename(), varName);
                         % Geotiff writing
                         % ---------------
-                        
+
                         outFilename = obj.espEnv.SnowTodayGeotiffFile(...
                             obj, outputDirectory2, 'Terra', thisDatetime, ...
                             varName);
