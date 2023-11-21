@@ -64,6 +64,7 @@ classdef STC < handle
         areWeightsXByViewableSnowFraction
         applyFalsePositiveMask
         gapAdjustMindaysWithoutNaNDays
+        flattensEndOfTimeInterpolationWOData
     end
 
     % properties(Constant)
@@ -119,6 +120,7 @@ classdef STC < handle
             addOptional(p, 'areWeightsXByViewableSnowFraction', 1);
             addOptional(p, 'applyFalsePositiveMask', 0);
             addOptional(p, 'gapAdjustMindaysWithoutNaNDays', 0);
+            addOptional(p, 'flattensEndOfTimeInterpolationWOData', 1);
             
             p.KeepUnmatched = false;
             parse(p, varargin{:});
@@ -158,6 +160,8 @@ classdef STC < handle
                 p.Results.applyFalsePositiveMask;
             obj.gapAdjustMindaysWithoutNaNDays = ...
                 p.Results.gapAdjustMindaysWithoutNaNDays;
+            obj.flattensEndOfTimeInterpolationWOData = ...
+                p.Results.flattensEndOfTimeInterpolationWOData;
         end
         function set_mindays(obj, mindays)
 
