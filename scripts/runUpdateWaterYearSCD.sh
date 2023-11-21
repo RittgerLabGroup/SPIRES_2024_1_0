@@ -22,7 +22,7 @@
 # matlab job uses parfor with nTiles workers
 #SBATCH --ntasks-per-node=5
 #SBATCH --nodes=1
-#SBATCH --partition=amilan
+# formerly SBATCH --partition=amilan 2023-11-21
 #SBATCH --account=ucb-general
 #SBATCH -o /scratch/alpine/%u/slurm_out/%x-%A_%a.out
 # Set the system up to notify upon completion
