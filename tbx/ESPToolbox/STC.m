@@ -60,11 +60,20 @@ classdef STC < handle
         minSnowForVegAdjust
         canopyToTrunkRatio
         
+        setViewableSnowFractionToNoDataIfVegDetectedCloud
         isViewableSnowFractionTheFilterBase
         areWeightsXByViewableSnowFraction
         applyFalsePositiveMask
         gapAdjustMindaysWithoutNaNDays
         flattensEndOfTimeInterpolationWOData
+        preIdwSnowFractionThreshold
+        idwMinCountOfPixels
+        idwHalfSizeOfWindow
+        idwDefaultValueForgrain_size
+        idwDefaultValueFordrfs_grnsz
+        idwDefaultValueFordeltavis
+        idwDefaultValueForradiative_forcing
+
     end
 
     % properties(Constant)
@@ -116,11 +125,20 @@ classdef STC < handle
             addOptional(p, 'minSnowForVegAdjust', 0.07);
             addOptional(p, 'canopyToTrunkRatio', 0.08);
             
+            addOptional(p, 'setViewableSnowFractionToNoDataIfVegDetectedCloud', 0);
             addOptional(p, 'isViewableSnowFractionTheFilterBase', 1);
             addOptional(p, 'areWeightsXByViewableSnowFraction', 1);
             addOptional(p, 'applyFalsePositiveMask', 0);
             addOptional(p, 'gapAdjustMindaysWithoutNaNDays', 0);
             addOptional(p, 'flattensEndOfTimeInterpolationWOData', 1);
+            addOptional(p, 'preIdwSnowFractionThreshold', 0);
+            addOptional(p, 'idwMinCountOfPixels', 3);
+            addOptional(p, 'idwHalfSizeOfWindow', [10 20 40 80 160 320 640]);
+            addOptional(p, 'idwDefaultValueForgrain_size', 600.);
+            addOptional(p, 'idwDefaultValueFordrfs_grnsz', 600.);
+            addOptional(p, 'idwDefaultValueFordeltavis', 600.);
+            addOptional(p, 'idwDefaultValueForradiative_forcing', 600.);
+
             
             p.KeepUnmatched = false;
             parse(p, varargin{:});
@@ -152,6 +170,9 @@ classdef STC < handle
     	    obj.set_sthresh(p.Results.sthreshForGS, p.Results.sthreshForRF);
             obj.set_zthresh(p.Results.zthresh);
             obj.set_canopyAdj(p.Results.canopyAdj);
+            
+            obj.setViewableSnowFractionToNoDataIfVegDetectedCloud = ...
+                p.Results.setViewableSnowFractionToNoDataIfVegDetectedCloud;
             obj.isViewableSnowFractionTheFilterBase = ...
                 p.Results.isViewableSnowFractionTheFilterBase;
             obj.areWeightsXByViewableSnowFraction = ...
@@ -162,6 +183,20 @@ classdef STC < handle
                 p.Results.gapAdjustMindaysWithoutNaNDays;
             obj.flattensEndOfTimeInterpolationWOData = ...
                 p.Results.flattensEndOfTimeInterpolationWOData;
+            obj.preIdwSnowFractionThreshold = ...
+                p.Results.preIdwSnowFractionThreshold;
+            obj.idwMinCountOfPixels = ...
+                p.Results.idwMinCountOfPixels;
+            obj.idwHalfSizeOfWindow = ...
+                p.Results.idwHalfSizeOfWindow;
+            obj.idwDefaultValueForgrain_size = ...
+                p.Results.idwDefaultValueForgrain_size;
+            obj.idwDefaultValueFordrfs_grnsz = ...
+                p.Results.idwDefaultValueFordrfs_grnsz;
+            obj.idwDefaultValueFordeltavis = ...
+                p.Results.idwDefaultValueFordeltavis;
+            obj.idwDefaultValueForradiative_forcing = ...
+                p.Results.idwDefaultValueForradiative_forcing;
         end
         function set_mindays(obj, mindays)
 
