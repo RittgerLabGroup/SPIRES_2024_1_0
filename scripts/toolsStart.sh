@@ -9,6 +9,7 @@ if [ -z ${scriptId+x} ]; then
     scriptId="noName"
     printf "Warning: No script name set for logs.\n"
 fi
+ml slurmtools
 
 # Functions.
 #---------------------------------------------------------------------------------------
@@ -76,7 +77,6 @@ error_exit() {
 
 # Script core.
 #---------------------------------------------------------------------------------------
-ml slurmtools
 printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
 
 # Caller script arguments.
@@ -131,17 +131,25 @@ if [ ! outputLabel ]; then
     outputLabel=LABEL
 fi
 
-echo "ancillary: ${VERSION_OF_ANCILLARY}, " \
+sbatchOptionString="--account ucb-general --export=NONE --partition amilan --qos normal "\
+"-o /rc_scratch/%u/slurm_out/%x-%j.out"
+# Determine the sbatch options string.
+if [[ ${scratchPath:0:12} == "/rc_scratch/" ]]; then
+    sbatchOptionString="--account blanca-rittger --export=NONE --qos preemptable -o /rc_scratch/%u/slurm_out/%x-%j.out"
+fi
+
+echo "ancillary: ${VERSION_OF_ANCILLARY}, "\
 "dateOfToday: ${dateOfToday}, " \
-"filterConfId for ${filterConfLabel}: ${filterConfId}, " \
-"inputFromArchive: ${inputFromArchive}, inputLabel: ${LABEL}, " \
-"noPipeline: ${noPipeline}, outputLabel: ${outputLabel}, " \
+"filterConfId for ${filterConfLabel}: ${filterConfId}, "\
+"inputFromArchive: ${inputFromArchive}, inputLabel: ${LABEL}, "\
+"noPipeline: ${noPipeline}, outputLabel: ${outputLabel}, "\
 "outputToArchive: ${outputToArchive}, testing: ${testing}, "\
-"scratchPath: ${scratchPath}."
+"scratchPath: ${scratchPath}, "\
+"sbatchOptionString: ${sbatchOptionString}."\
 
 # Output file. This variable is not transferred from sbatch to bash, so we define it.
 # NB: to split a string, don't put indent otherwise there will be two variables.
-SBATCH_OUTPUT="${scratchPath}slurm_out/${SLURM_JOB_NAME}-${SLURM_ARRAY_JOB_ID}_"\
+THISSBATCH_OUTPUT="${scratchPath}slurm_out/${SLURM_JOB_NAME}-${SLURM_ARRAY_JOB_ID}_"\
 "${SLURM_ARRAY_TASK_ID}.out"
 # Submit sbatch script updating the efficiency statistics at the end of the log file.
 # NB: dependency should be afterany and not any, otherwise it would generate a killing
@@ -149,8 +157,8 @@ SBATCH_OUTPUT="${scratchPath}slurm_out/${SLURM_JOB_NAME}-${SLURM_ARRAY_JOB_ID}_"
 if [ ! -z ${isBatch} ]; then
     echo "${PROGNAME}: SLURM_SCRATCH=$SLURM_SCRATCH"
     echo "${PROGNAME}: SLURM_JOB_ID=$SLURM_JOB_ID"
-    sbatch --dependency=afterany:$SLURM_JOB_ID ./scripts/toolsJobAchieved.sh \
-        $SLURM_JOB_ID $SBATCH_OUTPUT
+    sbatch ${sbatchOptionString} --dependency=afterany:$SLURM_JOB_ID ./scripts/toolsJobAchieved.sh \
+        $SLURM_JOB_ID $THISSBATCH_OUTPUT
 
     stdoutDir=$(get_slurm_std_out_directory ${SLURM_JOB_ID})
     echo "stdoutDir: " ${stdoutDir}
@@ -172,9 +180,9 @@ inputForModisData="label = '${LABEL}', versionOfAncillary = '${VERSION_OF_ANCILL
 printf "inputForModisData: ${inputForModisData}\n"
 modisDataInstantiation="modisData = MODISData(${inputForModisData}); "
 if [[ ${LABEL} != ${outputLabel} ]] & [ outputDataLabels ]; then
-    for thisLabel in ${outputDataLabels[*]}; 
+    for thisLabel in ${outputDataLabels[*]};
         do modisDataInstantiation=${modisDataInstantiation}""\
-"modisData.versionOf.${thisLabel}='${outputLabel}'; "; 
+"modisData.versionOf.${thisLabel}='${outputLabel}'; ";
     done
     printf "modisDataInstantiation: ${modisDataInstantiation}.\n"
 fi
@@ -183,13 +191,13 @@ inputForESPEnv="modisData = modisData, scratchPath = '${scratchPath}'"
 espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); "
 if [[ ${filterConfId} -ne 0 ]]; then
     espEnvInstantiation=${espEnvInstantiation}" "\
-"espEnv.myConf.region.${filterConfLabel}ConfId(:)=${filterConfId}; ";    
+"espEnv.myConf.region.${filterConfLabel}ConfId(:)=${filterConfId}; ";
     printf "espEnvInstantiation: ${espEnvInstantiation}.\n"
 fi
 waterYearDateSetToday=""
 if [ ! -z ${dateOfToday} ]; then
     waterYearDateSetToday="waterYearDate.dateOfToday = datetime(${dateOfToday:0:4}, "\
-"${dateOfToday:4:2}, ${dateOfToday:6:2}); ";    
+"${dateOfToday:4:2}, ${dateOfToday:6:2}); ";
     printf "waterYearDateSetToday: ${waterYearDateSetToday}.\n"
 fi
 # NB: month and day can be input as 09 and 01 apparently with Matlab 2021b.

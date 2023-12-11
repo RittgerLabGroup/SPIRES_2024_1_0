@@ -8,14 +8,10 @@
 # $1: int. Slurm job id.
 # $2: char. Log filepath.
 
-#SBATCH --qos normal
-#SBATCH --partition amilan
 #SBATCH --job-name toolsJobA
-#SBATCH --account ucb-general
 #SBATCH --time 00:00:15
 #SBATCH --ntasks-per-node 1
 #SBATCH --nodes=1
-#SBATCH -o /scratch/alpine/%u/slurm_out/%x-%j.out
 # Set the system up to notify upon completion
 # Do not set --mail-user, let it default to the caller
 # It can also be over-written at the command line
@@ -23,6 +19,7 @@
 
 thatJobId=$1
 thatLog=$2
+ml slurmtools
 printf "Update ${thatLog} for job ${thatJobId}\n"
 text=$(printf %q "$(seff ${thatJobId} | grep "CPU Efficiency" | \
     awk '{print $3}' | sed s/.[0-9][0-9]//)"; printf "; ")

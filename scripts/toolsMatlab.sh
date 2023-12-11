@@ -20,3 +20,4 @@ tmpDir=${scratchPath}.matlabTmp/alpine-$SLURM_JOB_ID
 mkdir -p $tmpDir
 export TMPDIR=$tmpDir
 export TMP=$tmpDir
+
