@@ -113,6 +113,8 @@ classdef Mosaic
                 % 2.1. Initialize the parfor variables
                 %------------------------------------
                 monthDatetime = monthRange(monthDatetimeIdx);
+                fprintf('%s: Starting mosaic for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
                 % Stores data that will be saved in Mosaic files
                 mosaicData = struct();
                 % Stores data necessary to assemble the Mosaic from
@@ -165,7 +167,8 @@ classdef Mosaic
                 if missingFileFlag == true
                     continue;
                 end
-
+                fprintf('%s: Got list of files mosaic for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
                 % Map projection information
                 mstructFile = fullfile(espEnv.mappingDir, ...
                            'Sinusoidal_projection_structure.mat');
@@ -200,6 +203,8 @@ classdef Mosaic
                     mosaicData.mindays(tileId) = {mosaicData.stcStruct(tileId).mindays};
                     mosaicData.zthresh(tileId) = {mosaicData.stcStruct(tileId).zthresh};
                 end
+                fprintf('%s: Got first metadata for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
                 warning('off', 'MATLAB:structOnObject');
                 mosaicData.stcStruct = mosaicData.stcStruct(1); % 2023-11-09, was formerly struct(region.STC); % SIER_289
                     % This changed after the inline possibility to override the stc conf 
@@ -240,6 +245,8 @@ classdef Mosaic
                         ones(round([mosaicRowNb mosaicColNb 31]), ...
                             varNameInfosForVarIdx.type_in_mosaics{1});
                 end
+                fprintf('%s: Got variable metadata for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
 
                 % 2.5. Insert the tile data values at the right position in the mosaic
                 % with replacement of NaN by nodata_value and cast to int type
@@ -274,6 +281,8 @@ classdef Mosaic
                         varSTCData = [];
                     end
                 end
+                fprintf('%s: Got data for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
                 
                 % 2.6. Thresholding
                 %------------------
@@ -285,6 +294,11 @@ classdef Mosaic
                     valueForUnreliableData = availableVariables{ ...
                         find(strcmp(availableVariables.output_name, replacedVarname)), ...
                         'value_for_unreliable'};
+                    if isempty(valueForUnreliableData)
+                        continue;
+                    end
+                        % 2023-12-07: case when thresholded variable is not in the 
+                        % variables to be included in the mosaic (e.g. albedos).
 
                     mosaicDataForAllDays.(replacedVarname) ...
 			(mosaicDataForAllDays.(thresholdedVarname) ...
@@ -298,6 +312,8 @@ classdef Mosaic
                             Variables.dataStatus.observed) = Variables.dataStatus.lowValue;
                     end
                 end
+                fprintf('%s: Filtered data for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
                 
                 % 2.7. Generate and write the daily Mosaic Files
                 %-----------------------------------------------
@@ -315,7 +331,9 @@ classdef Mosaic
                         mosaicData, 'new_file');
                     fprintf('%s: Saved base mosaic data to %s\n', mfilename(), ...
                         mosaicFile);
-                end                
+                end  
+                fprintf('%s: Saved minimal mosaic files for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
                 for dayIdx = 1:length(dayRange)
                     mosaicData = struct(); % dirty way to reduce memory consumption 2023/07/11 @todo 
                     thisDatetime = dayRange(dayIdx);
@@ -335,6 +353,8 @@ classdef Mosaic
                     fprintf('%s: Saved variables in mosaic data to %s\n', mfilename(), ...
                         mosaicFile);
                 end
+                fprintf('%s: Saved mosaic for %s\n', mfilename(), ...
+                    char(monthDatetime, 'yyyy-MM-dd'));
             end % end parfor
             t2 = toc;
             fprintf('%s: Finished mosaic generation and writing in %s seconds.\n', ...
