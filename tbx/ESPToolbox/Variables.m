@@ -355,6 +355,7 @@ classdef Variables
                 % error.
 
                 albedos = struct();
+                albedoConf = ''; % to prevent Uninitialized Temporaries matlab warning.
                 for albedoIdx=1:length(albedoNames)
                     albedoName = albedoNames{albedoIdx};
                     albedoConf = confOfVar(find( ...
