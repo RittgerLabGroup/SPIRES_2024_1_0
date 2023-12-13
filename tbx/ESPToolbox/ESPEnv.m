@@ -426,7 +426,7 @@ classdef ESPEnv < handle
             %
             % Return
             % ------
-            % varData: data array read.
+            % varData: data array or table read.
             %
             % NB: only works for dataLabel in VariablesMatlab.
             % NB: doesn't check if the variable is present in file.                @todo
@@ -443,16 +443,27 @@ classdef ESPEnv < handle
             % 2. Construction of the array of values extracted from the files.
             %---------------------------------------------------------------------------
             varData = [];
-            if fileExists == 1
-                % In regular process, a proper
-                % handling of thisDate and of the generation of files (potentially
-                % with nodata/NaN-filled variables) should make all files present and
-                % the last condition useless.
-                if ~strcmp(varName, '')
-                    varData = parloadMatrices(filePath, varName);
-                else
-                    varData = load(filePath); % Not sure whether that works in parfor
-                        % loops.
+            if ~fileExists
+                warning('%s: Absent file %s.\n', mfilename(), filePath);
+            else
+                fileExtension = Tools.getFileExtension(filePath);
+                if strcmp(fileExtension, '.mat')
+                    % In regular process, a proper
+                    % handling of thisDate and of the generation of files (potentially
+                    % with nodata/NaN-filled variables) should make all files present and
+                    % the last condition useless.
+                    if ~strcmp(varName, '')
+                        varData = parloadMatrices(filePath, varName);
+                    else
+                        varData = load(filePath); % Not sure whether that works in parfor
+                            % loops.
+                    end
+                elseif strcmp(fileExtension, '.csv')
+                    varData = readtable(filePath, 'Delimiter', ',');
+                    if startsWith(string(varData.(1)(1)), 'Metadata')
+                        varData([1],:) = []; % delete metadata line.
+                        % There might be necessary to put that in the metadata return @todo
+                    end
                 end
             end
         end
@@ -517,7 +528,7 @@ classdef ESPEnv < handle
         end
         function varData = getDataForWaterYearDateAndVarName(obj, ...
             objectName, dataLabel, waterYearDate, varName)
-            % SIER_297: replacement of modisData.loadMOD09() and loadSCAGDRFS()
+             % SIER_297: replacement of modisData.loadMOD09() and loadSCAGDRFS()
             % NB: this ugly method may be improved, depending on raw data struct.  @todo
             %
             % Parameters
@@ -538,18 +549,20 @@ classdef ESPEnv < handle
             %   have continuous dates, without gaps (you can have files filled by NaN
             %   or nodata.
             %
-            % NB: only works for dataLabel in MOD09Raw or SCAGRaw.
+            % NB: only works for dataLabel in MOD09Raw or SCAGRaw. !!
             % NB: doesn't check if the variable is present in file.                @todo
 
             % 1. Check valid dataLabel and get list of files for which the variable is
             % to be loaded.
             %---------------------------------------------------------------------------
+            fprintf('%s: Loading data %s, %s for %s, waterYearDate %s...\n', ...
+                mfilename(), dataLabel, varName, objectName, waterYearDate.toChar());
             filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
             varConf = obj.myConf.variable(strcmp(obj.myConf.variable.output_name, ...
                 varName), :);
 
-            [filePath, fileExists, ~, ~] = ...
+            [filePath, fileExists, lastDateInFile, waterYearDate] = ...
                 obj.getFilePathForWaterYearDate(objectName, dataLabel, waterYearDate);
                 % Raises error if dataLabel not in configuration_of_filenames.csv and
                 % in modisData.versionOf.
@@ -557,13 +570,14 @@ classdef ESPEnv < handle
                 % handling of waterYearDate and of the generation of files (potentially
                 % with nodata/NaN-filled variables) should make all files present and
                 % this command useless.
+            lastDateInFile = lastDateInFile(fileExists == 1);
 
             % 2. Construction of the array of values extracted from the files.
             %---------------------------------------------------------------------------
             varData = [];
             if strcmp(varName, filePathConf.dateFieldName{1})
                 for fileIdx = 1:size(filePath, 2)
-                    [varDataT] = parloadDts(filePath{fileIdx}, varName);
+                    [varDataT] = load(filePath{fileIdx}, varName).(varName);
                     if fileIdx == 1
                         varData = varDataT{1}';
                     else
@@ -572,19 +586,49 @@ classdef ESPEnv < handle
                 end
                 varData = datenum(varData);
             elseif strcmp(varName, 'RefMatrix')
-                varData = parloadMatrices(filePath{1}, 'RefMatrix');
+                varData = load(filePath{1}, 'RefMatrix').RefMatrix;
             else
-                for fileIdx = 1:size(filePath, 2)
-                    varDataT = parloadMatrices(filePath{fileIdx}, varName);
-                    if strcmp(varName, 'NoValues') && fileIdx == 1
-                        varData = varDataT;
-                    elseif strcmp(varName, 'refl')
-                        varData = cat(4, varData, varDataT);
-                    else
-                        varData = cat(3, varData, varDataT);
+                % Initialization of loaded data array...
+                % destination array has fix size (e.g. 2400x2400x92 days)
+                % and not a variable size as before 2023-12-12, to speed execution.
+                thisType = ...
+                    Tools.valueInTableForThisField(obj.myConf.variable, 'raw_name', ...
+                    varName, 'type');
+                        % NB: For variable NoValues, 
+                        % type in raw files is actually logical, but code should work.
+
+                if strcmp(varName, 'refl') % Reflectance has 7 bands as 3rd dimension.
+                    thisSize = [obj.modisData.sensorProperties.tiling.rowPixelCount, ...
+                        obj.modisData.sensorProperties.tiling.columnPixelCount, ...
+                        7, sum(day(lastDateInFile))];
+                        
+                    varData = intmax(thisType) * ones(thisSize, thisType);
+                    lastIndex = 0;
+                    for fileIdx = 1:size(filePath, 2)
+                        varData(:, :, :, lastIndex + 1: ...
+                            lastIndex + day(lastDateInFile(fileIdx))) = ...
+                            load(filePath{fileIdx}, varName).(varName);
+                        lastIndex = lastIndex + day(lastDateInFile(fileIdx));
+                    end
+                else % Other variables have time as 3rd dimension.
+                    % NB: solar azimuth, zenith, sensor zenith are 2400x2400 in raw
+                    % cubes (but 1200x1200 in modis files).
+                    thisSize = [obj.modisData.sensorProperties.tiling.rowPixelCount, ...
+                        obj.modisData.sensorProperties.tiling.columnPixelCount, ...
+                        sum(day(lastDateInFile))];
+                        
+                    varData = intmax(thisType) * ones(thisSize, thisType);
+                    lastIndex = 0;
+                    for fileIdx = 1:size(filePath, 2)
+                        varData(:, :, lastIndex + 1: ...
+                            lastIndex + day(lastDateInFile(fileIdx))) = ...
+                            load(filePath{fileIdx}, varName).(varName);
+                        lastIndex = lastIndex + day(lastDateInFile(fileIdx));
                     end
                 end
             end
+            fprintf('%s: Loaded data %s, %s for %s, waterYearDate %s.\n', ...
+                mfilename(), dataLabel, varName, objectName, waterYearDate.toChar());
         end
         function [filePath, fileExists, lastDateInFile] = ...
             getFilePathForDateAndVarName(obj, objectName, dataLabel, thisDate, ...
@@ -962,41 +1006,6 @@ classdef ESPEnv < handle
             end
             fprintf('%s: Determined the list of objectNames.\n', mfilename());
         end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         function f = MOD09File(obj, MData, regionName, yr, mm)
             % MOD09File returns the name of a monthly MOD09 cubefile
             % if versionOf value is not empty, use underscore separator
@@ -1289,7 +1298,6 @@ classdef ESPEnv < handle
                     RightVariables = 'versionOfAncillary');
                 tmp = tmp(~isnan(tmp.id), :);
             end
-
             obj.myConf.(confLabel) = tmp;
         end
         function f = SCAGDRFSFile(obj, region, ...
