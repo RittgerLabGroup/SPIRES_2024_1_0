@@ -24,9 +24,11 @@ classdef Variables
                 highSolarZenith = 20, ...
                 lowValue = 30, ...
                 notForGeneralPublic = 40, ...
+                falsePositive = 50, ...
                 temporary = 255); % possible values
             % for the viewable_snow_fraction_status variable to indicate
             % observed and reliable/unobserved/interpolated data.
+            % False positive: dry lakes.
         dataStatusForNoObservation = [Variables.dataStatus.unavailable, ...
             Variables.dataStatus.cloudyOrOther, ...
             Variables.dataStatus.highSolarZenith]; % Data status values that indicate no
@@ -171,7 +173,7 @@ classdef Variables
         end
         function calcSnowCoverDays(obj, waterYearDate)
             % Calculates snow cover days from snow_fraction variable
-            % and updates the monthly STC cube interpolation data files with the value.
+            % and updates the daily mosaic data files with the value
             % Cover days are calculated if elevation and snow cover fraction
             % are above thresholds defined at the Region level (attribute
             % snowCoverDayMins.
@@ -179,11 +181,14 @@ classdef Variables
             %
             % Called by runSnowTodayStep1.sh \ runUpdateWaterYearSCD.sh \
             % updateWaterYearSCDFor.m
+            %
             % Parameters
             % ----------
             % waterYearDate: waterYearDate object.
             %   Date and range of days before over which calculation
             %   should be carried out
+            %
+            % NB: Calculation was previous on the STC Cubes (upd. 2023-12-28).
 
             tic;
             fprintf('%s: Start snow_cover_days calculations\n', mfilename());
@@ -193,8 +198,7 @@ classdef Variables
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             espEnv = obj.region.espEnv;
             mins = obj.region.snowCoverDayMins;
-            dateRange = waterYearDate.getMonthlyFirstDatetimeRange();
-            numberOfMonths = length(dateRange);
+            dateRange = waterYearDate.getDailyDatetimeRange();
 
             [elevation, ~, ~] = ...
                 espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'elevation');
@@ -203,7 +207,8 @@ classdef Variables
                 strcmp(espEnv.myConf.variable.output_name, 'snow_cover_days')), :);
             snow_cover_days_units = snowCoverConf.units_in_map;
             snow_cover_days_divisor = snowCoverConf.divisor;
-
+            snow_cover_days_divisor_type = snowCoverConf.type_in_mosaics{1};
+            
             snow_cover_days_min_elevation = mins.minElevation;
             snow_cover_days_min_snow_cover_fraction = mins.minSnowCoverFraction;
 
@@ -215,10 +220,9 @@ classdef Variables
             % else 0
             lastSnowCoverDays = 0.;
 
-            if month(dateRange(1)) ~= waterYearDate.firstMonth
+            if dateRange(1) ~= waterYearDate.getFirstDatetimeOfWaterYear()
                 dateBefore = daysadd(dateRange(1) , -1);
-                STCFile = espEnv.SCAGDRFSFile(obj.region, ...
-                    'SCAGDRFSSTC', dateBefore);
+                STCFile = espEnv.MosaicFile(obj.region, dateBefore);
 
                 if isfile(STCFile)
                     STCData = load(STCFile, 'snow_cover_days');
@@ -226,30 +230,29 @@ classdef Variables
                             mfilename(), STCFile);
                     if ~isempty(STCData) && ...
                         any(strcmp(fieldnames(STCData), 'snow_cover_days'))
-                        lastSnowCoverDays = STCData.snow_cover_days(:, :, end);
+                        lastSnowCoverDays = cast(STCData.snow_cover_days, 'single');
                     else
                         warning('%s: No snow_cover_days variable in %s\n', ...
                             mfilename(), STCFile);
                         lastSnowCoverDays = NaN;
                     end
                 else
-                    warning('%s: Missing interpolation file %s\n', mfilename(), ...
+                    warning('%s: Missing mosaic file %s\n', mfilename(), ...
                         STCFile);
                     lastSnowCoverDays = NaN;
                 end
             end
 
-            % 2. Update each monthly interpolated files for the full
+            % 2. Update each daily mosaic files for the full
             % period by calculating snow_cover_days from snow_fractions
             %----------------------------------------------------------
-            for monthDayIdx=1:numberOfMonths
+            for thisDateIdx=1:length(dateRange) % No parfor here.
                 % 2.a. Loading of the monthly interpolation file
                 %-----------------------------------------------
-                STCFile = espEnv.SCAGDRFSFile(obj.region, ...
-                    'SCAGDRFSSTC', dateRange(monthDayIdx));
-
+                STCFile = espEnv.MosaicFile(obj.region, dateRange(thisDateIdx));
+                
                 if ~isfile(STCFile)
-                    warning('%s: Missing interpolation file %s\n', mfilename(), ...
+                    warning('%s: Missing mosaic file %s\n', mfilename(), ...
                         STCFile);
                     lastSnowCoverDays = NaN;
                     continue;
@@ -277,16 +280,14 @@ classdef Variables
 
                 % 2.c. Cumulated snow cover days calculation and save
                 %----------------------------------------------------
-                snowCoverFractionWithoutNaN = snowCoverFraction(:, :, :);
+                snowCoverFractionWithoutNaN = snowCoverFraction;
                 snowCoverFractionWithoutNaN(isnan(snowCoverFraction)) = 0;
                 logicalSnowCoverFraction = cast(logical(snowCoverFractionWithoutNaN), ...
                     'single');
                 logicalSnowCoverFraction(isnan(snowCoverFraction)) = NaN;
-                snow_cover_days = repmat( ...
-                    lastSnowCoverDays, 1, 1, ...
-                    size(logicalSnowCoverFraction, 3) ...
-                    ) + cumsum(logicalSnowCoverFraction, 3);
-                lastSnowCoverDays = snow_cover_days(:, :, end);
+                snow_cover_days = lastSnowCoverDays + logicalSnowCoverFraction;
+                lastSnowCoverDays = snow_cover_days;
+                snow_cover_days = cast(snow_cover_days, snow_cover_days_divisor_type);
 
                 save(STCFile, 'snow_cover_days', ...
                     'snow_cover_days_divisor', ...
