@@ -449,6 +449,10 @@ classdef Variables
 		        % N.B.: phi0 and aspect must be referenced to the same
 		        % angular convention for this function to work properly
                 muZ = sunslope(mu0, phi0, slope, aspect);
+                muZ(muZ > 1.0) = 1.0; % 2024-01-05, occasionally ParBal.sunslope()
+                    % returns a few 10-16 higher than 1 (h24v05, 2011/01/08)
+                    % Patch should be inserted in ParBal.sunslope().
+                
 
                 grainSizeForSpires = mosaicData.grain_size;
                 grainSizeForSpires(grainSizeForSpires > ...
