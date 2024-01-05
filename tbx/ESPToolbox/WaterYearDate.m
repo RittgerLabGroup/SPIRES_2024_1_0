@@ -21,6 +21,7 @@ classdef WaterYearDate < handle
         dayStartTime = struct('HH', 12, 'MIN', 0, 'SS', 0);
         defaultFirstMonthForNorthTiles = 10;
         defaultFirstMonthForSouthTiles = 4; % 7 for New Zealand, dev a new call    @todo
+        fakeDate = datetime(1, 1, 1);
         maxDaysByYear = 366;
         monthFirstDay = 1;
         cubeMonthWindow = 3;
@@ -85,6 +86,9 @@ classdef WaterYearDate < handle
             % ------
             % lastWYDateForWaterYear: WaterYearDate.
             %   Last WaterYearDate for a waterYear.
+            %
+            % NB/WARNING: We suppose that the waterYear is ALWAYS the year of the
+            %   last WaterYearDate.
             if ~exist('monthWindow', 'var')
                 monthWindow = WaterYearDate.yearMonthWindow;
             end
