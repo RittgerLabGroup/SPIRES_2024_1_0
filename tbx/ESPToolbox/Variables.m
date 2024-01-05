@@ -208,6 +208,7 @@ classdef Variables
             snow_cover_days_units = snowCoverConf.units_in_map;
             snow_cover_days_divisor = snowCoverConf.divisor;
             snow_cover_days_divisor_type = snowCoverConf.type_in_mosaics{1};
+            snow_cover_days_nodata_value = snowCoverConf.nodata_value;
             
             snow_cover_days_min_elevation = mins.minElevation;
             snow_cover_days_min_snow_cover_fraction = mins.minSnowCoverFraction;
@@ -293,7 +294,8 @@ classdef Variables
                     'snow_cover_days_divisor', ...
                     'snow_cover_days_units', ...
                     'snow_cover_days_min_elevation', ...
-                    'snow_cover_days_min_snow_cover_fraction', '-append');
+                    'snow_cover_days_min_snow_cover_fraction', ...
+                    'snow_cover_days_nodata_value', '-append');
                 fprintf('%s: Saved snow_cover_days to %s\n', mfilename(), ...
                     STCFile);
             end
