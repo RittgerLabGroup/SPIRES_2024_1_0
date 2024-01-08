@@ -109,7 +109,7 @@ classdef Mosaic
             % Start or connect to the local pool (parallelism)
             % Trial and error: this process is a real memory pig
             espEnv.configParallelismPool(5);
-
+            missingFileFlags = zeros(size(monthRange), 'uint8');
             parfor monthDatetimeIdx = 1:length(monthRange)
                 % 2.1. Initialize the parfor variables
                 %------------------------------------
@@ -144,7 +144,6 @@ classdef Mosaic
                     dayRange = monthDatetime:datetime(year( ...
                     monthDatetime), month(monthDatetime) + 1, 1) - days(1);
                 end
-                missingFileFlag = false;
 
                 for tileId = 1:length(tileRegionsArray)
                     tileRegions = tileRegionsArray(tileId);
@@ -156,7 +155,7 @@ classdef Mosaic
                         warning(['%s: Missing interp STC file %s. Mosaic files' ...
                             ' not generated for this month.\n'], mfilename(), ...
                             tileSTCFile);
-                        missingFileFlag = true;
+                        missingFileFlags(monthDatetimeIdx) = 1;
                         break;
                     end
                     tileDatetimes = datetime(load(tileSTCFile, 'datevals').datevals, ...
@@ -165,7 +164,7 @@ classdef Mosaic
                         dayRange = dayRange(1):tileDatetimes(end);
                     end
                 end
-                if missingFileFlag == true
+                if missingFileFlags(monthDatetimeIdx)
                     continue;
                 end
                 fprintf('%s: Got list of files mosaic for %s\n', mfilename(), ...
@@ -199,8 +198,16 @@ classdef Mosaic
                     % This indirection is due to matfile 7.3 limitation
                     % It won't allow us to directly index into 
                     % structure fields
-                    % thisSTC = tileRegionsArray(tileId).STC;                  @obsolete                    
-                    mosaicData.stcStruct(tileId) = tileSTCData.stcStruct; % new, 2023-11-09.
+                    % thisSTC = tileRegionsArray(tileId).STC;                  @obsolete
+                    if ismember('stcStruct', fieldnames(tileSTCData))
+                        mosaicData.stcStruct(tileId) = tileSTCData.stcStruct; % new, 2023-11-09.
+                    elseif ismember('STC', fieldnames(tileSTCData))
+                        warning('off', 'MATLAB:structOnObject');
+                        mosaicData.stcStruct(tileId) = struct(tileSTCData.STC); 
+                            % 2023-12-29, to use v2023.0 STC for westernUS v2023.0e
+                            % for 2001-2022 waterYears.
+                        warning('on', 'MATLAB:structOnObject');
+                    end
                     mosaicData.mindays(tileId) = {mosaicData.stcStruct(tileId).mindays};
                     mosaicData.zthresh(tileId) = {mosaicData.stcStruct(tileId).zthresh};
                 end
@@ -284,6 +291,17 @@ classdef Mosaic
                 end
                 fprintf('%s: Got data for %s\n', mfilename(), ...
                     char(monthDatetime, 'yyyy-MM-dd'));
+                % Set mosaicDataForAllDays.viewable_snow_fraction_status for v2023.0.
+                % 2023-12-29.
+                if ~ismember('viewable_snow_fraction_status', ...
+                    fieldnames(mosaicDataForAllDays))
+                    mosaicDataForAllDays.viewable_snow_fraction_status = ...
+                        Variables.dataStatus.unavailable * ones(size( ...
+                        mosaicDataForAllDays.viewable_snow_fraction), ...
+                        mosaicData.(['viewable_snow_fraction', '_type']));
+                    fprintf(['%s: Initialized viewable_snow_fraction_status to ', ...
+                        'unavailable.\n'], mfilename());
+                end
                 
                 % 2.6. Thresholding
                 %------------------
@@ -440,6 +458,12 @@ classdef Mosaic
             t2 = toc;
             fprintf('%s: Finished mosaic generation and writing in %s seconds.\n', ...
                 mfilename(), num2str(roundn(t2, -2)));
+            if sum(missingFileFlags)
+                errorStruct.identifier = 'Mosaic:MissingFiles';
+                errorStruct.message = sprintf( ...
+                    '%s: One or more missing STC file.\n', mfilename());
+                error(errorStruct);
+            end
         end
 
         function runWriteFiles(obj, waterYearDate)
