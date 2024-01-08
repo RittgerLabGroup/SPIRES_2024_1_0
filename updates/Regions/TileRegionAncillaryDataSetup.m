@@ -3,10 +3,16 @@
 % regions masks, elevations, slopes, aspects, canopy heights, water and land masks.
 % Generation for each tiles that compose the region + for the full region.
 % Does not include the masks for drainage basins HUC2, HUC4.
-% NB: the geotiffs are unable to store a geographic associated to sinusoidal 
-% projection, that contain both a WGS 84 datum and a spheroid. The ancillary data are 
-% then generated both in .geotiff and .mat files, with only the .mat file containing 
+% NB: the geotiffs are unable to store a geographic associated to sinusoidal
+% projection, that contain both a WGS 84 datum and a spheroid. The ancillary data are
+% then generated both in .geotiff and .mat files, with only the .mat file containing
 % the crs with the correct WGS 84 datum.
+%
+% NB: This class doesn't generate the false positive raster tiles. For this, open QGIS
+% and run the model
+% qgisGetStcFalsePositiveModisTile.model3 on the land tiles produced by this script
+% using an updated global false positive (=dry lakes) polygon vector file, to generate
+% the raster tiles of false positives.
 %
 % v3.alaska
 % sebastien.lenard@colorado.edu
@@ -16,10 +22,10 @@ classdef TileRegionAncillaryDataSetup
     properties
         % georeferencing.                                           2023-06-30 @obsolete
         espEnv % ESPEnv Obj.
-        parentDirectory % char. Parent directory which store the ancillary 
+        parentDirectory % char. Parent directory which store the ancillary
             % files.
         regionName % char. Name of the region.
-        tileRegionNames % cell array of char. Names of the modis tiles which 
+        tileRegionNames % cell array of char. Names of the modis tiles which
             % compose the region.
         version % char. Version of the files.
     end
@@ -39,20 +45,20 @@ classdef TileRegionAncillaryDataSetup
             %
             % Parameters
             % ----------
-            % georeferencing % struct(northwest = struct(x0 = int, y0 = int), tileInfo = 
-            %   struct(dx = single, dy = single, columnCount = int, rowCount = int)). 
-            %   Data necessary to absolutely calculate georeferencing for each tile 
+            % georeferencing % struct(northwest = struct(x0 = int, y0 = int), tileInfo =
+            %   struct(dx = single, dy = single, columnCount = int, rowCount = int)).
+            %   Data necessary to absolutely calculate georeferencing for each tile
             %   named hyyvxx.
-            % parentDirectory: char. Parent directory which store the ancillary 
+            % parentDirectory: char. Parent directory which store the ancillary
             %   files.
             % regionName: char. Name of the region.
-            % tileRegionNames: cells(char). Names of the modis tiles which 
+            % tileRegionNames: cells(char). Names of the modis tiles which
             %   compose the region.
             % version: char. Version of the files.
             %
             % Return
             % ----------
-            % obj: regionAncillaryDataSetup            
+            % obj: regionAncillaryDataSetup
             for vararginIdx = 1:length(varargin)
                 if rem(vararginIdx,2) ~= 0
                     obj.(varargin{vararginIdx}) = varargin{vararginIdx + 1};
@@ -67,14 +73,14 @@ classdef TileRegionAncillaryDataSetup
             % Parameters
             % ----------
             % elevationSourcePaths: cells(char). Paths of source elevation files to
-            %   calculate slope and aspect for each tile. They are supposed to be in a 
+            %   calculate slope and aspect for each tile. They are supposed to be in a
             %   geographic
-            %   reference and have the same reference and the same matrix size.      
-            % 
-            % NB: the calculation should be done directly on the original geographic 
+            %   reference and have the same reference and the same matrix size.
+            %
+            % NB: the calculation should be done directly on the original geographic
             % tiles rather than on the re-project in geographic the projected elevation
             % tiles calculated by generateTileElevationFiles().
-            % NB: tiles at -180 longitude don't consider adjacent tiles at +180 
+            % NB: tiles at -180 longitude don't consider adjacent tiles at +180
             % longitude.
             outputDirectories = {fullfile(obj.parentDirectory, 'modis_ancillary', ...
                 'aspect_tmp'), ...
@@ -85,7 +91,7 @@ classdef TileRegionAncillaryDataSetup
                     mkdir(directory);
                 end
             end
-            
+
             % Get the geographic-referenced elevation file and its surrounding pixels
             % and then calculate aspect and slopes. the bits of tile for each elevation source.
             % NB: Given live memory limits, it's better no to combine the source data
@@ -141,11 +147,11 @@ classdef TileRegionAncillaryDataSetup
                     [longitudeLimit1, longitudeLimit2], ...
                     double(rasterSize));
                 geographicCellsReference.GeographicCRS = ...
-                    sourceGeographicCellsReference.GeographicCRS;                
+                    sourceGeographicCellsReference.GeographicCRS;
                 elevations = zeros( ...
                     geographicCellsReference.RasterSize(1), ...
                     geographicCellsReference.RasterSize(2));
-                
+
                 for adjacentSourceIdx = 1:length(elevationSourcePaths)
                     if adjacentSourceIdx == elevationSourceIdx
                         continue;
@@ -181,7 +187,7 @@ classdef TileRegionAncillaryDataSetup
                                 elevationSourcePaths{adjacentSourceIdx});
                             elevations(1, sourceElevationXRange) = ...
                                 tmpElevations(end, :);
-                        end                        
+                        end
                     end
                 end
                 clear('tmpElevations');
@@ -193,16 +199,16 @@ classdef TileRegionAncillaryDataSetup
                 clear('elevations');
                 [~, elevationFilename, ext] = ...
                     fileparts(elevationSourcePaths{elevationSourceIdx});
-                elevationFilename = [elevationFilename ext];    
+                elevationFilename = [elevationFilename ext];
                 outputFilename = fullfile(outputDirectories{1}, ...
-                    ['aspect_' elevationFilename]);                
+                    ['aspect_' elevationFilename]);
                 geotiffwrite(outputFilename, ...
                     aspect(sourceElevationYRange, sourceElevationXRange), ...
                     sourceGeographicCellsReference, ...
                     TiffTags = struct('Compression', 'LZW'));
                 clear('aspect');
                 outputFilename = fullfile(outputDirectories{2}, ...
-                    ['slope_' elevationFilename]);                
+                    ['slope_' elevationFilename]);
                 geotiffwrite(outputFilename, ...
                     slope(sourceElevationYRange, sourceElevationXRange), ...
                     sourceGeographicCellsReference, ...
@@ -211,13 +217,13 @@ classdef TileRegionAncillaryDataSetup
             end
         end
         function generateTileCanopyheightFiles(obj, canopyheightLabel, ...
-            canopyheightPath)     
+            canopyheightPath)
             % Generation of the canopy height tile files.
             % From global map from Simard 2011
             % Simard_Pinto_3DGlobalVeg_L3C.tif.
-            % NB: I extracted with QGis a limited geotiff from this big geotiff to 
-            % produce the individual canopy height tiles. Some mismatch problems occur 
-            % when we work on a big geotiff (unexplained). 
+            % NB: I extracted with QGis a limited geotiff from this big geotiff to
+            % produce the individual canopy height tiles. Some mismatch problems occur
+            % when we work on a big geotiff (unexplained).
             % The extent of the big geotiff creates warning on Matlab and
             % might create other problems. There is also the possibility that a geotiff
             % tag overrides something when reading the geotiff in Matlab.
@@ -230,13 +236,13 @@ classdef TileRegionAncillaryDataSetup
             % doi:10.1029/2011JG001708
             %
             % Parameters
-            % ----------            
+            % ----------
             % canopyheightLabel: char. Label included in output filename and indicating
             %   source of canopy height data.
             % canopyheightPath: char. Path of input file.
             modisData = obj.espEnv.modisData;
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                obj.version, 'canopyheight');            
+                obj.version, 'canopyheight');
             if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
@@ -245,7 +251,7 @@ classdef TileRegionAncillaryDataSetup
             if isempty(sourceGeographicCellsReference)
                 sourceGeographicCellsReference = ...
                     geotiffinfo(canopyheightPath).SpatialRef;
-            end                                        
+            end
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 tileRegionMapCellsReference = modisData.getMapCellsReference( ...
@@ -261,7 +267,7 @@ classdef TileRegionAncillaryDataSetup
                 data = tileRegionCanopyheight;
                 mapCellsReference = tileRegionMapCellsReference;
                 save([outputFilenameWithoutExtension '.mat'], ...
-                    'data', 'mapCellsReference');    
+                    'data', 'mapCellsReference');
                 geotiffwrite([outputFilenameWithoutExtension '.tif'], ...
                                         data, ...
                                         mapCellsReference, ...
@@ -272,7 +278,7 @@ classdef TileRegionAncillaryDataSetup
         end
         function generateTileMaskFiles(obj, exampleMaskPath)
             % Generate the mask files for each tile.
-            % 
+            %
             % Parameters
             % ----------
             % exampleMaskPath: char. Path of the example mask on which basing the tile
@@ -280,7 +286,7 @@ classdef TileRegionAncillaryDataSetup
             %   towards the new tile mask.
             modisData = obj.espEnv.modisData;
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                obj.version, 'region');            
+                obj.version, 'region');
             if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
@@ -310,7 +316,7 @@ classdef TileRegionAncillaryDataSetup
 %{
         function generateTileProjectionInfoFiles(obj)
             %                                                       2023-06-23 @obsolete
-            % Generate the v3 files containing the projection information 
+            % Generate the v3 files containing the projection information
             % refmat (reference matrix), size, and mstruct) for each tile region.
             % @deprecated for v3.alaska.
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
@@ -330,35 +336,35 @@ classdef TileRegionAncillaryDataSetup
                 RefMatrix_500m = Rmap500m;
                 size_1000m = size1km;
                 size_500m = size500m;
-                
+
                 save(fullfile(outputDirectory, [tileRegionName '_projInfo.mat']), ...
                     'mstruct', 'RefMatrix_1000m', ...
                     'RefMatrix_500m', 'size_1000m', 'size_500m');
             end
-        end 
-%}        
+        end
+%}
         function generateTileTopographicFiles(obj, topographicCastType, ...
             topographicFileLabel, topographicSourcePaths, topographicSubDir)
             % Generate the topographic: elevation, aspect, and slope for each tile.
-            % 
-            % NB: to make it work requires twirking the 
-            % RasterReprojection\util\interpolateRaster.m L. 55, by replacing error by 
-            % fprintf so as to access NaN matrices (if the tile is 
+            %
+            % NB: to make it work requires twirking the
+            % RasterReprojection\util\interpolateRaster.m L. 55, by replacing error by
+            % fprintf so as to access NaN matrices (if the tile is
             % beyond the extent of the source topographic data).
             %
             % Parameters
             % ----------
-            % topographicCastType: char. Type in which topographic data should be 
+            % topographicCastType: char. Type in which topographic data should be
             %   stored.
-            % topographicFileLabel: char. Label included in output filename and 
+            % topographicFileLabel: char. Label included in output filename and
             %   indicating type and source of topographic data ()
             % topographicSourcePaths: cells(char). Paths of input  topographic files to
             %   extract elevation for each tile. They are supposed to be in a geographic
-            %   reference and have the same reference and the same matrix size.        
+            %   reference and have the same reference and the same matrix size.
             % topographicSubDir: char. Either aspect, elevation, or slope
             modisData = obj.espEnv.modisData;
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                obj.version, topographicSubDir);            
+                obj.version, topographicSubDir);
             if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
@@ -385,15 +391,15 @@ classdef TileRegionAncillaryDataSetup
                         ' = tileTopographics;']);
                 end
             end
-            
-            % Gather topographic data and generate topographic file for 
+
+            % Gather topographic data and generate topographic file for
             % each tile region.
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 fprintf('Generation for %s\n', tileRegionName);
                 tileRegionMapCellsReference = modisData.getMapCellsReference( ...
                     modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
-                topographics = eval([tileRegionName '_topographics_1']);    
+                topographics = eval([tileRegionName '_topographics_1']);
                 for topographicSourceIdx = 2:length(topographicSourcePaths)
                     tmpTopographics = ...
                         eval([tileRegionName '_topographics_' ...
@@ -407,7 +413,7 @@ classdef TileRegionAncillaryDataSetup
                 data = topographics;
                 mapCellsReference = tileRegionMapCellsReference;
                 save([outputFilenameWithoutExtension '.mat'], ...
-                    'data', 'mapCellsReference');    
+                    'data', 'mapCellsReference');
                 geotiffwrite([outputFilenameWithoutExtension '.tif'], ...
                                         data, ...
                                         tileRegionMapCellsReference, ...
@@ -423,10 +429,10 @@ classdef TileRegionAncillaryDataSetup
             % in 2015).
             % Georeferencing calculated absolutely as a function of tile name.
             % NB: initially, georeferencing inspired by makeSinusoidProj.m and extracted
-            % from the mod09ga hdf tiles. But some tiles don't have correct 
+            % from the mod09ga hdf tiles. But some tiles don't have correct
             % georeferencing (ex. MOD09GA.A2022001.h09v02.061.NRT.hdf).
-            % NB: georeferencing: referencing matrix shifting left and up half a 
-            % pixel from edge. The files say "center" for upper left and lower right, 
+            % NB: georeferencing: referencing matrix shifting left and up half a
+            % pixel from edge. The files say "center" for upper left and lower right,
             % but this is incorrect, and the
             % webpage is correct:
             % https://lpdaac.usgs.gov/products/modis_overview
@@ -440,7 +446,7 @@ classdef TileRegionAncillaryDataSetup
                     mkdir(directory);
                 end
             end
-    
+
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 % Georeferencing.
@@ -451,7 +457,7 @@ classdef TileRegionAncillaryDataSetup
                 columnCount = obj.georeferencing.tileInfo.columnCount;
                 rowCount = obj.georeferencing.tileInfo.rowCount;
                 dx = obj.georeferencing.tileInfo.dx;
-                dy = obj.georeferencing.tileInfo.dy;                
+                dy = obj.georeferencing.tileInfo.dy;
                 northWestX =  obj.georeferencing.northwest.x0 + horizontalId * ...
                     columnCount * dx;
                 northWestY = obj.georeferencing.northwest.y0 - verticalId * ...
@@ -460,7 +466,7 @@ classdef TileRegionAncillaryDataSetup
                 mapCellsReference = modisData.getMapCellsReference( ...
                     modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
 %{
-Deprecated implementation             
+Deprecated implementation
                 fileSearch = fullfile(obj.parentDirectory, ...
                     obj.subdirectories.modisNrtMod09ga, tileRegionName, '2022', ...
                     ['MOD09GA.A2022*.' tileRegionName '.061.NRT.hdf']);
@@ -480,17 +486,17 @@ Deprecated implementation
                     [geoInfo.Grid(obj.mod09ga500mGridIdx).UpperLeft(2) - dx ...
                         * rowCount, ...
                     geoInfo.Grid(obj.mod09ga500mGridIdx).UpperLeft(2)], ...
-                    dx, dx, 'ColumnsStartFrom','north'); 
-%}             
+                    dx, dx, 'ColumnsStartFrom','north');
+%}
 %{
 The following is useful to check identicity of mapRasterReferences
                 mapCellsReference2 = ...
                     refmatToMapRasterReference(load(['c:\Tor\Dev\' tileRegionName ...
                     '_projInfo.mat']).RefMatrix_500m, [2400 2400]);
-                    
+
                 mapCellsReference.ProjectedCRS = ...
                     projcrs(obj.projection.modisSinusoidal.wkt);
-%}                
+%}
                 % Water and Land.
                 fileSearch = fullfile(obj.parentDirectory, ...
                     obj.subdirectories.modisHistMod44w, ...
@@ -531,12 +537,12 @@ The following is useful to check identicity of mapRasterReferences
                 % Update indMosaic in region mask.
                 indxMosaic = data;
                 outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                    obj.version, 'region'); 
+                    obj.version, 'region');
                 save(fullfile(outputDirectory, [tileRegionName '_mask.mat']), ...
                     'indxMosaic', '-append');
             end
-        end 
-%{        
+        end
+%{
         function mapCellsReference = getMapCellsReference(obj, regionName)
             %                                                       2023-06-30 @obsolete
             % Parameters
@@ -552,7 +558,7 @@ The following is useful to check identicity of mapRasterReferences
                     num2str(obj.mod44wWaterThreshold * 100) '.tif'])).SpatialRef;
             mapCellsReference.ProjectedCRS = ...
                     projcrs(obj.projection.modisSinusoidal.wkt); % NB: the geotiffs are
-                        % unable to store a geographic associated to sinusoidal 
+                        % unable to store a geographic associated to sinusoidal
                         % projection, that contain both a WGS 84 datum and a spheroid.
                         % We then update the crs here so that it can be taken into
                         % account when saving .mat files.
