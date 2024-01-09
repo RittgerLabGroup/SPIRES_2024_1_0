@@ -521,11 +521,20 @@ classdef ESPNetCDF < handle
             theseFieldnames = fieldnames(attribute);
             for i = 1:length(theseFieldnames)
                 thisFieldName = theseFieldnames{i};
-                if strcmp(thisFieldName, 'FillValue')
-                    thisFieldName = '_FillValue';
+                if ismember(thisFieldName, {'valid_range'})
+                    netcdf.putAtt(obj.ncid, varID, ...
+                       thisFieldName, attribute.(theseFieldnames{i}), varType);
+                elseif strcmp(thisFieldName, 'FillValue')
+                    % '_FillValue' in netcdf file.
+                    % NB: cant use putAtt() for FillValue, 2024-01-09.
+                    % NB: default behavior of ncread() when FillValue set to true
+                    % is to load the data as double (even if they are stored as uint8.
+                    netcdf.defVarFill(obj.ncid, varID, false, ...
+                        attribute.(theseFieldnames{i}));
+                else
+                    netcdf.putAtt(obj.ncid, varID, ...
+                       thisFieldName, attribute.(theseFieldnames{i}));
                 end
-                netcdf.putAtt(obj.ncid, varID, ...
-                   thisFieldName, attribute.(theseFieldnames{i}));
             end
 
             % Turn on compression
