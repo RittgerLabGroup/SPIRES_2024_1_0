@@ -1,8 +1,8 @@
 id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayValues,replacedVarName,comment
 0,Order by which the filtering is processed. Important for thresholding by snow_fraction. This column should stay in 2nd position (to be sorted in EspEnv instanciation). (The id of the threshold group should stay in 1st position).,Indicate where the group is used,Only used for stcStruct,Variable upon which the thresholds should be performed,,,,Variable set to not reliable value when the threshold is applied.,Comment line.
 3,1,snowCoverDay,,elevation,800,,,snow_fraction,snowCoverDayMins.minElevation
-3,2,snowCoverDay,,snow_fraction,10,,,snow_fraction,"snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube)."
-1,1,mosaic,,viewable_snow_fraction,5,,,viewable_snow_fraction,
+3,2,snowCoverDay,,snow_fraction,10,,,snow_fraction,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
+1,1,mosaic,,viewable_snow_fraction,5,,,viewable_snow_fraction,"Mosaic filtering. This filter set #1 corresponds to v2023.0, v2023.1."
 1,2,mosaic,,viewable_snow_fraction,5,,,deltavis,
 1,3,mosaic,,viewable_snow_fraction,5,,,grain_size,
 1,4,mosaic,,viewable_snow_fraction,5,,,drfs_grnsz,
@@ -16,7 +16,8 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 1,12,mosaic,,viewable_snow_fraction,5,,,albedo_clean_muZ,
 1,13,mosaic,,viewable_snow_fraction,5,,,albedo_observed_muZ,
 1,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,91,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
-1,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,0,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e), only from the start of the month min to the end of the month max. 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
+1,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,0,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
+1,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,91,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
 2,1,publish,,elevation,800,,,snow_fraction,
 2,2,publish,,snow_fraction,10,,,snow_fraction,
 2,3,publish,,elevation,800,,,albedo_clean_mu0,
@@ -69,7 +70,7 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 4,24,statistic,,snow_fraction,0,,,solar_zenith,
 4,25,statistic,,snow_fraction,0,,,snow_cover_days,
 4,26,statistic,,snow_fraction,0,,,viewable_snow_fraction,
-5,1,stc,mindays,,10,,,,"Gap/Stc filtering. This filter set #5 corresponds to v2023.1, Note that for Andes, applyFalsePositiveMask was set to 1."
+5,1,stc,mindays,,10,,,,"Gap/Stc filtering. This filter set #5 corresponds to v2023.1 and v2023.1a,c, Alaska, Himalayas Note that for Andes, applyFalsePositiveMask was set to 1 (set #405)"
 5,2,stc,sthreshForGS,,0.2,,,,Gap/Stc filtering
 5,3,stc,sthreshForRF,,0.7,,,,Gap/Stc filtering
 5,4,stc,zthresh,,800,800,,,Gap/Stc filtering
@@ -95,11 +96,11 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 5,24,stc,idwDefaultValueFordeltavis,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 5,25,stc,idwDefaultValueForradiative_forcing,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 103,1,snowCoverDay,,elevation,800,,,snow_fraction,Unit test snowCoverDayMins.minElevation
-103,2,snowCoverDay,,snow_fraction,10,,,snow_fraction,"Unit test snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube)."
+103,2,snowCoverDay,,snow_fraction,10,,,snow_fraction,Unit test snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
 101,1,mosaic,,viewable_snow_fraction,5,,,radiative_forcing,Unit test
 102,1,publish,,viewable_snow_fraction,30,,,snow_fraction,Unit test
 102,2,publish,,elevation,800,,,radiative_forcing,Unit test
-201,1,mosaic,,viewable_snow_fraction,5,,,viewable_snow_fraction,"Mosaic filtering. This filter set #201 corresponds to v2023.0e."
+201,1,mosaic,,viewable_snow_fraction,5,,,viewable_snow_fraction,"Mosaic filtering. This filter set #201 corresponds to v2023.0e, v2023.1b."
 201,2,mosaic,,viewable_snow_fraction,5,,,deltavis,
 201,3,mosaic,,viewable_snow_fraction,5,,,grain_size,
 201,4,mosaic,,viewable_snow_fraction,5,,,drfs_grnsz,
@@ -113,8 +114,9 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 201,12,mosaic,,viewable_snow_fraction,5,,,albedo_clean_muZ,
 201,13,mosaic,,viewable_snow_fraction,5,,,albedo_observed_muZ,
 201,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,67.5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
-201,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,4,11,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e), only from the start of the month min to the end of the month max. 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
-205,1,stc,mindays,,10,,,,Gap/Stc filtering. This filter set #205 corresponds to v2023.0b and v2023.1b
+201,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,4,11,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
+201,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
+205,1,stc,mindays,,10,,,,"Gap/Stc filtering. This filter set #205 corresponds to v2023.0b, v2023.0e and v2023.1b, westernUS"
 205,2,stc,sthreshForGS,,0.3,,,,Gap/Stc filtering
 205,3,stc,sthreshForRF,,0.3,,,,Gap/Stc filtering
 205,4,stc,zthresh,,800,800,,,Gap/Stc filtering
@@ -139,7 +141,23 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 205,23,stc,idwDefaultValueFordrfs_grnsz,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 205,24,stc,idwDefaultValueFordeltavis,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 205,25,stc,idwDefaultValueForradiative_forcing,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
-305,1,stc,mindays,,10,,,,"Gap/Stc filtering. This filter set #5 corresponds to v2023.1, Note that for Andes, applyFalsePositiveMask was set to 1."
+301,1,mosaic,,viewable_snow_fraction,5,,,viewable_snow_fraction,Mosaic filtering. This filter set #301 corresponds to v2023.1a.
+301,2,mosaic,,viewable_snow_fraction,5,,,deltavis,
+301,3,mosaic,,viewable_snow_fraction,5,,,grain_size,
+301,4,mosaic,,viewable_snow_fraction,5,,,drfs_grnsz,
+301,5,mosaic,,viewable_snow_fraction,5,,,radiative_forcing,
+301,6,mosaic,,viewable_snow_fraction,0,,,solar_azimuth,
+301,7,mosaic,,viewable_snow_fraction,0,,,solar_zenith,
+301,8,mosaic,,viewable_snow_fraction,0,,,snow_cover_days,
+301,9,mosaic,,viewable_snow_fraction,5,,,snow_fraction,
+301,10,mosaic,,viewable_snow_fraction,5,,,albedo_clean_mu0,
+301,11,mosaic,,viewable_snow_fraction,5,,,albedo_observed_mu0,
+301,12,mosaic,,viewable_snow_fraction,5,,,albedo_clean_muZ,
+301,13,mosaic,,viewable_snow_fraction,5,,,albedo_observed_muZ,
+301,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,67.5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
+301,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,0,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
+301,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
+305,1,stc,mindays,,10,,,,Gap/Stc filtering. This filter set #305 corresponds to no version but can be used for tests to prepare v2024.0
 305,2,stc,sthreshForGS,,0.2,,,,Gap/Stc filtering
 305,3,stc,sthreshForRF,,0.7,,,,Gap/Stc filtering
 305,4,stc,zthresh,,800,800,,,Gap/Stc filtering
@@ -164,3 +182,44 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 305,23,stc,idwDefaultValueFordrfs_grnsz,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 305,24,stc,idwDefaultValueFordeltavis,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 305,25,stc,idwDefaultValueForradiative_forcing,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
+401,1,mosaic,,viewable_snow_fraction,5,,,viewable_snow_fraction,"Mosaic filtering. This filter set #401 corresponds to v2023.1c, v2023d."
+401,2,mosaic,,viewable_snow_fraction,5,,,deltavis,
+401,3,mosaic,,viewable_snow_fraction,5,,,grain_size,
+401,4,mosaic,,viewable_snow_fraction,5,,,drfs_grnsz,
+401,5,mosaic,,viewable_snow_fraction,5,,,radiative_forcing,
+401,6,mosaic,,viewable_snow_fraction,0,,,solar_azimuth,
+401,7,mosaic,,viewable_snow_fraction,0,,,solar_zenith,
+401,8,mosaic,,viewable_snow_fraction,0,,,snow_cover_days,
+401,9,mosaic,,viewable_snow_fraction,5,,,snow_fraction,
+401,10,mosaic,,viewable_snow_fraction,5,,,albedo_clean_mu0,
+401,11,mosaic,,viewable_snow_fraction,5,,,albedo_observed_mu0,
+401,12,mosaic,,viewable_snow_fraction,5,,,albedo_clean_muZ,
+401,13,mosaic,,viewable_snow_fraction,5,,,albedo_observed_muZ,
+401,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,67.5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
+401,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,1,12,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
+401,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
+405,1,stc,mindays,,10,,,,"Gap/Stc filtering. This filter set #405 corresponds to v2023.1d (Andes, with applyFalsePositiveMask = 1 compared to #5 and #305)."
+405,2,stc,sthreshForGS,,0.2,,,,Gap/Stc filtering
+405,3,stc,sthreshForRF,,0.7,,,,Gap/Stc filtering
+405,4,stc,zthresh,,800,800,,,Gap/Stc filtering
+405,5,stc,minZForNonForestedAdjust,,800,,,,Gap/Stc filtering
+405,6,stc,nonForestedScaleFactor,,0.08,,,,Gap/Stc filtering. Not a threshold strictly speaking.
+405,7,stc,minSnowForVegAdjust,,0.07,,,,Gap/Stc filtering
+405,8,stc,canopyToTrunkRatio,,0.08,,,,Gap/Stc filtering. Not a threshold strictly speaking.
+405,9,stc,rawRovDV,,0,50,,,Raw cube filtering. Introduced in v2023.1
+405,10,stc,rawRovRF,,0,375,,,Raw cube filtering. Introduced in v2023.1
+405,11,stc,temporalRovDV,,0,70,,,Raw cube filtering. Introduced in v2023.1
+405,12,stc,temporalRovRF,,0,500,,,Raw cube filtering. Introduced in v2023.1
+405,13,stc,setViewableSnowFractionToNoDataIfVegDetectedCloud,,0,,,,"Stc cube filtering. Introduced 2023-12-08. If 1, set viewable_snow_fraction to nodata for pixels detected as cloudy based on vegetation info Vgap/Veg, only in forested areas (v2023.0g, v2024.0+). If 0, viewable_snow_fraction is considered valid even if pixels detected as cloudy based on vegetation info Vgap/Veg (v2023.0, v2023.0b-f, v2023.1)."
+405,14,stc,isViewableSnowFractionTheFilterBase,,1,,,,"Stc cube filtering. Introduced 2023-11-02. If 1, use viewable_snow_fraction rather than snow_fraction for filtering base in FillNaN3() for grain sizes, rf and dv (v2023.1, v2023.0f-g). IF 0, use snow_fraction (v2023.0, v2023.0b-e)."
+405,15,stc,areWeightsXByViewableSnowFraction,,1,,,,"Stc cube filtering. Introduced 2023-11-02. If 1, radiative_forcing and deltavis weighted by weights x viewable_snow_fraction for FillCubeDate() for DV and RF (v2023.1, v2023.0f-g). If 0, by weights only (v2023.0b-e)."
+405,16,stc,applyFalsePositiveMask,,1,,,,"Stc cube filtering. Introduced 2023-11-02. If 1, applies a manually defined mask of false positives, including dry lakes (only Andes for v2023.1). If 0, no mask applied (v2023.0b-g and v2023.1 all except Andes)."
+405,17,stc,gapAdjustMindaysWithoutNaNDays,,0,,,,"Stc cube filtering. Introduced 2023-11-17. If 1, removes the days without data at the tile level (i.e. all the pixels are no data) to calculate the threshold number of days before considering snow_fraction unreliable and setting it to 0 (v2023.0, v2023.0c-g). If 0, all days are taken into account. This creates a bias in the late season (v2023.1)."
+405,18,stc,flattensEndOfTimeInterpolationWOData,,1,,,,"Stc cube filtering. Introduced 2023-11-20. If 1, flattens the temporal interpolation FillCube() for all variables (except solar zenith and azimuth) at the end of a window if there's no data (v2023.1). If 0, doesn't flatten (v2023.0, v2023.0e)."
+405,19,stc,preIdwSnowFractionThreshold,,0,,,,Stc cube interpolation. 2023-12-05. Pixels having snow_fraction below this threshold are not interpolated
+405,20,stc,idwMinCountOfPixels,,3,,,,Stc cube interpolation. 2023-12-05. Minimum number of pixels in a interpolation sliding window to interpolate
+405,21,stc,idwHalfSizeOfWindow,,10,,10 20 40 80 160 320 640,,"Stc cube interpolation. 2023-12-05. Array of possible half-size of interpolation windows, above which the mea value is affected to pixels to be interpolated"
+405,22,stc,idwDefaultValueForgrain_size,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
+405,23,stc,idwDefaultValueFordrfs_grnsz,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
+405,24,stc,idwDefaultValueFordeltavis,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
+405,25,stc,idwDefaultValueForradiative_forcing,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
