@@ -1,0 +1,24 @@
+id,name,type,comment
+0,short name for the statistics,"1: Daily value. applied for each variable each day each water year. 2: value for each calendar day, over the full historic (ongoing waterYear excluded) applied for each variable each day over the full period of water years, e.g. over 2001-2022. 3: total value for the year having the min or max total value. applied for each variable over a period (one year or smaller, but fixed every year), and then determined by the min or max value of the result [@todo: improve clarity]. 4: year corresponding to the value of type 3. 5: Metadata: indicates over which period the stats full, snow_fraction have been done.",Dont change the ids of existing variables.
+1,Daily surface,1,
+2,Daily mean,1,
+3,Daily median,1,
+10,Previous years median,2,
+11,Previous years percentile 25,2,
+12,Previous years percentile 75,2,
+20,Previous years max mean over the year,3,
+21,Previous years max median over the year,3,
+22,Previous years max sum over the year,3,
+30,Previous years min mean over the year,3,
+31,Previous years min median over the year,3,
+32,Previous years min sum over the year,3,
+40,Year of max (of mean),4,
+41,Year of max (of median),4,
+42,Year of max (of sum),4,
+50,Year of min (of mean),4,
+51,Year of min (of median),4,
+52,Year of min (of sum),4,
+60,Previous years value for max sum snow,5,Only used for v2023.1 csv and older
+70,Previous years value for min sum snow,5,Only used for v2023.1 csv and older
+100,First Year,6,
+101,Last Year - 1,6,
