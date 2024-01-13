@@ -75,12 +75,14 @@ classdef WaterYearDate < handle
         end
 %}
         function lastWYDateForWaterYear = getLastWYDateForWaterYear(waterYear, ...
-            firstMonth, monthWindow)
+            firstMonth, monthWindow, varargin)
             % Parameters
             % ----------
             % waterYear: int.
             % firstMonth: int[1-12]. First month of the waterYear.
             % monthWindow: int[1-12], optional. Extent of the waterYearDate in months.
+            % dateOfToday: datetime, optional. Force the date of today to a specific
+            %   date, mainly for testing purposes (new website, debug).
             %
             % Return
             % ------
@@ -89,13 +91,23 @@ classdef WaterYearDate < handle
             %
             % NB/WARNING: We suppose that the waterYear is ALWAYS the year of the
             %   last WaterYearDate.
+            % NB: sometimes waterYearDate is in the future, but the range of dates
+            % returned by methods are always in the past.
             if ~exist('monthWindow', 'var')
                 monthWindow = WaterYearDate.yearMonthWindow;
             end
+            
+            p = inputParser;
+            addParameter(p, 'dateOfToday', datetime('today'));
+            p.KeepUnmatched = false;
+            parse(p, varargin{:});
+            dateOfToday = p.Results.dateOfToday;
+            
             lastWYDateForWaterYear = WaterYearDate(datetime(waterYear, ...
                 firstMonth, WaterYearDate.monthFirstDay, ...
                 WaterYearDate.dayStartTime.HH, WaterYearDate.dayStartTime.MIN, ...
-                WaterYearDate.dayStartTime.SS) - caldays(1), firstMonth, monthWindow);
+                WaterYearDate.dayStartTime.SS) - caldays(1), firstMonth, ...
+                monthWindow, dateOfToday = dateOfToday);
         end
         function [thisYear, thisMonth] = getYearMonthFromWaterYearNegativeMonth( ...
             waterYear, month)
@@ -177,7 +189,7 @@ classdef WaterYearDate < handle
     end
 
     methods
-        function obj = WaterYearDate(thisDatetime, firstMonth, monthWindow)
+        function obj = WaterYearDate(thisDatetime, firstMonth, monthWindow, varargin)
             % WaterYearDate constructor
             % NB: datetimes are forced to obj.dayStartTime.HH, .MIN, .SS
             % NB: WaterYearDate are capped to today - 1 (no WaterYearDate covering
@@ -185,14 +197,23 @@ classdef WaterYearDate < handle
             %
             % Parameters
             % ----------
-            % thisDatetime: datetime, optional.
+            % thisDatetime: datetime.
             %   Date to handle.
-            % firstMonth: int, optional.
+            % firstMonth: int.
             %   First month of the waterYear (10 in northern hemisphere, 7 in south).
-            % monthWindow: int, optional.
+            % monthWindow: int.
             %   Number of months to handle before thisDatetime, knowing
             %   that only the months of the water year associated with
             %   thisDatetime will be handled.
+            % dateOfToday: datetime, optional. Force the date of today to a specific
+            %   date, mainly for testing purposes (new website, debug).
+            %
+            % NB: thisDatetime may be in the future, depending on dateOfToday. In that
+            % case, some functions only return the range of dates linked to the
+            % WaterYearDate which are restricted to the past.                   @warning
+            % NB: thisDatetime should be <= dateOfToday or at least belong to the
+            % same waterYear (verif not implemented!!!).                        @warning
+
 %{
             % NB: A default waterYearDate covering today only can be generated with:
             modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
@@ -224,7 +245,18 @@ classdef WaterYearDate < handle
             if exist('monthWindow', 'var') & monthWindow <= 12
                 obj.monthWindow = monthWindow;
             end
-            obj.dateOfToday = datetime('today'); % 2023-11-07 following JPL stop.
+
+            p = inputParser;
+            addParameter(p, 'dateOfToday', datetime('today'));
+            p.KeepUnmatched = false;
+            parse(p, varargin{:});
+            
+            [thisYYYY, thisMM, thisDD] = ymd(p.Results.dateOfToday);
+            obj.dateOfToday = datetime(thisYYYY, thisMM, thisDD, ...
+                obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
+                obj.dayStartTime.SS); % 2023-11-07 following JPL stop.
+                % .dateOfToday must be with same time as .thisDatetime for date range
+                % calculations.
             fprintf('%s: WaterYearDate: %s, firstMonth %d, monthWindow: %d.\n', ...
                 mfilename(), obj.toChar(), ...
                 obj.firstMonth, obj.monthWindow);
@@ -235,8 +267,14 @@ classdef WaterYearDate < handle
             % dateRange: range(datetime)
             %   Get the arrays of dates to handle for daily file selection
             %   and variable and stat calculations
+            %
+            % NB: only give the dates in the past (and so is based on date of today).
             monthWindow = obj.monthWindow;
-            [thisYYYY, thisMM, thisDD] = ymd(obj.thisDatetime);
+            thisCorrectedDate = obj.thisDatetime;
+            if thisCorrectedDate >= obj.dateOfToday
+                thisCorrectedDate = obj.dateOfToday - days(1);
+            end
+            [thisYYYY, thisMM, thisDD] = ymd(thisCorrectedDate);
 
             % 1. Cap the monthWindow to the starting month of the year (oct)
             % except if overlap on other year is permitted.
@@ -258,11 +296,11 @@ classdef WaterYearDate < handle
             firstDate = datetime(firstYear, firstMonthOfTheRange, obj.monthFirstDay, ...
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
-            if firstDate > obj.thisDatetime %when monthWindow == 0
-                firstDate = obj.thisDatetime;
+            if firstDate > thisCorrectedDate %when monthWindow == 0
+                firstDate = thisCorrectedDate;
             end
 
-            dateRange = firstDate:obj.thisDatetime;
+            dateRange = firstDate:thisCorrectedDate;
         end
         function dayRange = getDayRange(obj)
             % Return
