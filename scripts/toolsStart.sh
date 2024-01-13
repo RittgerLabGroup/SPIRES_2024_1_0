@@ -11,6 +11,8 @@ if [ -z ${scriptId+x} ]; then
 fi
 ml slurmtools
 
+source scripts/toolsJobs.sh
+
 # Functions.
 #---------------------------------------------------------------------------------------
 set_slurm_array_task_id(){
@@ -47,6 +49,7 @@ log_level_1(){
     # ----------
     # $1: char. Status to log.
     # $2: char. Message
+    # 
     # NB: Formatting could be improved.
     printf "\ndate; dura.; script; job; task; region; status; hostname; CPU%%; "
     printf "mem%%; totalMem; cores; message\n"
@@ -54,24 +57,42 @@ log_level_1(){
     printf "$(date '+%m%dT%H:%M'); $(TZ=UTC0 printf '%(%H:%M)T' "$SECONDS"); "
     printf "${scriptId}; ${SLURM_JOB_ID}; ${SLURM_ARRAY_TASK_ID}; ${regionName}; "
     printf "${1}; $(hostname); "
-    printf %q "$(seff ${SLURM_JOB_ID} | grep "CPU Efficiency" | awk '{print $3}' | sed s/.[0-9][0-9]//)";
-    printf "; "
-    printf %q "$(seff ${SLURM_JOB_ID} | grep "Memory Efficiency" | awk '{print $3}' | sed s/.[0-9][0-9]//)";
-    printf "; "
-    printf %q "$(seff ${SLURM_JOB_ID} | grep "Memory Efficiency" | awk '{print $5$6}')";
-    printf "; "
-    printf %q "$(seff ${SLURM_JOB_ID} | grep "Cores" | awk '{print $4}')"; printf "; "
-    printf "${2}"
+    
+    # The following with seff doesn't systematically work on Blanca nodes, and RC team
+    # doesn't know exactly why, and me neither, despite some research.
+    # I replaced the code using seff by a more convoluted code using sacct directly.
+    # 2024-01-11.
+    #printf %q "$(seff ${SLURM_JOB_ID} | grep "CPU Efficiency" | awk '{print $3}' | sed s/.[0-9][0-9]//)";
+    #printf "; "
+    #printf %q "$(seff ${SLURM_JOB_ID} | grep "Memory Efficiency" | awk '{print $3}' | sed s/.[0-9][0-9]//)";
+    #printf "; "
+    #printf %q "$(seff ${SLURM_JOB_ID} | grep "Memory Efficiency" | awk '{print $5$6}')";
+    #printf "; "
+    #printf %q "$(seff ${SLURM_JOB_ID} | grep "Cores" | awk '{print $4}')"; printf "; "
+    #printf "${3}"
+    
+    printf "; ; "
+        # Place for CPU% and mem% used, to be filled by toolsJobAchieved.sh at the
+        # end of the job.
+    sacct1=($(sacct --format AllocCPUS,ReqMem -j ${SLURM_JOB_ID} | sed '3q;d' | sed 's/ \{1,\}/;/g' | tr ";" "\n"))
+    # sacct --format JobName,User,Group,State,Cluster,AllocCPUS,REQMEM,TotalCPU,Elapsed,MaxRSS,ExitCode,NNodes,NTasks -j 3058775
+    # gives three lines and sacct1 get variable values into arrays to be handled
+    # below.
+    memThatWasRequired=$(get_mem_in_Gb ${sacct1[1]})
+    nbOfCoresRequired=${sacct1[0]}
+    printf "%0.0f GB; " ${memThatWasRequired}
+    printf "%0d; ${2}" ${nbOfCoresRequired}
+    
     printf "\n\n"
 }
 
 error_exit() {
     # Use for fatal program error
     # Argument:
-    #   optional string containing descriptive error message
+    #   $1: optional string containing descriptive error message
     #   if no error message, prints "Unknown Error"
     # Stop the stopwatch and report elapsed time
-    log_level_1 "end:ERROR" "${1:-"Unknown Error"}"
+    log_level_1 "end:ERROR" "${1:-"Unknown Error"}" 
     exit 1
 }
 
@@ -167,6 +188,10 @@ set_slurm_array_task_id
 
 
 shift $(($OPTIND - 1))
+
+if [[ "$#" -ne $expectedCountOfArguments ]]; then
+    printf "ERROR: received %0d arguments, %0d expected.\n" $# $expectedCountOfArguments
+fi
 
 [[ "$#" -eq $expectedCountOfArguments ]] || \
     error_exit "Line ${LINENO}: Unexpected number of arguments."
