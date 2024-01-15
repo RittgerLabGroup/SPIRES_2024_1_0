@@ -1,53 +1,53 @@
-name,type,shortName,longName,atmosphericProfile,stcConfId,snowCoverDayConfId,mosaicConfId,statisticConfId,publishConfId,geotiffCropXLeft,geotiffCropXRight,geotiffCropYTop,geotiffCropYBottom,used,comment,commentOnBigRegion,id,versionOfAncillary,historicStartWaterYear
-NB:This line should contain a numeric for Matlab,0,,,,"id of the group of conf parameters to build raw, gap and stc cubes",id of the group of conf params to build snow_cover_days variable,Id of the group of conf params to build daily Mosaics,"Id of the group of conf params to generate statistic files. Used only for big Regions, not used at the tile level.",Id of the group of conf params to generate geotiffs (historic and nrt web),Only for westernUS website projection.,Only for westernUS website projection.,Only for westernUS website projection.,Only for westernUS website projection.,,comment line,Big region the tile is historically associated with. For info only,"Id indicated in toolsRegion.sh. NB: for region of type bigRegion, this id differs from the id of the group0 landsubdivision indicated in configuration_of_landsubdivisions.csv.","Version of ancillary files, v3.1, v3.2, or test","Historic: understood as all historics, including the nrt jpl files from the last years"
-h07v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,255,v3.2,2001
-h08v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,291,v3.2,2001
-h08v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,292,v3.1,2001
-h08v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,293,v3.1,2001
-h09v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,326,v3.2,2001
-h09v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,327,v3.2,2001
-h09v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,328,v3.1,2001
-h09v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,329,v3.1,2001
-h10v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,362,v3.2,2001
-h10v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,363,v3.2,2001
-h10v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,364,v3.1,2001
-h10v09,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,369,v3.2,2001
-h10v10,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,370,v3.2,2001
-h11v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,398,v3.2,2001
-h11v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,399,v3.2,2001
-h11v10,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,406,v3.2,2001
-h11v11,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,407,v3.2,2001
-h11v12,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,408,v3.2,2001
-h12v01,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,433,v3.2,2001
-h12v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,434,v3.2,2001
-h12v12,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,444,v3.2,2001
-h12v13,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,445,v3.2,2001
-h13v01,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,469,v3.2,2001
-h13v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,470,v3.2,2001
-h13v13,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,481,v3.2,2018
-h13v14,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,482,v3.2,2018
-h18v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,EURAlps,652,v3.2,2001
-h19v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,EURAlps,688,v3.2,2001
-h22v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,796,v3.2,2001
-h22v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,797,v3.2,2001
-h23v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,832,v3.2,2001
-h23v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,833,v3.2,2001
-h23v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,834,v3.2,2001
-h24v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,868,v3.2,2001
-h24v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,869,v3.2,2001
-h24v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,870,v3.2,2001
-h25v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,905,v3.2,2001
-h25v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,906,v3.2,2001
-h26v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,941,v3.2,2001
-h26v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,942,v3.2,2001
-h35v17,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,0,default conf,Unused,1277,v3.2,2001
-AMAndes,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,4,v3.2,2018
-ASHimalaya,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,2,v3.2,2001
-EURAlps,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,3,v3.2,2001
-USAlaska,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,1,v3.2,2001
-westernUS,bigRegion,,,mlw,5,3,1,4,2,13700,5056,0,-1,1,,,0,v3.1,2001
-mockRegion,bigRegion,,,mlw,5,103,101,4,102,0,0,1,0,1,default conf,unit test mock region,,test,2001
-mockTile1,modisTile,,,mlw,5,103,101,4,102,0,0,1,0,1,default conf,unit test mock region,,test,2001
-mockTile2,modisTile,,,mlw,5,103,101,4,102,0,0,1,0,1,default conf,unit test mock region,,test,2001
-h08v04test,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,292,test,2001
-westernUStest,bigRegion,,,mlw,5,3,1,4,2,13700,5056,0,-1,1,,,0,test,2001
+name,type,shortName,longName,atmosphericProfile,stcConfId,snowCoverDayConfId,mosaicConfId,statisticConfId,publishConfId,geotiffCropXLeft,geotiffCropXRight,geotiffCropYTop,geotiffCropYBottom,used,comment,commentOnBigRegion,id,versionOfAncillary,historicStartWaterYear,startDateForHistJplIngest,startDateForNrtJplIngest,endDateForJplIngest,startDateForDaacIngest
+NB:This line should contain a numeric for Matlab,0,,,,"id of the group of conf parameters to build raw, gap and stc cubes",id of the group of conf params to build snow_cover_days variable,Id of the group of conf params to build daily Mosaics,"Id of the group of conf params to generate statistic files. Used only for big Regions, not used at the tile level.",Id of the group of conf params to generate geotiffs (historic and nrt web),Only for westernUS website projection.,Only for westernUS website projection.,Only for westernUS website projection.,Only for westernUS website projection.,,comment line,Big region the tile is historically associated with. For info only,"Id indicated in toolsRegion.sh. NB: for region of type bigRegion, this id differs from the id of the group0 landsubdivision indicated in configuration_of_landsubdivisions.csv.","Version of ancillary files, v3.1, v3.2, or test","Historic: understood as all historics, including the nrt jpl files from the last years",,,,
+h07v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,255,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h08v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,291,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h08v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,292,v3.1,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+h08v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,293,v3.1,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+h09v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,326,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h09v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,327,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h09v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,328,v3.1,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+h09v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,329,v3.1,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+h10v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,362,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h10v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,363,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h10v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,364,v3.1,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+h10v09,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,369,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h10v10,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,370,v3.2,2001,,2017-04-01,2023-09-30,
+h11v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,398,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h11v03,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,399,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h11v10,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,406,v3.2,2001,,2017-04-01,2023-09-30,
+h11v11,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,407,v3.2,2001,,2017-04-01,2023-09-30,
+h11v12,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,408,v3.2,2001,,2017-04-01,2023-09-30,
+h12v01,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,433,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h12v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,434,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h12v12,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,444,v3.2,2001,,2017-04-01,2023-09-30,
+h12v13,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,445,v3.2,2001,,2017-04-01,2023-09-30,
+h13v01,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,469,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h13v02,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,USAlaska,470,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h13v13,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,481,v3.2,2018,,2017-04-01,2023-09-30,
+h13v14,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,AMAndes,482,v3.2,2018,,2017-04-01,2023-09-30,
+h18v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,EURAlps,652,v3.2,2001,,,,
+h19v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,EURAlps,688,v3.2,2001,,,,
+h22v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,796,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h22v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,797,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h23v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,832,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h23v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,833,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h23v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,834,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h24v04,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,868,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h24v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,869,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h24v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,870,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h25v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,905,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h25v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,906,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h26v05,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,941,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h26v06,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,ASHimalaya,942,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+h35v17,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,0,default conf,Unused,1277,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+AMAndes,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,4,v3.2,2018,,2017-04-01,2023-09-30,
+ASHimalaya,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,2,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+EURAlps,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,3,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+USAlaska,bigRegion,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,,1,v3.2,2001,2000-09-01,2018-12-30,2023-09-30,
+westernUS,bigRegion,,,mlw,5,3,1,4,2,13700,5056,0,-1,1,,,0,v3.1,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+mockRegion,bigRegion,,,mlw,5,103,101,4,102,0,0,1,0,1,default conf,unit test mock region,,test,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+mockTile1,modisTile,,,mlw,5,103,101,4,102,0,0,1,0,1,default conf,unit test mock region,,test,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+mockTile2,modisTile,,,mlw,5,103,101,4,102,0,0,1,0,1,default conf,unit test mock region,,test,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+h08v04test,modisTile,,,mlw,5,3,1,4,2,0,0,0,0,1,default conf,westernUS,292,test,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
+westernUStest,bigRegion,,,mlw,5,3,1,4,2,13700,5056,0,-1,1,,,0,test,2001,2000-09-01,2018-12-30,2023-09-30,2023-10-01
