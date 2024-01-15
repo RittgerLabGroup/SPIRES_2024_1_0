@@ -6,7 +6,7 @@ classdef MODISData < handle
         archiveDir    % top-level directory with tile data
                         % NB: check hownot to duplicate information with ESPEnv dirs
                         %                                                          @todo
-        alternateDir  % top-level directory with tile data on scratch
+        % alternateDir  % top-level directory with tile data on scratch        @obsolete
         espEnv      % ESPEnv obj.
         fileNamePrefix % Struct(char).
         georeferencing = struct(northwest = struct(x0 = - pi * 6.371007181e+06, ...
@@ -112,10 +112,6 @@ classdef MODISData < handle
 
             label = p.Results.label;
             obj.archiveDir = p.Results.archiveDir;
-
-            % Default location for (fast) alternate data
-            obj.alternateDir = sprintf('/scratch/alpine/%s/modis', ...
-                getenv('USER'));
 
             path = fileparts(mfilename('fullpath'));
             parts = split(path, filesep);
