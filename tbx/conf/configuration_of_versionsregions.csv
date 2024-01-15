@@ -50,3 +50,8 @@ id,outputVersion,outputDataLabel,regionId,inputVersion,regionName,commentOnBigRe
 2023101,v2023.1a,SubdivisionStatsDailyCsv,434,v2023.1a,h12v02,USAlaska
 2023101,v2023.1a,SubdivisionStatsDailyCsv,469,v2023.1a,h13v01,USAlaska
 2023101,v2023.1a,SubdivisionStatsDailyCsv,470,v2023.1a,h13v02,USAlaska
+2023001,v2023.1a,SubdivisionStatsDailyCsv,292,v2023.0e,h08v04,westernUS
+2023001,v2023.1a,SubdivisionStatsDailyCsv,293,v2023.0e,h08v05,westernUS
+2023001,v2023.1a,SubdivisionStatsDailyCsv,328,v2023.0e,h09v04,westernUS
+2023001,v2023.1a,SubdivisionStatsDailyCsv,329,v2023.0e,h09v05,westernUS
+2023001,v2023.1a,SubdivisionStatsDailyCsv,364,v2023.0e,h10v04,westernUS
