@@ -471,7 +471,7 @@ classdef ESPEnv < handle
             f = obj.myConf.variable;
         end
         function varData = getDataForDateAndVarName(obj, ...
-            objectName, dataLabel, thisDate, varName, complementaryLabel)
+            objectName, dataLabel, thisDate, varName, complementaryLabel, varargin)
             % Parameters
             % ----------
             % objectName: char. Name of the tile or region as found in the modis files
@@ -485,47 +485,133 @@ classdef ESPEnv < handle
             %   of configuration_of_variables.csv).
             % complementaryLabel: char. Only used to add EPSG code for geotiffs. E.g.
             %   EPSG_3857. If not necessary, put ''.
+            % patternsToReplaceByJoker: cell array(char), optional.
+            %   List of arguments (patterns)
+            %   we don't a priori know. The filepath in that case will be found using
+            %   a dir cmd (replacing some unknown patterns by the joker *).
+            %   NB: Allow concatenation of files only for .csv (stats).         @warning
             %
             % Return
             % ------
-            % varData: data array or table read.
+            % varData: data array or table read. NB: when optional
+            %   patternsToReplaceByJoker yields a list of files, if .mat extension,
+            %   only the data of the first file are returned, if .csv the data of all
+            %   files are contenated. NB: if the .csv files have distinct headers,
+            %   matlab raises an error.
             %
             % NB: only works for dataLabel in VariablesMatlab.
             % NB: doesn't check if the variable is present in file.                @todo
+            % NB: For .h5 files, gets only the 2400x2400 raster data corresponding to
+            % 1 date (not the full dataset or full year). The date in the file should be
+            % formatted yyyyJD (2001275 e.g.). Designed to extract spires waterYear
+            % output
+            % to build mosaic daily files, to plug to the Subdivision/Region.geotiff/
+            % exportWebsite pipeline more easily (2024-01-22).                  @warning
+            % NB: Multiple files are only available for .csv files right now
+            % (2024-01-22).                                                     @warning
+            % NB: Can only
+
+            p = inputParser;
+            addParameter(p, 'patternsToReplaceByJoker', {});
+            p.KeepUnmatched = false;
+            parse(p, varargin{:});
+            patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
 
             % 1. Check valid dataLabel and get file for which the variable is
             % to be loaded.
             %---------------------------------------------------------------------------
             [filePath, fileExists, ~] = ...
                 obj.getFilePathForDateAndVarName(objectName, dataLabel, thisDate, ...
-                    varName, complementaryLabel);
+                    varName, complementaryLabel, ...
+                    patternsToReplaceByJoker = patternsToReplaceByJoker);
                 % Raises error if dataLabel not in configuration_of_filenames.csv and
                 % in modisData.versionOf.
 
-            % 2. Construction of the array of values extracted from the files.
+            % 2. Detection of extension and multiple files.
             %---------------------------------------------------------------------------
             varData = [];
-            if ~fileExists
-                warning('%s: Absent file %s.\n', mfilename(), filePath);
+            if ~iscell(fileExists)
+                fileExists = num2cell(fileExists);
+            end
+            if ~sum(cell2mat(fileExists))
+                warning('%s: Absent file(s) %s.\n', mfilename(), filePath);
+                return;
+            end
+
+            if size(filePath, 1) > 1
+                fileExtension = Tools.getFileExtension(filePath{1});
             else
                 fileExtension = Tools.getFileExtension(filePath);
-                if strcmp(fileExtension, '.mat')
-                    % In regular process, a proper
-                    % handling of thisDate and of the generation of files (potentially
-                    % with nodata/NaN-filled variables) should make all files present and
-                    % the last condition useless.
-                    if ~strcmp(varName, '')
-                        varData = parloadMatrices(filePath, varName);
-                    else
-                        varData = load(filePath); % Not sure whether that works in parfor
-                            % loops.
+            end
+            if size(filePath, 1) > 1 & ismember(fileExtension, {'.h5', '.mat'})
+                filePath = filePath{1};
+                warning(['%s: Only the data of the first file, %s, ', ...
+                    'will be retrieved, because the method doesn''t ', ...
+                    'currently concatenate multiple .mat or .h5 files.\n'], ...
+                    mfilename(), filePath);
+            elseif size(filePath, 1) == 1 & ismember(fileExtension, {'.csv'})
+               filePath = cellstr(filePath);
+            end
+
+            % 3. Construction of the array of values extracted from .h5 files.
+            % NB: We only get the values for a specific date (i.e. a specific slice of
+            % the dataset).
+            %---------------------------------------------------------------------------
+            if strcmp(fileExtension, '.h5') & strcmp(class(thisDate), 'datetime') & ...
+                ~isempty(thisDate)
+                thisFileConf = obj.myConf.filePath( ...
+                    strcmp(obj.myConf.filePath.dataLabel, dataLabel), :);
+                if ~strcmp(thisFileConf.dateFieldType, 'yyyyJD')
+                    errorStruct.identifier = 'ESPEnv:getDataForDateAndVarName';
+                    errorStruct.message = sprintf( ...
+                       ['%s: No handling dateFieldType', ...
+                       'other than string yyyyJD.\n'], mfilename());
+                    error(errorStruct);
+                end
+                thisFileInfo = h5info(filePath);
+                theseDates = h5readatt(filePath, ...
+                    thisFileConf.dateAttributePath{1}, thisFileConf.dateFieldName{1});
+                thisJDDate = year(thisDate) * 1000 + day(thisDate, 'dayofyear');
+                    % NB: We suppose that dates are numeric in the file.        @warning
+                dateIdx = find(theseDates == thisJDDate);
+                if isempty(dateIdx)
+                    errorStruct.identifier = 'ESPEnv:getDataForDateAndVarName';
+                    errorStruct.message = sprintf( ...
+                       ['%s: Missing date %d in %s.\n'], mfilename(), thisJDDate, ...
+                       filePath{1});
+                    error(errorStruct);
+                end
+                varData = h5read(filePath, [thisFileConf.datasetGroupPath{1}, ...
+                    varName], [1, 1, dateIdx], ...
+                    [obj.modisData.sensorProperties.tiling.rowPixelCount, ...
+                    obj.modisData.sensorProperties.tiling.columnPixelCount, 1]);
+
+            % 4. Construction of the array of values extracted from .mat files.
+            %---------------------------------------------------------------------------
+            elseif strcmp(fileExtension, '.mat')
+                % In regular process, a proper
+                % handling of thisDate and of the generation of files (potentially
+                % with nodata/NaN-filled variables) should make all files present &
+                % the last condition useless.
+                if ~strcmp(varName, '')
+                    varData = parloadMatrices(filePath, varName);
+                else
+                    varData = load(filePath); % Not sure whether that works in
+                        % parfor loops.
+                end
+
+            % 3. Construction of the array of values extracted from .csv files.
+            %---------------------------------------------------------------------------
+            elseif strcmp(fileExtension, '.csv')
+                varData = table();
+                for fileIdx = 1:size(filePath, 1)
+                    tmpData = readtable(filePath{fileIdx}, 'Delimiter', ',');
+                    fprintf('%s: Reading %s...\n', mfilename(), filePath{fileIdx});
+                    if startsWith(string(tmpData.(1)(1)), 'Metadata')
+                        tmpData([1],:) = []; % delete metadata line.
+                        % Might be necessary to put that in metadata return    @todo
                     end
-                elseif strcmp(fileExtension, '.csv')
-                    varData = readtable(filePath, 'Delimiter', ',');
-                    if startsWith(string(varData.(1)(1)), 'Metadata')
-                        varData([1],:) = []; % delete metadata line.
-                        % There might be necessary to put that in the metadata return @todo
-                    end
+                    varData = [varData; tmpData];
                 end
             end
         end
@@ -978,8 +1064,8 @@ classdef ESPEnv < handle
                  length(find(fileExists == 1)));
             waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
         end
-        function [objectId, varId, thisDate, thisYear] = getMetadataFromFilePath(obj, ...
-            filePath, dataLabel)
+        function [objectId, varId, thisDate, thisYear, monthWindow] = ...
+            getMetadataFromFilePath(obj, filePath, dataLabel)
             % Roughly the reverse method of espEnv.replacePatternsInFileOrDirPaths(),
             % Parse the filepath to get the metadata.
             %
@@ -996,6 +1082,8 @@ classdef ESPEnv < handle
             % objectId: uint16.
             % varId: uint8.
             % thisDate: datetime.
+            % thisYear: int.
+            % monthWindow: int.
             % NB: don't work with the geotiffs.
 
             % Determination of the raw filePath pattern from configuration.
@@ -1020,8 +1108,8 @@ classdef ESPEnv < handle
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             findChar = replace(patternFilePath, {'\', '/', '.'}, {'\\', '\/', '\.'});
 
-            findChar = regexprep(findChar, '{([0-9A-Za-z]*)}', ...
-                '{([0-9A-Za-z\\.]*)}');
+            findChar = regexprep(findChar, '{([0-9A-Za-z_]*)}', ...
+                '{([0-9A-Za-z_]*)}');
 
             replaceChar = replace(regexprep(num2str( ...
                 1:count(patternFilePath, '{'), ' %u'), '([0-9]*)', '\$$1'), '  ', ' ');
@@ -1251,7 +1339,7 @@ classdef ESPEnv < handle
                 objectType = intmax('uint8');
                 return;
             end
-            
+
             % We suppose first that objectLabel is a real name...
             if ischar(objectLabel) & ~isempty(regexp(objectLabel, '[A-Za-z]', 'once'))
                 objectName = objectLabel;
@@ -1686,11 +1774,18 @@ classdef ESPEnv < handle
 
                 if strcmp(thisDateFormat, 'yyyyJD')
                     replacement = [num2str(year(thisDate)), ...
-                        sprintf('%03d', day(thisDate, 'dayofyear'))]
+                        sprintf('%03d', day(thisDate, 'dayofyear'))];
                 else
                     replacement = string(thisDate, thisDateFormat);
                 end
                 newPath = replace(newPath, '{thisDate}', replacement);
+
+                if objectType == 0 % region
+                    region = ...
+                        Regions(objectName, [objectName, '_mask'], obj, obj.modisData);
+                    replacement = num2str(region.getWaterYearForDate(thisDate));
+                    newPath = replace(newPath, '{thisWaterYear}', replacement);
+                end
             end
         end
         function setAdditionalConf(obj, confLabel)
