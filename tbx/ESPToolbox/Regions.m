@@ -602,6 +602,23 @@ classdef Regions < handle
                     obj.snowCoverDayMins;
             end
         end
+        function waterYear = getWaterYearForDate(obj, thisDate)
+            % Parameters
+            % ----------
+            % thisDate: datetime.
+            %
+            % Return
+            % ------
+            % waterYear: int.
+            % NB: Assumes that waterYear is always the year of the last date of the
+            %   waterYear, even if the start of waterYear is in March
+            % (south hemisphere).
+            firstMonth = obj.getFirstMonthOfWaterYear();
+            waterYear = year(thisDate);
+            if month(thisDate) > firstMonth
+                waterYear = year(thisDate) + 1;
+            end
+        end
 
         % FIXME: this method isn't really needed, a better
         % alternative is for the caller to make a temporary structure
