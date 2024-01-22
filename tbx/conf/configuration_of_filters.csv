@@ -2,6 +2,8 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 0,Order by which the filtering is processed. Important for thresholding by snow_fraction. This column should stay in 2nd position (to be sorted in EspEnv instanciation). (The id of the threshold group should stay in 1st position).,Indicate where the group is used,Only used for stcStruct,Variable upon which the thresholds should be performed,,,,Variable set to not reliable value when the threshold is applied.,Comment line.
 3,1,snowCoverDay,,elevation,800,,,snow_fraction,snowCoverDayMins.minElevation
 3,2,snowCoverDay,,snow_fraction,10,,,snow_fraction,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
+3,3,snowCoverDay,,elevation,800,,,snow_fraction_s,snowCoverDayMins.minElevation
+3,4,snowCoverDay,,snow_fraction_s,10,,,snow_fraction_s,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
 1,1,mosaic,,viewable_snow_fraction,5,,,viewable_snow_fraction,"Mosaic filtering. This filter set #1 corresponds to v2023.0, v2023.1."
 1,2,mosaic,,viewable_snow_fraction,5,,,deltavis,
 1,3,mosaic,,viewable_snow_fraction,5,,,grain_size,
@@ -18,6 +20,9 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 1,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,91,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
 1,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,0,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
 1,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,91,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
+1,17,mosaic,,viewable_snow_fraction_s,5,,,viewable_snow_fraction_s,
+1,18,mosaic,,viewable_snow_fraction_s,0,,,snow_cover_days_s,
+1,19,mosaic,,viewable_snow_fraction_s,5,,,snow_fraction_s,
 2,1,publish,,elevation,800,,,snow_fraction,
 2,2,publish,,snow_fraction,10,,,snow_fraction,
 2,3,publish,,elevation,800,,,albedo_clean_mu0,
@@ -97,6 +102,8 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 5,25,stc,idwDefaultValueForradiative_forcing,,600,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 103,1,snowCoverDay,,elevation,800,,,snow_fraction,Unit test snowCoverDayMins.minElevation
 103,2,snowCoverDay,,snow_fraction,10,,,snow_fraction,Unit test snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
+103,3,snowCoverDay,,elevation,800,,,snow_fraction_s,snowCoverDayMins.minElevation
+103,4,snowCoverDay,,snow_fraction_s,10,,,snow_fraction_s,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
 101,1,mosaic,,viewable_snow_fraction,5,,,radiative_forcing,Unit test
 102,1,publish,,viewable_snow_fraction,30,,,snow_fraction,Unit test
 102,2,publish,,elevation,800,,,radiative_forcing,Unit test
@@ -116,6 +123,9 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 201,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,67.5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
 201,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,4,11,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
 201,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
+201,17,mosaic,,viewable_snow_fraction_s,5,,,viewable_snow_fraction_s,
+201,18,mosaic,,viewable_snow_fraction_s,0,,,snow_cover_days_s,
+201,19,mosaic,,viewable_snow_fraction_s,5,,,snow_fraction_s,
 205,1,stc,mindays,,10,,,,"Gap/Stc filtering. This filter set #205 corresponds to v2023.0b, v2023.0e and v2023.1b, westernUS"
 205,2,stc,sthreshForGS,,0.3,,,,Gap/Stc filtering
 205,3,stc,sthreshForRF,,0.3,,,,Gap/Stc filtering
@@ -157,6 +167,9 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 301,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,67.5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
 301,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,0,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
 301,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
+301,17,mosaic,,viewable_snow_fraction_s,5,,,viewable_snow_fraction_s,
+301,18,mosaic,,viewable_snow_fraction_s,0,,,snow_cover_days_s,
+301,19,mosaic,,viewable_snow_fraction_s,5,,,snow_fraction_s,
 305,1,stc,mindays,,10,,,,Gap/Stc filtering. This filter set #305 corresponds to no version but can be used for tests to prepare v2024.0
 305,2,stc,sthreshForGS,,0.2,,,,Gap/Stc filtering
 305,3,stc,sthreshForRF,,0.7,,,,Gap/Stc filtering
@@ -198,6 +211,9 @@ id,orderInGroup,groupType,lineName,thresholdedVarName,minValue,maxValue,arrayVal
 401,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,67.5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g, 67.5 for v2023.0e. Above this value, all is set to nodata."
 401,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,1,12,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
 401,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,5,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d."
+401,17,mosaic,,viewable_snow_fraction_s,5,,,viewable_snow_fraction_s,
+401,18,mosaic,,viewable_snow_fraction_s,0,,,snow_cover_days_s,
+401,19,mosaic,,viewable_snow_fraction_s,5,,,snow_fraction_s,
 405,1,stc,mindays,,10,,,,"Gap/Stc filtering. This filter set #405 corresponds to v2023.1d (Andes, with applyFalsePositiveMask = 1 compared to #5 and #305)."
 405,2,stc,sthreshForGS,,0.2,,,,Gap/Stc filtering
 405,3,stc,sthreshForRF,,0.7,,,,Gap/Stc filtering
