@@ -14,11 +14,12 @@ classdef Tools
             % Parameters
             % ----------
             % tileFilePaths: cellarray(char). List of filepaths of the tiles.
-            %   Should be .mat files.
+            %   Should be .mat or .tif files, with all files the same extension.
             % tileMapCellsReferences: array(MapCellsReference obj). MapCellReference
-            %   objects associated to the tiles.
+            %   objects associated to the tiles. Not used for geotiffs (the 
+            %   mapCellsReference in the .tif file is used).
             % filePath: char. FilePath of the tileset.
-            %   Should be .mat file.
+            %   Should be .mat or .tif file, same extension as tileFilePaths.
             % mapCellsReference: MapCellsReference obj. Associated to the
             %   tileset assembled from the tiles.
             %
@@ -38,7 +39,8 @@ classdef Tools
                     mapCellsReference.YWorldLimits(2) + ...
                     mapCellsReference.CellExtentInWorldY / 2]]; 
                     % Code identic to ESPEnv.projInfoFor(). Mutualizing?           @todo
-                    % RefMatrix is the only field of data not derived from tiles fields.    
+                    % RefMatrix is the only field of data not derived from tiles fields.
+            data.mapCellsReference = mapCellsReference;
             missingTileFileFlag = 0;
             tileFieldNames = {}; % tile fields. 
                 % Include paramNames, varNames and metadata like variable type and nodata_value.
@@ -55,11 +57,19 @@ classdef Tools
                     missingTileFileFlag = 1;
                     break;
                 end
-                tileData = load(tileFilePath);
+                if strcmp(tileFilePath(end - 3:end), '.mat')
+                    tileData = load(tileFilePath);
+                elseif strcmp(tileFilePath(end - 3:end), '.tif')
+                    [tileData, tileMapCellsReference] = ...
+                        readgeoraster(tileFilePath); % tileMapCellsReference replace 
+                            % the argument tileMapCellsReference (awkward, to improve) @todo
+                end
+                % NB: We should store and call tileMapReferences in tile .mat or .tif
+                % files rather than having them as arguments                       @todo
                 
                 % 2.2. Get the metadata and instantiate the variables for
                 % the tileset with info from tile #1.
-                if fileIdx == 1
+                if fileIdx == 1 & isstruct(tileData) % .mat files.
                     tileFieldNames = fieldnames(tileData);
                     for fieldIdx = 1:length(tileFieldNames)
                         tileFieldName = tileFieldNames{fieldIdx};
@@ -74,10 +84,12 @@ classdef Tools
                     end
                     for paramIdx = 1:length(paramNames)
                         paramName = paramNames{paramIdx};
-                        if strcmp(paramName, 'files')
-                            data.(paramName) = cell(0, 2);
-                        else
-                            data.(paramName) = {};
+                        if ismember(paramName, tileFieldNames) % spires. 2024-02-18.
+                            if strcmp(paramName, 'files')
+                                data.(paramName) = cell(0, 2);
+                            else
+                                data.(paramName) = {};
+                            end
                         end
                     end
                     for varIdx = 1:length(varNames)
@@ -86,6 +98,16 @@ classdef Tools
                             data.([varName '_nodata_value']) * ...
                             ones(mapCellsReference.RasterSize, ...
                                 class(tileData.(varName)));
+                    end
+                elseif fileIdx == 1 & ismatrix(tileData) % .tif files.
+                    if isinteger(tileData)
+                        data.data = intmax(class(tileData)) * ...
+                            ones(mapCellsReference.RasterSize, ...
+                                class(tileData));
+                    else
+                       data.data = NaN * ...
+                            ones(mapCellsReference.RasterSize, ...
+                                class(tileData));
                     end
                 end
                 % 2.3/ Fill the variables at the right location within the tileset
@@ -97,37 +119,55 @@ classdef Tools
                     mapCellsReference, xWorld, yWorld);
                 xIntrinsic = xIntrinsic + 0.5;
                 yIntrinsic = yIntrinsic + 0.5;
-                for paramIdx = 1:length(paramNames)
-                    paramName = paramNames{paramIdx};
-                    if strcmp(paramName, 'files')
-                        data.(paramName)(end + 1, 1:2) = tileData.(paramName);
-                    else
-                        data.(paramName)(end + 1) = tileData.(paramName);
+                
+                if isstruct(tileData) % .mat files.
+                    for paramIdx = 1:length(paramNames)
+                        paramName = paramNames{paramIdx};
+                        if ismember(paramName, fieldnames(data))
+                            if strcmp(paramName, 'files')
+                                data.(paramName)(end + 1, 1:2) = tileData.(paramName);
+                            else
+                                data.(paramName)(end + 1) = tileData.(paramName);
+                            end
+                        end
                     end
-                end
-                for varIdx = 1:length(varNames)
-                    varName = varNames{varIdx};                  
-                    data.(varName)(uint16(yIntrinsic) : ...
-                        uint16(yIntrinsic + tileMapCellsReference.RasterSize(2)) - 1, ...
+                    for varIdx = 1:length(varNames)
+                        varName = varNames{varIdx};                  
+                        data.(varName)(uint16(yIntrinsic) : ...
+                            uint16(yIntrinsic + ...
+                                tileMapCellsReference.RasterSize(2)) - 1, ...
+                            uint16(xIntrinsic) : ...
+                            uint16(xIntrinsic + ...
+                                tileMapCellsReference.RasterSize(1) - 1)) = ...
+                            tileData.(varName);
+                    end
+                elseif ismatrix(tileData) % .tif files.
+                    data.data(uint16(yIntrinsic) : ...
+                        uint16(yIntrinsic + ...
+                            tileMapCellsReference.RasterSize(2)) - 1, ...
                         uint16(xIntrinsic) : ...
-                        uint16(xIntrinsic + tileMapCellsReference.RasterSize(1) - 1)) = ...
-                        tileData.(varName);
+                        uint16(xIntrinsic + ...
+                            tileMapCellsReference.RasterSize(1) - 1)) = ...
+                        tileData;
                 end
             end
-            if missingTileFileFlag == 1
-                warning('%s: No generation of tileset %s.\n', ...
+            if ~missingTileFileFlag 
+                if strcmp(filePath(end - 3:end), '.mat')    
+                    % NB: Because of a 'Transparency violation error.' occuring 
+                    % with the upper-level
+                    % parfor loop, it is required to save the files using
+                    % another function (in our Tools package).
+                    % NB: Check whether still necessary                       @todo
+                    Tools.parforSaveFieldsOfStructInFile(filePath, ...
+                        data, 'new_file');                
+                elseif strcmp(filePath(end - 3:end), '.tif')
+                    writegeotiff(filePath, data.data, data.mapCellsReference);
+                end
+                fprintf('%s: Saved tileset into %s.\n', mfilename(), filePath);
+            else
+                warning('%s: No generation of tileset %s due to missing tile.\n', ...
                     mfilename(), filePath);
                 tileSetIsGenerated = 0;
-            else    
-                % NB: Because of a 'Transparency violation error.' occuring 
-                % with the upper-level
-                % parfor loop, it is required to save the files using
-                % another function (in our Tools package).
-                % NB: Check whether still necessary                       @todo
-                Tools.parforSaveFieldsOfStructInFile(filePath, ...
-                            data, 'new_file');
-                fprintf('%s: Saved tileset into %s.\n', ...
-                    mfilename(), filePath);
             end
         end
         function fileExtension = getFileExtension(fileName)

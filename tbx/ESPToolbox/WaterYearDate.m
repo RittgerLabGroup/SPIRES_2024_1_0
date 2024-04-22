@@ -213,6 +213,18 @@ classdef WaterYearDate < handle
             % WaterYearDate which are restricted to the past.                   @warning
             % NB: thisDatetime should be <= dateOfToday or at least belong to the
             % same waterYear (verif not implemented!!!).                        @warning
+            %
+
+%{
+            % A way to force waterYearDate goes to the end of the waterYear, even
+            % if it's in the future.
+            thisWaterYearDate = WaterYearDate.getLastWYDateForWaterYear( ...
+                thisWaterYear, obj.region.getFirstMonthOfWaterYear(), 12, ...
+                dateOfToday = ...
+                datetime(thisWaterYear, obj.region.getFirstMonthOfWaterYear(), ...
+                eomday(thisWaterYear, obj.region.getFirstMonthOfWaterYear())) + ...
+                caldays(1));   
+%}
 
 %{
             % NB: A default waterYearDate covering today only can be generated with:
@@ -223,29 +235,7 @@ classdef WaterYearDate < handle
             waterYearDate = WaterYearDate(datetime('today'), ...
                 espEnv.modisData.getFirstMonthOfWaterYear(region), 0);
 %}
-            if ~exist('thisDatetime', 'var')
-                thisDatetime = datetime('today');
-            end
-
-            % Cap to Yesterday. No calculations for the future right now.
-            % SIER_245 we handle all dates of waterYearDate until the day before today
-            % if last month = today's month.
-            % NB: Has it an impact for the early data in 2000?
-            if thisDatetime >= datetime('today')
-                thisDatetime = datetime('today') - caldays(1);
-            end
-
-            [thisYYYY, thisMM, thisDD] = ymd(thisDatetime);
-            obj.thisDatetime = datetime(thisYYYY, thisMM, thisDD, ...
-                obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
-                obj.dayStartTime.SS);
-            if exist('firstMonth', 'var') & firstMonth <= 12
-                obj.firstMonth = firstMonth;
-            end
-            if exist('monthWindow', 'var') & monthWindow <= 12
-                obj.monthWindow = monthWindow;
-            end
-
+            
             p = inputParser;
             addParameter(p, 'dateOfToday', datetime('today'));
             p.KeepUnmatched = false;
@@ -257,6 +247,27 @@ classdef WaterYearDate < handle
                 obj.dayStartTime.SS); % 2023-11-07 following JPL stop.
                 % .dateOfToday must be with same time as .thisDatetime for date range
                 % calculations.
+
+            [thisYYYY, thisMM, thisDD] = ymd(thisDatetime);
+            obj.thisDatetime = datetime(thisYYYY, thisMM, thisDD, ...
+                obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
+                obj.dayStartTime.SS);
+            
+            % Cap to Yesterday. No calculations for the future right now.
+            % SIER_245 we handle all dates of waterYearDate until the day before today
+            % if last month = today's month.
+            % NB: Has it an impact for the early data in 2000?
+            if obj.thisDatetime > obj.dateOfToday
+                obj.thisDatetime = obj.dateOfToday - caldays(1);
+            end
+
+            if exist('firstMonth', 'var') & firstMonth <= 12
+                obj.firstMonth = firstMonth;
+            end
+            if exist('monthWindow', 'var') & monthWindow <= 12
+                obj.monthWindow = monthWindow;
+            end
+
             fprintf('%s: WaterYearDate: %s, firstMonth %d, monthWindow: %d.\n', ...
                 mfilename(), obj.toChar(), ...
                 obj.firstMonth, obj.monthWindow);

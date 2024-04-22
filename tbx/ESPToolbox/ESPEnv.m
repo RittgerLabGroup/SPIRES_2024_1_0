@@ -65,17 +65,38 @@ classdef ESPEnv < handle
             variablestat = 'configuration_of_variablesstats.csv', ...
             webname = 'configuration_of_webnames.csv');
         configurationFilenames = struct( ...
+            datalabellink = 'configuration_of_datalabellinks.csv', ...
             filePath = 'configuration_of_filepaths.csv', ...
             filter = 'configuration_of_filters.csv', ...
             region = 'configuration_of_regions.csv', ...
             regionlink = 'configuration_of_regionlinks.csv', ...
             variable = 'configuration_of_variables.csv', ...
+            variablelink = 'configuration_of_variableslinks.csv', ...
             variableregion = 'configuration_of_variablesregions.csv', ...
-            versionregion = 'configuration_of_versionsregions.csv');
+            versionregion = 'configuration_of_versionsregions.csv', ...
+            versionvariable = 'configuration_of_versionsvariables.csv');
         defaultHostName = 'CURCScratchAlpine';
         espEnvironmentVars = {'espArchiveDir', 'espProjectDir', 'espScratchDir'};
             % List of the variables which MUST be defined at the OS environment level.
         % defaultPublicOutputPath = 'xxx/esp_public/';
+        patternsInFilePath = table({ ...
+            'EPSGCode', 'columnStartId', 'columnEndId', ...
+            'geotiffCompression', 'monthWindow', 'nearRealTime', ...
+            'objectId', 'objectName', 'objectId_1000', ...
+            'platform', 'rowStartId', 'rowEndId', ...
+            'timestampAndNrt', 'thisDate', 'thisWaterYear', 'thisYear', ...
+            'varId', 'varName', 'version', 'versionOfAncillary', ...
+            'versionOfDataCollection'}', { ...
+            'EPSG_[0-9]+', '[0-9]+', '[0-9]+', ...
+            '[a-zA-Z]+', '[0-9]{1,2}', '[a-zA-Z]+', ...
+            '[0-9]+', '[a-zA-Z]*', '[0-9]{1,3}', ...
+            '[a-zA-Z]', '[0-9]+', '[0-9]+', ...
+            '[0-9\.NRT]', '[0-9\.]+', '2[0-9]{3}', '2[0-9]{3}', ...
+            '[0-9]{1,3}', '[a-zA-Z_]+[0-9]?', 'v[0-9\.a-z]+', 'v[0-9\.]+', ...
+            'v[0-9]{3}'}', ...
+            VariableNames = {'toReplace', 'replacingRegexp'});
+            
+             
     end
     methods(Static)
         function espEnv = getESPEnvForRegionNameAndVersionLabel(regionName, ...
@@ -289,9 +310,43 @@ classdef ESPEnv < handle
                 end
             end
             fprintf('%s: Filtered filepath configuration.\n', mfilename());
-
+            
+            % Restrict dataLabel links.
+            % NB: Not sure if we need to keep it.                                  @todo
+            obj.myConf.datalabellink = ...
+                obj.myConf.datalabellink(obj.myConf.datalabellink.used >= 1, :);
+            obj.myConf.datalabellink.used = [];
+                
+            % Associate list of variables by dataLabel and version to dataLabel
+            % input/output links and restrict the variables by dataLabel and version
+            % only to the versions associated to the modisData of this object.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            obj.myConf.versionvariable = ...
+                obj.myConf.versionvariable(obj.myConf.versionvariable.used >= 1, :);
+            obj.myConf.versionvariable.used = [];
+            
+            thisDataLabel = fieldnames(obj.modisData.versionOf);
+            thisVersion = struct2cell(obj.modisData.versionOf);
+            theseVersionsDataLabels = table(thisDataLabel, thisVersion);
+            
+            obj.myConf.versionvariable = innerjoin(obj.myConf.versionvariable, ...
+                theseVersionsDataLabels, LeftKeys = 'outputDataLabel', ...
+                RightKeys = 'thisDataLabel');
+            obj.myConf.versionvariable = obj.myConf.versionvariable( ...
+                strcmp(obj.myConf.versionvariable.outputVersion, ...
+                obj.myConf.versionvariable.thisVersion), :);
+            obj.myConf.versionvariable.thisVersion = [];
+            obj.myConf.versionvariable = innerjoin(obj.myConf.versionvariable, ...
+                theseVersionsDataLabels, LeftKeys = 'inputDataLabel', ...
+                RightKeys = 'thisDataLabel');
+            obj.myConf.versionvariable = obj.myConf.versionvariable( ...
+                strcmp(obj.myConf.versionvariable.inputVersion, ...
+                obj.myConf.versionvariable.thisVersion), :);
+            obj.myConf.versionvariable.thisVersion = [];
+            
             % Order the filter table by the order in which the filtering should be
             % processed. Redundant with precedent?                              @tocheck
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             obj.myConf.filter = sortrows(obj.myConf.filter, [1, 2]);
             fprintf('%s: Sorted filter configuration.\n', mfilename());
 
@@ -485,11 +540,26 @@ classdef ESPEnv < handle
             %   of configuration_of_variables.csv).
             % complementaryLabel: char. Only used to add EPSG code for geotiffs. E.g.
             %   EPSG_3857. If not necessary, put ''.
+            %
+            % monthWindow: int, optional. MonthWindow of the data within the file.
+            % timestampAndNrt: char, optional. Only for mod09ga files.
             % patternsToReplaceByJoker: cell array(char), optional.
             %   List of arguments (patterns)
             %   we don't a priori know. The filepath in that case will be found using
             %   a dir cmd (replacing some unknown patterns by the joker *).
+            % optim: struct(cellIdx, countOfCells, logLevel, parallelWorkersNb),
+            %   optional.
+            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
+            %     by default. Index are counted starting top to bottom column 1, top to
+            %     bottom column 2, ... until bottom of last column.
+            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %     update. 1 by default.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
+            %
             %   NB: Allow concatenation of files only for .csv (stats).         @warning
+            
             %
             % Return
             % ------
@@ -509,13 +579,44 @@ classdef ESPEnv < handle
             % exportWebsite pipeline more easily (2024-01-22).                  @warning
             % NB: Multiple files are only available for .csv files right now
             % (2024-01-22).                                                     @warning
-            % NB: Can only
-
+            % NB: For some files, the variable retrieved has its name distinct from
+            % varName, associated with varNameWithinFile in conf_of_filepaths.csv,
+            % with links a certain field in conf_of_variables.csv.
+            thisFunction = 'ESPEnv.getDataForDateAndVarName';
             p = inputParser;
+            optim = struct(cellIdx = 1, countOfCells = 1, ...
+                logLevel = 0, parallelWorkersNb = 0);
+            addParameter(p, 'optim', optim);
+
             addParameter(p, 'patternsToReplaceByJoker', {});
-            p.KeepUnmatched = false;
+            addParameter(p, 'monthWindow', WaterYearDate.yearMonthWindow);
+            addParameter(p, 'timestampAndNrt', '');
+            
+            p.StructExpand = false;
             parse(p, varargin{:});
+            optimFieldNames = fieldnames(p.Results.optim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
+                end
+            end % fieldIx.
             patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
+            monthWindow = p.Results.monthWindow;
+            timestampAndNrt = p.Results.timestampAndNrt;
+            fprintf(['%s: Starting, region: %s, dataLabel: %s, ', ...
+                'cellIdx: %d, countOfCells: %d, logLevel: %d, ', ...
+                'parallelWorkersNb: %d, monthWindow: %d, timestampAndNrt: %s...\n'], ...
+                thisFunction, objectName, dataLabel, ...
+                optim.cellIdx, optim.countOfCells, ...
+                optim.logLevel, optim.parallelWorkersNb, monthWindow, timestampAndNrt);
+
+            indices = obj.modisData.getIndicesForCellInTile(optim.cellIdx, ...
+                    optim.countOfCells);
+            
+            aggregateCells = ismember('rowStartId', patternsToReplaceByJoker);
+                % This induces that data are split into cell files which are aggregated
+                % to form a tile. 2024-02-28.
 
             % 1. Check valid dataLabel and get file for which the variable is
             % to be loaded.
@@ -523,7 +624,9 @@ classdef ESPEnv < handle
             [filePath, fileExists, ~] = ...
                 obj.getFilePathForDateAndVarName(objectName, dataLabel, thisDate, ...
                     varName, complementaryLabel, ...
-                    patternsToReplaceByJoker = patternsToReplaceByJoker);
+                    patternsToReplaceByJoker = patternsToReplaceByJoker, ...
+                    monthWindow = monthWindow, timestampAndNrt = timestampAndNrt, ...
+                    optim = optim);
                 % Raises error if dataLabel not in configuration_of_filenames.csv and
                 % in modisData.versionOf.
 
@@ -543,7 +646,9 @@ classdef ESPEnv < handle
             else
                 fileExtension = Tools.getFileExtension(filePath);
             end
-            if size(filePath, 1) > 1 & ismember(fileExtension, {'.h5', '.mat'})
+            if size(filePath, 1) > 1 & ...
+                ismember(fileExtension, {'.hdf', '.h5', '.mat'}) ...
+                & ~aggregateCells
                 filePath = filePath{1};
                 warning(['%s: Only the data of the first file, %s, ', ...
                     'will be retrieved, because the method doesn''t ', ...
@@ -553,38 +658,122 @@ classdef ESPEnv < handle
                filePath = cellstr(filePath);
             end
 
-            % 3. Construction of the array of values extracted from .h5 files.
-            % NB: We only get the values for a specific date (i.e. a specific slice of
-            % the dataset).
+            
+            fileConf = obj.myConf.filePath( ...
+                strcmp(obj.myConf.filePath.dataLabel, dataLabel), :);
+
+            % Get the varName within the file, which might be distinct from varName.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            varLabel = varName;
+            [varId, varName] = obj.getVariableIdentification(varLabel);
+            varNameWithinFile = varName;
+            if ~isempty(varName) & ischar(varName) & ...
+                ~isempty(fileConf.fieldForVarNameWithinFile{1})
+                varConf = obj.myConf.variable( ...
+                    strcmp(obj.myConf.variable.output_name, varName), :);
+                varNameWithinFile = varConf.(fileConf.fieldForVarNameWithinFile{1}){1};
+            end
+            
+            % 2. Construction of the array of values extracted from .hdf files.
+            % NB: We only get the values for a specific date and variable.
             %---------------------------------------------------------------------------
-            if strcmp(fileExtension, '.h5') & strcmp(class(thisDate), 'datetime') & ...
-                ~isempty(thisDate)
-                thisFileConf = obj.myConf.filePath( ...
-                    strcmp(obj.myConf.filePath.dataLabel, dataLabel), :);
-                if ~strcmp(thisFileConf.dateFieldType, 'yyyyJD')
+            if strcmp(fileExtension, '.hdf') & strcmp(class(thisDate), 'datetime') & ...
+                ~isempty(thisDate) & ~isempty(varName)
+                % For .hdf, we only extract a day of data, no a series of days. @warning
+                if ~strcmp(fileConf.dateFieldType, 'yyyyJD')
                     errorStruct.identifier = 'ESPEnv:getDataForDateAndVarName';
                     errorStruct.message = sprintf( ...
                        ['%s: No handling dateFieldType', ...
                        'other than string yyyyJD.\n'], mfilename());
                     error(errorStruct);
                 end
-                thisFileInfo = h5info(filePath);
-                theseDates = h5readatt(filePath, ...
-                    thisFileConf.dateAttributePath{1}, thisFileConf.dateFieldName{1});
-                thisJDDate = year(thisDate) * 1000 + day(thisDate, 'dayofyear');
-                    % NB: We suppose that dates are numeric in the file.        @warning
-                dateIdx = find(theseDates == thisJDDate);
-                if isempty(dateIdx)
+                if ischar(filePath) % Only 1 file.
+                    varData = hdfread(filePath, varNameWithinFile, ...
+                        Index = {[indices.rowStartId, indices.columnStartId], ...
+                        [1 1], [indices.rowEndId, indices.columnEndId]});
+                end
+            
+            % 3. Construction of the array of values extracted from .h5 files.
+            % NB: We only get the values for a specific date (i.e. a specific slice of
+            % the dataset).
+            %---------------------------------------------------------------------------
+            %
+            % NB: doesnt handle optim.cellIdx and countOfCells right now 2024-03-25
+            %                                                                      @todo
+            elseif strcmp(fileExtension, '.h5') & strcmp(class(thisDate), 'datetime') & ...
+                ~isempty(thisDate)
+                % For .h5, we only extract a day of data, no a series of days.  @warning
+                if ~strcmp(fileConf.dateFieldType, 'yyyyJD')
                     errorStruct.identifier = 'ESPEnv:getDataForDateAndVarName';
                     errorStruct.message = sprintf( ...
-                       ['%s: Missing date %d in %s.\n'], mfilename(), thisJDDate, ...
-                       filePath{1});
+                       ['%s: No handling dateFieldType', ...
+                       'other than string yyyyJD.\n'], mfilename());
                     error(errorStruct);
                 end
-                varData = h5read(filePath, [thisFileConf.datasetGroupPath{1}, ...
-                    varName], [1, 1, dateIdx], ...
-                    [obj.modisData.sensorProperties.tiling.rowPixelCount, ...
-                    obj.modisData.sensorProperties.tiling.columnPixelCount, 1]);
+                % a. Case with a full file.
+                if ischar(filePath)
+                    thisFileInfo = h5info(filePath);
+                    theseDates = h5readatt(filePath, ...
+                        fileConf.dateAttributePath{1}, fileConf.dateFieldName{1});
+                    thisJDDate = year(thisDate) * 1000 + day(thisDate, 'dayofyear');
+                        % NB: We suppose that dates are numeric in the file.    @warning
+                    dateIdx = find(theseDates == thisJDDate);
+                    if isempty(dateIdx)
+                        errorStruct.identifier = 'ESPEnv:getDataForDateAndVarName';
+                        warning( ...
+                           ['%s: Missing date %d in %s.\n'], mfilename(), ...
+                           thisJDDate, filePath);
+                    else
+                        varData = h5read(filePath, [fileConf.datasetGroupPath{1}, ...
+                            varNameWithinFile], ...
+                            [indices.rowStartId, indices.columnStartId, dateIdx], ...
+                            [indices.rowEndId, indices.columnEndId, 1]);
+                    end
+                % b. Case with a set of cell-split files to combine to form a tile.
+                elseif iscell(filePath) & size(filePath, 1) > 1
+                    % NB: there should be here another requirement on the number of
+                    % files expected.                                              @todo
+                    % 
+                    for fileIdx = 1:size(filePath)
+                        thisFilePath = filePath{fileIdx};
+                        theseDates = h5readatt(thisFilePath, ...
+                            fileConf.dateAttributePath{1}, fileConf.dateFieldName{1});
+                        thisJDDate = year(thisDate) * 1000 + day(thisDate, 'dayofyear');
+                            % NB: We suppose that dates are numeric in the file.@warning
+                        dateIdx = find(theseDates == thisJDDate);
+                        if isempty(dateIdx)
+                            errorStruct.identifier = 'ESPEnv:getDataForDateAndVarName';
+                            warning( ...
+                               ['%s: Missing date %d in %s.\n'], mfilename(), ...
+                               thisJDDate, thisFilePath);
+                        else
+                            [~, ~, ~, ~, ~, metadata] = ...
+                                obj.getMetadataFromFilePath(thisFilePath, dataLabel);
+                            if fileIdx == 1
+                                oneData = h5read(thisFilePath, ...
+                                    [fileConf.datasetGroupPath{1}, ...
+                                    varNameWithinFile], [1, 1, 1], [2, 1, 1]);
+                                varData = ...
+                                    ones(obj.modisData.sensorProperties.tiling. ...
+                                        rowPixelCount, ...
+                                        obj.modisData.sensorProperties.tiling. ...
+                                        columnPixelCount, 1, class(oneData));
+                                if isinteger(oneData)
+                                    varData = intmax(class(oneData)) * varData;
+                                else
+                                    varData = NaN * varData;
+                                end
+                            end
+                            varData(metadata.rowStartId:metadata.rowEndId, ...
+                                metadata.columnStartId:metadata.columnEndId) = ...
+                                h5read(thisFilePath, ...
+                                [fileConf.datasetGroupPath{1}, varNameWithinFile], ...
+                                [1, 1, dateIdx], ...
+                                [metadata.rowEndId - metadata.rowStartId + 1, ...
+                                metadata.columnEndId - metadata.columnStartId + 1, 1]);
+                        end
+                    end
+                end
 
             % 4. Construction of the array of values extracted from .mat files.
             %---------------------------------------------------------------------------
@@ -593,8 +782,20 @@ classdef ESPEnv < handle
                 % handling of thisDate and of the generation of files (potentially
                 % with nodata/NaN-filled variables) should make all files present &
                 % the last condition useless.
-                if ~strcmp(varName, '')
-                    varData = parloadMatrices(filePath, varName);
+                if ~strcmp(varNameWithinFile, '')
+                    % varData = parloadMatrices(filePath, varNameWithinFile); 2024-03-25
+                    fileObj = matfile(filePath);
+                    if ismember(fileConf.dateInFileName{1}, {'yyyyJD', 'yyyyMMdd'})
+                        varData = fileObj.(varNameWithinFile)( ...
+                            indices.rowStartId:indices.rowEndId, ...
+                            indices.columnStartId:indices.columnEndId);
+                    else
+                        varData = fileObj.(varNameWithinFile)( ...
+                            indices.rowStartId:indices.rowEndId, ...
+                            indices.columnStartId:indices.columnEndId, :);
+                            % Selection of a specific date not yet implemented.
+                            %                                                      @todo
+                    end
                 else
                     varData = load(filePath); % Not sure whether that works in
                         % parfor loops.
@@ -603,6 +804,7 @@ classdef ESPEnv < handle
             % 3. Construction of the array of values extracted from .csv files.
             %---------------------------------------------------------------------------
             elseif strcmp(fileExtension, '.csv')
+                % No selection of subset of dates or cells here.                @warning
                 varData = table();
                 for fileIdx = 1:size(filePath, 1)
                     tmpData = readtable(filePath{fileIdx}, 'Delimiter', ',');
@@ -616,7 +818,7 @@ classdef ESPEnv < handle
             end
         end
         function [data, mapCellsReference, metaData] = ...
-            getDataForObjectNameDataLabel(obj, objectName, dataLabel)
+            getDataForObjectNameDataLabel(obj, objectName, dataLabel, varargin)
             % Parameters
             % ----------
             % objectName: char. Name of the tile or region as found in the modis files
@@ -629,6 +831,15 @@ classdef ESPEnv < handle
             %   westernUS for tile h08v04 will have as object name: 'h08v04_westernUS'.
             % dataLabel: char. Label of the type of data we have to find. E.g.
             %   'elevation'.
+            % optim: struct(cellIdx, countOfCells, logLevel, parallelWorkersNb).
+            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
+            %     by default. Index are counted starting top to bottom column 1, top to
+            %     bottom column 2, ... until bottom of last column.
+            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %     update. 1 by default.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
             %
             % Return
             % ------
@@ -637,6 +848,31 @@ classdef ESPEnv < handle
             %   properties for a region mask or Table of stats.
             %   If file doesn't exit, empty.
             % mapCellsReference: MapCellsReference. Allows to georeference the data.
+            thisFunction = 'ESPEnv.getDataForObjectNameDataLabel';
+            p = inputParser;
+            optim = struct(cellIdx = 1, countOfCells = 1, ...
+                logLevel = 0, parallelWorkersNb = 0);
+            addParameter(p, 'optim', optim);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            optimFieldNames = fieldnames(p.Results.optim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
+                end
+            end % fieldIx.
+            fprintf(['%s: Starting, region: %s, dataLabel: %s, ', ...
+                'cellIdx: %d, countOfCells: %d, logLevel: %d, ', ...
+                'parallelWorkersNb: %d...\n'], thisFunction, objectName, dataLabel, ...
+                optim.cellIdx, optim.countOfCells, ...
+                optim.logLevel, optim.parallelWorkersNb);
+
+            indices = ...
+                obj.modisData.getIndicesForCellInTile(optim.cellIdx, ...
+                    optim.countOfCells);
+
+
             [filePath, fileExists] = obj.getFilePathForObjectNameDataLabel( ...
                 objectName, dataLabel);
             if ~fileExists
@@ -647,8 +883,13 @@ classdef ESPEnv < handle
             else
                 fileExtension = Tools.getFileExtension(filePath);
                 if strcmp(fileExtension, '.mat')
-                    tmpObj = load(filePath);
-                    data = tmpObj.data;
+                    tmpObj = matfile(filePath);
+                    data = tmpObj.data(indices.rowStartId:indices.rowEndId, ...
+                        indices.columnStartId:indices.columnEndId);
+                    % Specific to v3.1. elevation, slope, aspect, canopy. 2024-03-23.
+                    if ismember(class(data), {'single', 'double'})
+                        data(isnan(data)) = 0;
+                    end    
                     try
                         mapCellsReference = tmpObj.mapCellsReference;
                     catch e
@@ -661,6 +902,10 @@ classdef ESPEnv < handle
                     end
                 elseif strcmp(fileExtension, '.tif')
                     [data, mapCellsReference] = readgeoraster(filePath);
+                    if optim.countOfCells ~= 1
+                        data = data(indices.rowStartId:indices.rowEndId, ...
+                                    indices.columnStartId:indices.columnEndId);
+                    end
                     if ~strcmp(class(mapCellsReference), 'MapCellsReference')
                         mapCellsReference = [];
                     end
@@ -669,13 +914,14 @@ classdef ESPEnv < handle
                     data = readtable(filePath, 'Delimiter', ',');
                     if startsWith(string(data.(1)(1)), 'Metadata')
                         data([1],:) = []; % delete metadata line.
-                        % There might be necessary to put that in the metadata return @todo
+                        % There might be necessary to put that in the metadata return
+                        %                                                          @todo
                     end
                 end
             end
         end
         function varData = getDataForWaterYearDateAndVarName(obj, ...
-            objectName, dataLabel, waterYearDate, varName)
+            objectName, dataLabel, waterYearDate, varName, varargin)
             % SIER_297: replacement of modisData.loadMOD09() and loadSCAGDRFS()
             % NB: this ugly method may be improved, depending on raw data struct.  @todo
             %
@@ -684,12 +930,22 @@ classdef ESPEnv < handle
             % objectName: char. Name of the tile or region as found in the modis files
             %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
             %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
-            % dataLabel: char. Label (type) of data for which the file is required, should
-            %   be a key of ESPEnv.dirWith struct, e.g. MOD09Raw.
+            % dataLabel: char. Label (type) of data for which the file is required,
+            %   should be a key of ESPEnv.dirWith struct, e.g. MOD09Raw.
             % waterYearDate: WaterYearDate. Cover the period for which we want the
             %   files.
             % varName: name of the variable to load (name in the file, not output_name
             %   of configuration_of_variables.csv).
+            % optim: struct(cellIdx, countOfCells, logLevel, parallelWorkersNb),
+            %   optional.
+            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
+            %     by default. Index are counted starting top to bottom column 1, top to
+            %     bottom column 2, ... until bottom of last column.
+            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %     update. 1 by default.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
             %
             % Return
             % ------
@@ -699,12 +955,39 @@ classdef ESPEnv < handle
             %
             % NB: only works for dataLabel in MOD09Raw or SCAGRaw. !!
             % NB: doesn't check if the variable is present in file.                @todo
+            %
+            % NB: This function is slow when files are daily and cover a full waterYear.
+            %                                                                      @todo
+            %
+            % NB: only works with .mat files right now. 2024-03-25.                @todo
 
             % 1. Check valid dataLabel and get list of files for which the variable is
             % to be loaded.
             %---------------------------------------------------------------------------
-            fprintf('%s: Loading data %s, %s for %s, waterYearDate %s...\n', ...
-                mfilename(), dataLabel, varName, objectName, waterYearDate.toChar());
+            thisFunction = 'ESPEnv.getDataForWaterYearDateAndVarName';
+            p = inputParser;
+            optim = struct(cellIdx = 1, countOfCells = 1, ...
+                logLevel = 0, parallelWorkersNb = 0);
+            addParameter(p, 'optim', optim);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            optimFieldNames = fieldnames(p.Results.optim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
+                end
+            end % fieldIx.
+            fprintf(['%s: Starting, region: %s, dataLabel: %s, waterYearDate: %s, ', ...
+                'varName: %s, cellIdx: %d, countOfCells: %d, logLevel: %d, ', ...
+                'parallelWorkersNb: %d...\n'], thisFunction, objectName, dataLabel, ...
+                waterYearDate.toChar(), varName, optim.cellIdx, optim.countOfCells, ...
+                optim.logLevel, optim.parallelWorkersNb);
+
+            indices = ...
+                obj.modisData.getIndicesForCellInTile(optim.cellIdx, ...
+                    optim.countOfCells);
+                    
             filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
             varConf = obj.myConf.variable(strcmp(obj.myConf.variable.output_name, ...
@@ -736,42 +1019,108 @@ classdef ESPEnv < handle
             elseif strcmp(varName, 'RefMatrix')
                 varData = load(filePath{1}, 'RefMatrix').RefMatrix;
             else
+                % Get the varName within the file, which might be distinct from varName.
+                fileConf = obj.myConf.filePath( ...
+                    strcmp(obj.myConf.filePath.dataLabel, dataLabel), :);
+                
+                % Get the varName within the file, which might be distinct from varName.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                varLabel = varName;
+                [varId, varName] = obj.getVariableIdentification(varLabel);
+                varNameWithinFile = varName;
+                if ~isempty(varName) & ischar(varName) & ...
+                    ~isempty(fileConf.fieldForVarNameWithinFile{1})
+                    varConf = obj.myConf.variable( ...
+                        strcmp(obj.myConf.variable.output_name, varName), :);
+                    varNameWithinFile = ...
+                        varConf.(fileConf.fieldForVarNameWithinFile{1}){1};
+                end
+            
                 % Initialization of loaded data array...
                 % destination array has fix size (e.g. 2400x2400x92 days)
                 % and not a variable size as before 2023-12-12, to speed execution.
                 thisType = ...
-                    Tools.valueInTableForThisField(obj.myConf.variable, 'raw_name', ...
-                    varName, 'type');
+                    Tools.valueInTableForThisField(obj.myConf.variable, ...
+                    'output_name', varName, fileConf.fieldForVarTypeWithinFile{1});
                         % NB: For variable NoValues,
                         % type in raw files is actually logical, but code should work.
-
+                
+                countOfDaysInFile = ones(size(lastDateInFile));
+                sizeInThirdDimension = 1;
+                if ismember(fileConf.dateInFileName{1}, {'yyyyJD', 'yyyyMMdd'})
+                    sizeInThirdDimension = numel(lastDateInFile);
+                elseif ismember(fileConf.dateInFileName{1}, {'yyyyMM'})
+                    countOfDaysInFile = day(lastDateInFile);
+                    sizeInThirdDimension = sum(countOfDaysInFile);
+                elseif ismember(fileConf.dateInFileName{1}, {'yyyy'})
+                    % water yearly.
+                    countOfDaysInFile = daysact( ...
+                        waterYearDate.getFirstDatetimeOfWaterYear(), lastDateInFile) ...
+                        + 1;
+                    sizeInThirdDimension = countOfDaysInFile;
+                end
+   
                 if strcmp(varName, 'refl') % Reflectance has 7 bands as 3rd dimension.
-                    thisSize = [obj.modisData.sensorProperties.tiling.rowPixelCount, ...
-                        obj.modisData.sensorProperties.tiling.columnPixelCount, ...
-                        7, sum(day(lastDateInFile))];
-
-                    varData = intmax(thisType) * ones(thisSize, thisType);
+                    thisSize = [indices.rowEndId - indices.rowStartId + 1, ...
+                        indices.columnEndId - indices.columnStartId + 1, ...
+                        7, sizeInThirdDimension];
+                    if ismember(thisType, {'single', 'double'})
+                        varData = NaN(thisSize, thisType);
+                    elseif strcmp(thisType, 'logical')
+                        varData = zeros(thisSize, thisType);
+                    else
+                        varData = intmax(thisType) * ones(thisSize, thisType);
+                    end
                     lastIndex = 0;
                     for fileIdx = 1:size(filePath, 2)
-                        varData(:, :, :, lastIndex + 1: ...
-                            lastIndex + day(lastDateInFile(fileIdx))) = ...
-                            load(filePath{fileIdx}, varName).(varName);
-                        lastIndex = lastIndex + day(lastDateInFile(fileIdx));
+                        fileObj = matfile(filePath{fileIdx});
+                        if ismember(fileConf.dateInFileName{1}, {'yyyyJD', 'yyyyMMdd'})
+                            varData(:, :, :, lastIndex + 1: ...
+                                lastIndex + countOfDaysInFile(fileIdx)) = ...
+                                fileObj.(varNameWithinFile)( ...
+                                    indices.rowStartId:indices.rowEndId, ...
+                                    indices.columnStartId:indices.columnEndId, :);
+                        else
+                            varData(:, :, :, lastIndex + 1: ...
+                                lastIndex + countOfDaysInFile(fileIdx)) = ...
+                                fileObj.(varNameWithinFile)( ...
+                                    indices.rowStartId:indices.rowEndId, ...
+                                    indices.columnStartId:indices.columnEndId, :, :);
+                        end
+                        lastIndex = lastIndex + countOfDaysInFile(fileIdx);
                     end
                 else % Other variables have time as 3rd dimension.
                     % NB: solar azimuth, zenith, sensor zenith are 2400x2400 in raw
                     % cubes (but 1200x1200 in modis files).
-                    thisSize = [obj.modisData.sensorProperties.tiling.rowPixelCount, ...
-                        obj.modisData.sensorProperties.tiling.columnPixelCount, ...
-                        sum(day(lastDateInFile))];
-
-                    varData = intmax(thisType) * ones(thisSize, thisType);
+                    thisSize = [numel(indices.rowStartId:indices.rowEndId), ...
+                        numel(indices.columnStartId:indices.columnEndId), ...
+                        sizeInThirdDimension];
+                    if ismember(thisType, {'single', 'double'})
+                        varData = NaN(thisSize, thisType);
+                    elseif strcmp(thisType, 'logical')
+                        varData = zeros(thisSize, thisType);
+                    else
+                        varData = intmax(thisType) * ones(thisSize, thisType);
+                    end
                     lastIndex = 0;
                     for fileIdx = 1:size(filePath, 2)
-                        varData(:, :, lastIndex + 1: ...
-                            lastIndex + day(lastDateInFile(fileIdx))) = ...
-                            load(filePath{fileIdx}, varName).(varName);
-                        lastIndex = lastIndex + day(lastDateInFile(fileIdx));
+                        fprintf('%s: Loading %s, %s...\n', mfilename(), ...
+                            filePath{fileIdx}, varNameWithinFile);
+                        fileObj = matfile(filePath{fileIdx});
+                        if ismember(fileConf.dateInFileName{1}, {'yyyyJD', 'yyyyMMdd'})
+                            varData(:, :, lastIndex + 1: ...
+                                lastIndex + countOfDaysInFile(fileIdx)) = ...
+                                fileObj.(varNameWithinFile)( ...
+                                    indices.rowStartId:indices.rowEndId, ...
+                                    indices.columnStartId:indices.columnEndId);
+                        else
+                            varData(:, :, lastIndex + 1: ...
+                                lastIndex + countOfDaysInFile(fileIdx)) = ...
+                                fileObj.(varNameWithinFile)( ...
+                                    indices.rowStartId:indices.rowEndId, ...
+                                    indices.columnStartId:indices.columnEndId, :);
+                        end
+                        lastIndex = lastIndex + countOfDaysInFile(fileIdx);
                     end
                 end
             end
@@ -801,6 +1150,18 @@ classdef ESPEnv < handle
             %   List of arguments (patterns)
             %   we don't a priori know. The filepath in that case will be found using
             %   a dir cmd (replacing some unknown patterns by the joker *).
+            % monthWindow: int, optional. MonthWindow of the data within the file.
+            % timestampAndNrt: char, optional. Only for mod09ga files.
+            % optim: struct(cellIdx, countOfCells, logLevel, parallelWorkersNb),
+            %   optional.
+            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
+            %     by default. Index are counted starting top to bottom column 1, top to
+            %     bottom column 2, ... until bottom of last column.
+            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %     update. 1 by default.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
             %
             % Return
             % ------
@@ -810,13 +1171,32 @@ classdef ESPEnv < handle
             %   the most recent fileLastEditDate is in the filePath list.
             % fileExists: uint8 or cellarray(uint8). 0 if file doesn't exist.
             % fileLastEditDate: datetime or cellarray(datetime).
-
+            thisFunction = 'ESPEnv.getFilePathForDateAndVarName';
             p = inputParser;
             addParameter(p, 'patternsToReplaceByJoker', {});
-            p.KeepUnmatched = false;
+            addParameter(p, 'monthWindow', WaterYearDate.yearMonthWindow);
+            addParameter(p, 'timestampAndNrt', '');
+            
+            optim = struct(cellIdx = 1, countOfCells = 1, ...
+                logLevel = 0, parallelWorkersNb = 0);
+            addParameter(p, 'optim', optim);
+            
+            p.StructExpand = false;
             parse(p, varargin{:});
+            optimFieldNames = fieldnames(p.Results.optim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
+                end
+            end % fieldIx.
             patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
+            monthWindow = p.Results.monthWindow;
+            timestampAndNrt = p.Results.timestampAndNrt;
 
+            indices = obj.modisData.getIndicesForCellInTile(optim.cellIdx, ...
+                    optim.countOfCells);
+           
             % 1. Generation and check existence of the file directory path.
             %---------------------------------------------------------------------------
             modisData = obj.modisData;
@@ -851,45 +1231,60 @@ classdef ESPEnv < handle
                     directoryPath = fullfile(directoryPath, subFolder);
                 end
             end
-            directoryPath = obj.replacePatternsInFileOrDirPaths(directoryPath, ...
+            
+            filePath = fullfile(directoryPath, ...
+                [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}]);
+                
+            [filePath, regexpPattern] = ...
+                obj.replacePatternsInFileOrDirPaths(filePath, ...
                 objectName, dataLabel, thisDate, varName, complementaryLabel, ...
-                patternsToReplaceByJoker = patternsToReplaceByJoker);
+                patternsToReplaceByJoker = patternsToReplaceByJoker, ...
+                monthWindow = monthWindow, timestampAndNrt = timestampAndNrt, ...
+                optim = optim);
+            [directoryPath, ~, ~] = fileparts(filePath);
             if isempty(patternsToReplaceByJoker) & ~isfolder(directoryPath)
                 mkdir(directoryPath);
             end
 
-            % 2. Generation of the filename, check existence and determine last edit
-            % date.
+            % 2. Generation of the filename, check existence of filenames and determine
+            % last edit date.
             %---------------------------------------------------------------------------
-            fileName = [filePathConf.fileLabel{1}, filePathConf.fileExtension{1}];
-            fileName = obj.replacePatternsInFileOrDirPaths(fileName, ...
-                objectName, dataLabel, thisDate, varName, complementaryLabel, ...
-                patternsToReplaceByJoker = patternsToReplaceByJoker);
-
-            filePath = fullfile(directoryPath, fileName);
-
             tmpFiles = struct2table(dir(filePath));
-            tmpFiles = tmpFiles(tmpFiles.isdir == 0, :);
-            if size(tmpFiles, 1) == 0
-                fileExists = 0;
-                fileLastEditDate = NaT;
-            else
-                % Case when we use jokers to get a list of files (or just one file when
-                % we lack some arguments to precisely determine the name of the file...
-                tmpFiles = sortrows(tmpFiles(tmpFiles.isdir == 0, :), 'datenum', ...
-                    'descend');
+            tmpFiles = sortrows(tmpFiles(tmpFiles.isdir == 0, :), 'datenum', ...
+                'descend');
+            if ~isempty(tmpFiles)
                 filePath = table2cell(rowfun(@(x, y) fullfile(x, y), tmpFiles, ...
                     InputVariables = {'folder', 'name'}));
-                fileExists = num2cell(ones(size(filePath, 1), 1));
-                fileLastEditDate = table2cell(rowfun(@(x) ...
-                    datetime(x, InputFormat = 'dd-MMM-yyyy HH:mm:ss'), ...
-                    tmpFiles, InputVariables = {'date'}));
-            end
-            % De-cellification if only 1 return.
-            if iscell(filePath) & length(filePath) == 1
-                filePath = filePath{1};
-                fileExists = fileExists{1};
-                fileLastEditDate = fileLastEditDate{1};
+                    
+                % Specific Alpine. To implement cleaner!!!!!!!                     @todo
+                filePath = replace(filePath, '/gpfs/alpine1/scratch/', '/scratch/alpine/');
+                
+                % Case when we use jokers to get a list of files (or just one file when
+                % we lack some arguments to precisely determine the name of the file...
+                regexpIndices = regexp(filePath, regexpPattern, 'start');
+                notEmptyIndices  = ~cellfun('isempty', regexpIndices);
+                filePath = filePath(notEmptyIndices);
+                tmpFiles = tmpFiles(notEmptyIndices, :); % to get the last edit date
+                    % below.
+
+                if size(filePath, 1) == 0
+                    fileExists = 0;
+                    fileLastEditDate = NaT;
+                else
+                    fileExists = num2cell(ones(size(filePath, 1), 1));
+                    fileLastEditDate = table2cell(rowfun(@(x) ...
+                        datetime(x, InputFormat = 'dd-MMM-yyyy HH:mm:ss'), ...
+                        tmpFiles, InputVariables = {'date'}));
+                end
+                % De-cellification if only 1 return.
+                if iscell(filePath) & length(filePath) == 1
+                    filePath = filePath{1};
+                    fileExists = fileExists{1};
+                    fileLastEditDate = fileLastEditDate{1};
+                end
+            else
+                fileExists = 0;
+                fileLastEditDate = NaT;
             end
         end
         function [filePath, fileExists] = getFilePathForObjectNameDataLabel(obj, ...
@@ -978,6 +1373,9 @@ classdef ESPEnv < handle
             %
             % NB: method which retakes some of the code of getFilePathForDate(). Maybe
             %   some mutualization is possible?                                    @todo
+            %
+            % NB: the method is way too long to get all mosaic files of a wateryear.
+            %   Shortcuts using regexp needs                                       @todo
 
             % 1. Generation and check existence of the file directory path.
             %---------------------------------------------------------------------------
@@ -1049,22 +1447,31 @@ classdef ESPEnv < handle
                 if isfile(filePath{dateIdx})
                     fileExists(dateIdx) = 1;
                     if strcmp(filePathConf.dateInFileName{1}, 'yyyyMM')
-                        lastDateInFile(dateIdx) = max( ...
+                        thisLastDateInFile = max( ...
                             load(filePath{dateIdx}, filePathConf.dateFieldName{1}).( ...
                                 filePathConf.dateFieldName{1}));
+                        if strcmp(filePathConf.dateFieldType{1}, 'datenum')
+                            lastDateInFile(dateIdx) = datetime(thisLastDateInFile, ...
+                                ConvertFrom = filePathConf.dateFieldType{1});
+                        else
+                            lastDateInFile(dateIdx) = thisLastDateInFile;
+                        end
                     else
                         lastDateInFile(dateIdx) = thisDate;
                     end
                 end
             end
             lastDateInFileWhichExists = lastDateInFile(fileExists == 1);
-            waterYearDate = WaterYearDate( ...
-                 lastDateInFileWhichExists(end), ...
-                 modisData.getFirstMonthOfWaterYear(objectName), ...
-                 length(find(fileExists == 1)));
-            waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
+            if ~isempty(lastDateInFileWhichExists)
+                waterYearDate = WaterYearDate( ...
+                     lastDateInFileWhichExists(end), ...
+                     modisData.getFirstMonthOfWaterYear(objectName), ...
+                     length(find(fileExists == 1)));
+                waterYearDate.overlapOtherYear = 1; % Should be in constructor @todo
+            end
         end
-        function [objectId, varId, thisDate, thisYear, monthWindow] = ...
+        function [objectId, varId, thisDate, thisYear, monthWindow, ...
+            metadata] = ...
             getMetadataFromFilePath(obj, filePath, dataLabel)
             % Roughly the reverse method of espEnv.replacePatternsInFileOrDirPaths(),
             % Parse the filepath to get the metadata.
@@ -1084,6 +1491,8 @@ classdef ESPEnv < handle
             % thisDate: datetime.
             % thisYear: int.
             % monthWindow: int.
+            % metadata: struct. Having complementary metadata: rowStartId, rowEndId,
+            %   columnStartId, columnEndId, timestampAndNrt.
             % NB: don't work with the geotiffs.
 
             % Determination of the raw filePath pattern from configuration.
@@ -1105,58 +1514,73 @@ classdef ESPEnv < handle
 
             % Determination of the fieldnames for each pattern and their value in the
             % filePath.
+            % NB: Requires at least a changing field in the pattern indicated by
+            % the text ['{', fieldName, '}'].
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            findChar = replace(patternFilePath, {'\', '/', '.'}, {'\\', '\/', '\.'});
+            if ismember('{', patternFilePath)
+                findChar = replace(patternFilePath, ...
+                    {'\', '/', '.'}, {'\\', '\/', '\.'});
 
-            findChar = regexprep(findChar, '{([0-9A-Za-z_]*)}', ...
-                '{([0-9A-Za-z_]*)}');
+                findChar = regexprep(findChar, '{([0-9A-Za-z_]*)}', ...
+                    '{([0-9A-Za-z_]*)}');
 
-            replaceChar = replace(regexprep(num2str( ...
-                1:count(patternFilePath, '{'), ' %u'), '([0-9]*)', '\$$1'), '  ', ' ');
-            fieldName = split(regexprep(patternFilePath, findChar, replaceChar));
+                replaceChar = replace(regexprep(num2str( ...
+                    1:count(patternFilePath, '{'), ' %u'), ...
+                    '([0-9]*)', '\$$1'), '  ', ' ');
+                fieldName = split(regexprep(patternFilePath, findChar, replaceChar));
 
-            findCell = cellfun(@(c)['{', c, '}'], fieldName, UniformOutput = false);
-            replaceCell = cell(size(findCell));
-            replaceCell(:) = {'([0-9A-Za-z]*)'};
-            replaceCell(ismember(findCell, {'{version}', '{versionOfAncillary}'})) = ...
-                {'([0-9A-Za-z\.]*)'};
-                % NB: this is because versions include a dot, like v2023.0.
-            replaceCell(strcmp(findCell, '{varName}')) = {'([0-9A-Za-z\_]*)'};
-                % NB: this is because varNames include a _, like snow_fraction.
+                findCell = cellfun(@(c)['{', c, '}'], fieldName, UniformOutput = false);
+                replaceCell = cell(size(findCell));
+                replaceCell(:) = {'([0-9A-Za-z]*)'};
+                replaceCell(ismember(findCell, {'{version}', ...
+                    '{versionOfAncillary}'})) = {'([0-9A-Za-z\.]*)'};
+                    % NB: this is because versions include a dot, like v2023.0.
+                replaceCell(ismember(findCell, {'{varName}', '{EPSGCode}'})) = ...
+                    {'([0-9A-Za-z\_]*)'};
+                    % NB: this is because varNamesand EPSGCode include a _,
+                    % like snow_fraction.
 
-            findChar = replace(patternFilePath, {'\', '/', '.'}, {'\\', '\/', '\.'});
-            findChar = replace(findChar, findCell, replaceCell);
-            findChar = replace(findChar, ').', ')\.');
-            fieldValue = split(regexprep(filePath, findChar, replaceChar));
+                findChar = replace(patternFilePath, {'\', '/', '.'}, ...
+                    {'\\', '\/', '\.'});
+                findChar = replace(findChar, findCell, replaceCell);
+                findChar = replace(findChar, ').', ')\.');
+                fieldValue = split(regexprep(filePath, findChar, replaceChar));
 
-            % Attribution of the value to each field, conversion to the correct
-            % format for dates and years.
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            numericFieldValue = cellfun(@str2double, fieldValue, UniformOutput = false);
-            datetimeFieldValue = cell(size(fieldValue));
-            datetimeFieldValue(:) = {NaT};
-            for fieldIdx = 1:length(fieldName)
-                evalChar = '';
-                if ~isnan(numericFieldValue{fieldIdx})
-                    if length(fieldValue{fieldIdx}) == 8
-                        evalChar = [fieldName{fieldIdx}, ' = datetime(''', ...
-                            fieldValue{fieldIdx}, ''', InputFormat = ''yyyyMMdd'');'];
-                    elseif length(fieldValue{fieldIdx}) == 6
-                        evalChar = [fieldName{fieldIdx}, ' = datetime(''', ...
-                            fieldValue{fieldIdx}, '01'', InputFormat = ''yyyyMMdd'');'];
-                    else
-                        evalChar = [fieldName{fieldIdx}, ' = ', ...
-                            fieldValue{fieldIdx}, ';'];
+                % Attribution of the value to each field, conversion to the correct
+                % format for dates and years.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                numericFieldValue = cellfun(@str2double, fieldValue, ...
+                    UniformOutput = false);
+                datetimeFieldValue = cell(size(fieldValue));
+                datetimeFieldValue(:) = {NaT};
+                for fieldIdx = 1:length(fieldName)
+                    evalChar = '';
+                    if ~isnan(numericFieldValue{fieldIdx})
+                        if length(fieldValue{fieldIdx}) == 8
+                            evalChar = [fieldName{fieldIdx}, ' = datetime(''', ...
+                                fieldValue{fieldIdx}, ...
+                                ''', InputFormat = ''yyyyMMdd'');'];
+                        elseif length(fieldValue{fieldIdx}) == 6
+                            evalChar = [fieldName{fieldIdx}, ' = datetime(''', ...
+                                fieldValue{fieldIdx}, ...
+                                '01'', InputFormat = ''yyyyMMdd'');'];
+                        else
+                            evalChar = [fieldName{fieldIdx}, ' = ', ...
+                                fieldValue{fieldIdx}, ';'];
+                        end
+                    else % fieldValue is always char.
+                        evalChar = [fieldName{fieldIdx}, ' = ''', ...
+                            fieldValue{fieldIdx}, ''';'];
                     end
-                else % fieldValue is always char.
-                    evalChar = [fieldName{fieldIdx}, ' = ''', ...
-                        fieldValue{fieldIdx}, ''';'];
+                    eval(evalChar);
                 end
-                eval(evalChar);
+            else
+                warning('%s: No changing field in file pattern %s', mfilename(), ...
+                    patternFilePath);
             end
-
             % Determine from the above values the return of the method.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
             if exist('objectName', 'var')
                 objectLabel = objectName;
             elseif exist('objectId', 'var')
@@ -1189,6 +1613,18 @@ classdef ESPEnv < handle
             elseif exist('thisYear', 'var') & ~exist('thisDate', 'var')
                 thisDate = datetime(thisYear, month(WaterYearDate.fakeDate), ...
                     day(WaterYearDate.fakeDate));
+            end
+            if ~exist('monthWindow', 'var')
+                monthWindow = 0;
+            end
+            metadata = struct();
+            metadataNames= {'rowStartId', 'rowEndId', 'columnStartId', ...
+                'columnEndId', 'timestampAndNrt'};
+            for metadataIdx = 1:length(metadataNames)
+                metadataName = metadataNames{metadataIdx};
+                if exist(metadataName)
+                    metadata.(metadataName) = eval(metadataName);
+                end
             end
         end
         function objectNames = getObjectNamesForDataLabelAndDateAndVarName(obj, ...
@@ -1347,23 +1783,27 @@ classdef ESPEnv < handle
                 %   instantiation of regions (should be removed at at some point). @todo
                 if isempty(regexp(objectName, '_mask', 'once'))
                     objectId = obj.myConf.region( ...
-                        strcmp(obj.myConf.region.name, objectName), :).id(1);
+                        strcmp(obj.myConf.region.name, objectName), :).id;
                     % if empty: means that object is a landsubdivision and not a region:
                     obj.setAdditionalConf('landsubdivision');
                     if isempty(objectId)
                         objectId = obj.myConf.landsubdivision( ...
                             strcmp(obj.myConf.landsubdivision.code, objectName), :).id;
                         if isempty(objectId)
-                            errorStruct.identifier = 'ESPEnv:InexistentObjectName';
-                            errorStruct.message = sprintf( ...
-                                ['%s, getObjectIdentification(): ', ...
+                            warning(['%s, getObjectIdentification(): ', ...
                                 'Inexistent ObjectName %s in regions or ', ...
-                                'landsubdivisions conf.\n'], mfilename(), ...
-                                    objectName);
-                            error(errorStruct);
+                                'landsubdivisions conf of version %s.\n'], ...
+                                mfilename(), ...
+                                    objectLabel, obj.modisData.versionOf.ancillary);
+                            objectId = 0;
+                            objectName = '';
+                            objectType = intmax('uint8');
                         else
                             objectType = 1;
                         end
+                    else
+                        objectId = objectId(1); % by precaution if 2 regions have
+                            % same name...
                     end
                 end
             % Second, we suppose objectName is an objectId...
@@ -1382,13 +1822,14 @@ classdef ESPEnv < handle
                     objectName = obj.myConf.landsubdivision( ...
                         obj.myConf.landsubdivision.id == objectId, :).code;
                     if isempty(objectName)
-                        errorStruct.identifier = 'ESPEnv:InexistentObjectId';
-                        errorStruct.message = sprintf( ...
-                            ['%s, getObjectIdentification(): Inexistent ', ...
-                            'ObjectId %s in regions or ', ...
-                            'landsubdivisions conf.\n'], mfilename(), ...
-                                num2str(objectId));
-                        error(errorStruct);
+                        warning(['%s, getObjectIdentification(): ', ...
+                            'Inexistent ObjectId %s in regions or ', ...
+                            'landsubdivisions conf of version %s.\n'], ...
+                            mfilename(), ...
+                            num2str(objectId), obj.modisData.versionOf.ancillary);
+                        objectId = 0;
+                        objectName = '';
+                        objectType = intmax('uint8');
                     else
                         objectType = 1;
                     end
@@ -1399,6 +1840,73 @@ classdef ESPEnv < handle
                     objectName = objectName{1};
                 end
             end
+        end
+        function [variable, variableLink, inputVariable] = getVariable(obj, ...
+            outputDataLabel, varargin)
+            % Yields the variable, the configuration table of the variables written
+            % in the output file of the specific outputDataLabel, and variableLinks,
+            % listing for each output variable the input variables necessary for
+            % calculations.
+            %
+            % Parameters
+            % ----------
+            % outputDataLabel: char. DataLabel of the variable output, e.g.
+            %   'VariablesMatlab'.
+            % inputDataLabel: char, optional. DataLabel of the variable input,
+            %   if several input dataLabels are possible. By default = '' and
+            %   filter not applied.
+            % outputMeasurementTypeId: array(int). Ids of the type of measurement,
+            %   to filter to variables of only 1 type. E.g. 75 filters all
+            %   days_since_last_observation of all sensors/platforms/method. By default
+            %   [] and filter not applied.
+            %
+            % Return
+            % ------
+            % variable: table(id: int, name: char, divisor: float,
+            %   nodata_value: int or float, type: char, unit: char). List attributes of
+            %   all output variables.
+            % variableLink: table(outputVarId, inputVarId). Yields the list of input
+            %   variables for each output variables.
+            % inputVariable: table(id: int, name: char, divisor: float,
+            %   nodata_value: int or float, type: char, unit: char). List attributes of
+            %   all input variables.
+            p = inputParser;
+            addParameter(p, 'inputDataLabel', '');
+            addParameter(p, 'outputMeasurementTypeId', []);
+            p.KeepUnmatched = false;
+            parse(p, varargin{:});
+            inputDataLabel = p.Results.inputDataLabel;
+            outputMeasurementTypeId = p.Results.outputMeasurementTypeId;
+
+            variable = innerjoin( ...
+                obj.myConf.versionvariable( ...
+                    (isempty(inputDataLabel) | ...
+                    strcmp(obj.myConf.versionvariable.inputDataLabel, ...
+                        inputDataLabel)) ...
+                    & strcmp(obj.myConf.versionvariable.outputDataLabel, ...
+                    outputDataLabel), :), ...
+                obj.myConf.variable(isempty(outputMeasurementTypeId) | ...
+                    ismember(obj.myConf.variable.measurementTypeId, ...
+                    outputMeasurementTypeId), :), ...
+                LeftKeys = 'varId', RightKeys = 'id', ...
+                LeftVariables = {'name', 'divisor', ...
+                    'max', 'min', 'nodata_value', 'type', 'unit'}, ...
+                RightVariables = {'id', 'measurementTypeId'});
+            variableLink = innerjoin(variable, ...
+                obj.myConf.variablelink, ...
+                LeftKeys = 'id', RightKeys = 'outputVarId', ...
+                LeftVariables = {}, ...
+                RightVariables = {'outputVarId', 'inputVarId'});
+            inputVariable = unique(innerjoin(variableLink, ...
+                obj.myConf.versionvariable( ...
+                    strcmp(obj.myConf.versionvariable.inputDataLabel, ...
+                        outputDataLabel), :), ...
+                LeftKeys = 'inputVarId', RightKeys = 'varId', ...
+                LeftVariables = {}, ...
+                RightVariables = {'varId', 'name', 'divisor', ...
+                    'max', 'min', 'nodata_value', 'type', 'unit'}));
+            inputVariable.id = inputVariable.varId;
+            inputVariable.varId = [];
         end
         function [varId, varName] = getVariableIdentification(obj, varLabel)
             % Parameters
@@ -1640,11 +2148,12 @@ classdef ESPEnv < handle
                 nextIndex = nextIndex + 1;
             end
         end
-        function newPath = replacePatternsInFileOrDirPaths(obj, path, objectName, ...
+        function [newPath, regexpPattern] = replacePatternsInFileOrDirPaths(obj, ...
+            filePath, objectName, ...
             dataLabel, thisDate, varName, complementaryLabel, varargin)
             % Parameters
             % ----------
-            % path: char. FileName, directoryPath or filePath containing parameter
+            % filePath: char. FileName, directoryPath or filePath containing parameter
             % patterns in the form {objectName}, {varName}, etc...
             % objectName: char or int. Name of the tile or region as found in the modis
             %   files and others. E.g. 'h08v04'. Must be unique.
@@ -1666,31 +2175,77 @@ classdef ESPEnv < handle
             %   characteristic of the file, e.g. the epsg code of the projection,
             %   e.g. EPSG_3857
             %   Can also be '' if no argument.
+            % monthWindow: int, optional. MonthWindow covering the data within the file.
+            % timestampAndNrt: char, optional. Only for mod09ga files.
             % patternsToReplaceByJoker: cell array(char), optional. List of patterns to
-            %   replace by * because we don't know the values.
-            %   NB: Only tested for 'nearRealTime', 'versionNumberOfDataCollection'
-            %   and 'dateOfHistoric'.
+            %   replace by  because we don't know the values.
+            % optim: struct(cellIdx, countOfCells, logLevel, parallelWorkersNb),
+            %   optional.
+            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
+            %     by default. Index are counted starting top to bottom column 1, top to
+            %     bottom column 2, ... until bottom of last column.
+            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %     update. 1 by default.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
             %
             % Return
             % ------
             % newPath: char. FileName, directoryPath or filePath with the patterns
             %   replaced by values of the parameters contained in the patterns.
-
+            % regexpPattern: char. Pattern used to filter the results of a dir on
+            %   newPath, necessary because we have filenames with variables with "_"
+            %   in their definition.                                            @warning
+             % fileLastEditDate: datetime or cellarray(datetime).
+            thisFunction = 'ESPEnv.replacePatternsInFileOrDirPaths';
             p = inputParser;
             addParameter(p, 'patternsToReplaceByJoker', {});
-            p.KeepUnmatched = false;
+            addParameter(p, 'monthWindow', WaterYearDate.yearMonthWindow);
+            addParameter(p, 'timestampAndNrt', '');
+            
+            optim = struct(cellIdx = 1, countOfCells = 1, ...
+                logLevel = 0, parallelWorkersNb = 0);
+            addParameter(p, 'optim', optim);
+            
+            p.StructExpand = false;
             parse(p, varargin{:});
+            optimFieldNames = fieldnames(p.Results.optim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
+                end
+            end % fieldIx.
             patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
+            monthWindow = p.Results.monthWindow;
+            timestampAndNrt = p.Results.timestampAndNrt;
 
-            % Replacement of patterns by the joker * for patternsToReplaceByJoker
-            %(when we don't know certain parts of the file).
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            newPath = path;
-            for patternIdx = 1: length(patternsToReplaceByJoker)
-                newPath = replace(newPath, ...
-                    ['{', patternsToReplaceByJoker{patternIdx}, '}'], '*');
+            indices = obj.modisData.getIndicesForCellInTile(optim.cellIdx, ...
+                    optim.countOfCells);
+
+            if ~ismember(patternsToReplaceByJoker, obj.patternsInFilePath.toReplace)
+                errorStruct.identifier = ...
+                    'ESPEnv_replacePatterns:Object';
+                errorStruct.message = sprintf( ...
+                    ['%s.replacePatternsInFileOrDirPaths()', ...
+                    ': some patterns indicated ', ...
+                    'are not implemented as pattern to replace.'], ...
+                    mfilename());
+                error(errorStruct);
+            end
+            if ischar(monthWindow)
+                monthWindow = str2num(monthWindow);
             end
 
+            rowColumnStartEndNames = fieldnames(indices);
+            for rowColumnIdx = 1:length(rowColumnStartEndNames)
+                thisFieldName = rowColumnStartEndNames{rowColumnIdx};
+                if isnumeric(indices.(thisFieldName))
+                    indices.(thisFieldName) = num2str(indices.(thisFieldName));
+                end
+            end
+                        
             % Determine objectName, objModCode (only used in v2023.1) and objectId.
             % ObjectType: 0: regions, 1: landsubdivisions.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1705,12 +2260,36 @@ classdef ESPEnv < handle
 
             % Replacement of object and variable infos.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % NB: some replacements by joker have already been done above.
-            newPath = replace(newPath, '{objectId}', num2str(objectId));
-            newPath = replace(newPath, '{objectName}', objectName);
-            newPath = replace(newPath, '{objectId_1000}', ...
-                    string(floor(cast(objectId, 'single') / 1000)));
+            newPath = filePath;
 
+            function filePath = replacePatternByValue(filePath, patternCharCells, ...
+                valueCells, patternsToReplaceByJoker)
+                % Parameters
+                % ----------
+                % filePath: char. FilePath for which patterns are replaced by values.
+                % patternCharCells: cellArray(char). List of patterns to replace.
+                % valueCells: cellArray(char). List of replacing values.
+                % patternsToReplaceByJoker: cellArray(char). List of patterns authorized
+                %   to be replaced of this filePath.
+                %
+                % Return
+                % ------
+                % filePath: char. Updated filePath.
+                for cellIdx = 1:length(patternCharCells)
+                    patternChar = patternCharCells{cellIdx};
+                    if ~ismember(patternChar, patternsToReplaceByJoker)
+                       filePath = replace(filePath, ['{', patternChar, '}'], ...
+                        valueCells{cellIdx});
+                    end
+                end
+            end
+            if objectType ~= intmax('uint8')
+                newPath = replacePatternByValue(newPath, ...
+                    {'objectId', 'objectName', 'objectId_1000'}, ...
+                    {num2str(objectId), objectName, ...
+                        string(floor(cast(objectId, 'single') / 1000))}, ...
+                    patternsToReplaceByJoker);
+            end
             % Detect near real time folders... Used for JPL files before 2023-10-01.
             if objectType == 0 & ...
                 ismember(dataLabel, {'mod09ga', 'modscag', 'moddrfs'})
@@ -1724,7 +2303,8 @@ classdef ESPEnv < handle
                         end
                     end
                 end
-                newPath = replace(newPath, '{nearRealTime}', nearRealTime);
+                newPath = replacePatternByValue(newPath, {'nearRealTime'}, ...
+                    {nearRealTime}, patternsToReplaceByJoker);
             end
 
             % Detect sub-infos of subdivisions... Only used for v2023.1 map/stats files.
@@ -1734,42 +2314,52 @@ classdef ESPEnv < handle
                 sourceRegionName = obj.myConf.landsubdivision( ...
                     obj.myConf.landsubdivision.id == objectId, :). ...
                     sourceRegionName{1};
-                newPath = replace(newPath, '{objectModCode}', ...
-                    replace(objectCode, '-', ''));
-                newPath = replace(newPath, '{sourceRegionName}', ...
-                    sourceRegionName);
+                newPath = replacePatternByValue(newPath, ...
+                    {'objectModCode', 'sourceRegionName'}, ...
+                    {replace(objectCode, '-', ''), sourceRegionName}, ...
+                    patternsToReplaceByJoker);
             end
 
-            newPath = replace(newPath, '{varId}', num2str(varId));
-            newPath = replace(newPath, '{varName}', varName);
+            newPath = replacePatternByValue(newPath, ...
+                {'varId', 'varName'}, ...
+                {num2str(varId), varName}, ...
+                patternsToReplaceByJoker);
 
             % Replacement of other infos.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            newPath = replace(newPath, '{platform}', obj.modisData.versionOf.platform);
-            newPath = replace(newPath, '{versionOfAncillary}', ...
-                obj.modisData.versionOf.ancillary);
-            newPath = replace(newPath, '{versionOfDataCollection}', ...
-                sprintf('v%03d', obj.modisData.versionOf.MODISCollection));
-
+            newPath = replacePatternByValue(newPath, ...
+                {'platform', 'versionOfAncillary', 'versionOfDataCollection', ...
+                'columnStartId', 'columnEndId', 'rowStartId', 'rowEndId'}, ...
+                {obj.modisData.versionOf.platform, ...
+                    obj.modisData.versionOf.ancillary, ...
+                    sprintf('v%03d', obj.modisData.versionOf.MODISCollection), ...
+                    indices.columnStartId, indices.columnEndId, ...
+                    indices.rowStartId, indices.rowEndId}, ...
+                patternsToReplaceByJoker);
+                    
             if ~exist('complementaryLabel', 'var')
                 complementaryLabel = '';
             end
-            newPath = replace(newPath, '{EPSGCode}', complementaryLabel);
-            newPath = replace(newPath, '{geotiffCompression}', ...
-                Regions.geotiffCompression);
-
+            newPath = replacePatternByValue(newPath, ...
+                {'EPSGCode', 'geotiffCompression', 'monthWindow', ...
+                    'timestampAndNrt'}, ...
+                {complementaryLabel, Regions.geotiffCompression, ...
+                    num2str(monthWindow), timestampAndNrt}, ...
+                patternsToReplaceByJoker);
+            
             % In the following, if conditions = false, the pattern is kept in place.
             % E.g. if a pattern contains '{thisYear}' and it thisDate is not a datetime,
             % the filePath will keep having the text '{thisYear}'.
             if ismember(dataLabel, fieldnames(obj.modisData.versionOf))
-                newPath = replace(newPath, ...
-                    '{version}', obj.modisData.versionOf.(dataLabel));
+                newPath = replacePatternByValue(newPath, ...
+                    {'version'}, ...
+                    {obj.modisData.versionOf.(dataLabel)}, ...
+                    patternsToReplaceByJoker);
             end
 
             filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
             if strcmp(class(thisDate), 'datetime')
-                newPath = replace(newPath, '{thisYear}', string(thisDate, 'yyyy'));
                 thisDateFormat = filePathConf.dateInFileName{1};
 
                 if strcmp(thisDateFormat, 'yyyyJD')
@@ -1778,14 +2368,36 @@ classdef ESPEnv < handle
                 else
                     replacement = string(thisDate, thisDateFormat);
                 end
-                newPath = replace(newPath, '{thisDate}', replacement);
-
+                newPath = replacePatternByValue(newPath, ...
+                    {'thisYear', 'thisDate'}, ...
+                    {string(thisDate, 'yyyy'), replacement}, ...
+                    patternsToReplaceByJoker);
+                    
                 if objectType == 0 % region
                     region = ...
                         Regions(objectName, [objectName, '_mask'], obj, obj.modisData);
                     replacement = num2str(region.getWaterYearForDate(thisDate));
+                    newPath = replacePatternByValue(newPath, ...
+                        {'thisWaterYear', }, {replacement}, patternsToReplaceByJoker);
                     newPath = replace(newPath, '{thisWaterYear}', replacement);
                 end
+            end
+            
+            % Replacement of patterns by the joker * for patternsToReplaceByJoker
+            %(when we don't know certain parts of the file), and construction of the
+            % regexp.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            regexpPattern = regexprep(newPath, '([\[\]{}()=''.(),;:%%{%}!@])', '\\$1');
+            
+            for patternIdx = 1: length(patternsToReplaceByJoker)
+                replacingRegexp = obj.patternsInFilePath.replacingRegexp(...
+                        strcmp(patternsToReplaceByJoker{patternIdx}, ...
+                        obj.patternsInFilePath.toReplace));
+                regexpPattern = replace(regexpPattern, ...
+                    ['\{', patternsToReplaceByJoker{patternIdx}, '\}'], ...
+                    replacingRegexp{1});
+                newPath = replace(newPath, ...
+                    ['{', patternsToReplaceByJoker{patternIdx}, '}'], '*');
             end
         end
         function setAdditionalConf(obj, confLabel)
