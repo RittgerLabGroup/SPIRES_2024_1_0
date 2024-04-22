@@ -1,0 +1,129 @@
+How to generate the geojson shapefiles
+
+Input: the series of rasters of subdivisions (the one used for stats) projected in modis sinusoidal, located in modis_ancillary\{versionOfAncillary}\landsubdivision\{subdivisionType}\{tileName}_{subidivisionTypeFileLabel}.tif.
+These raster values are the id of subdivisions, called subdivisionId or snowtod_id.
+
+Output: the series of .geojson of the shapefiles of subdivision, without spaces and return, 1 file per subdivision, stored in landsubdivisiongeojson/{projection_code, e.g. EPSG:3857}/{subdivision id thousand, e.g. 26 (for subdivisionId 26000)}/{subdivisionid}_{subdivisionType}.geojson + probably a version id or something.
+
+Algorithm:
+Implemented with QGIS 3.28, using the plugin ProcessX 1.5 (to remove self-overlapping in polygons) and Matlab.
+
+Algorithm description:
+
+- for each subdivision type:
+
+    - 1. For each modis tile (e.g. h08v04), we generate a vector layer of subdivision from the raster of subdivision 
+    QGIS, use qgis_get_landsubdivision_vectors_resolution_463m_per_tile.model3
+        - input: e.g. v3.x/landsubdivisions/{subdivisiontype}/h08v05_geoboundaries_202309_groupadm0.tif
+            - we can select all files in modis_ancillary which respect the pattern h*202309_*.tif
+        - output filepath: replace(@subdivision_modis_463_tile  , '.tif', '.shp')
+
+    - 2. Merge the polygon vector layers previously calculated and generate the geojson in the target projection.
+        QGIS, use the qgis model qgis_get_landsubdivision_projected_geojson_resolution_500m.model3
+        - input: esri shapefiles stored in modis_ancillary\{versionOfAncillary}\landsubdivision\{subdivisionType}\{tileName}_{subdivisionTypeFileLabel}.shp
+            e.g. pattern h*_adm0.shp, h*_level3.shp
+        - output: .geojson shapefiles stored in modis_ancillary\landsubdivision\snowtoday_{subdivisionTypeFileLabel}.geojson
+            - filepath to enter in the model: 
+            regexp_replace( @subdivision_vectors_463m_modissinusoidal[1], 'v3\\.[0-9]\\/([a-z0-9]*)\\/[a-z0-9]*\\/h[0-9v]*_([a-z_0-9]*)\\.shp', '\\1/snowtoday_\\2.geojson')
+            
+        - algorithm details (not necessary for users):
+            - we merge the set of vector .shp polygon (=features) layers.
+            - we dissolve the polygons with same snowtod_id in the resulting single vector layer.
+            - buffer 0.000001 m (to remove the modis tile limit vertice artefact within the polygons)
+            - simplify 500 m: to remove the stairs and decrease the number of points and vertices. (500 m is chosen because it's the official resolution of modis tile).
+            - buffer 250 m: to fill the gaps caused by the loss of the layer topology due to the simplify method.
+            - remove self-overlapping (ProcessX): to remove the overlap of the polygons within the layer.
+            - delete holes (area lower than 25000 m2), artifacts created by the simplify method.
+            - reproject in the target reprojection, espg:3857 (unfortunately, we can't specify precision 0 for coordinates here, this is corrected later).
+      
+    - 3. split each subdivision polygon in a single .geojson
+    
+To correct:
+
+NB: Some huc6 lack in westernUS. 2023-10-17. Maybe only subdivisions checked unused in configuration_of_subdivisions.csv. Need to investigate further.
+        
+Remarks:
+
+NB: The subdivisions can extend farther than the current available modis tiles. We first limit the polygons to the available modis tiles (this cut the huc2 and hydrosheds). 2023-10-12
+
+NB: There's a problem with the easternmost russian part when reprojecting from modis sinusoidal to another projection , e.g. EPSG:3857. I won't correct this problem now and the russian geojson will remain incorrect.
+
+NB: A problem is observed in Europe and Asia for adm0 (and probably adm1), the shapefiles are multiparts and with holes (lakes?) and that creates a complex .geojson array of coordinates. In addition, there are some parts of the area which are not associated to any subdivision > to investigate.
+
+    find a way to make round even if coordinates are complex array/cells/struct.
+
+
+    
+and remove space in the files
+    
+
+Complementary comments for developer, not used now:
+
+R: QGis 3 plugin Buffer without overlaps Vers. 0.2: Use saga to remove intersections and so, have sage installed.
+@IanTurton, saga is installed. However, Saga Next Generation was installed in my case. Thus, I had to change the algorithm ID from "saga:polygonselfintersection" to "sagang:polygonselfintersection" in the Python code. Now, it worked.
+
+Need to install Saga for QGIS (https://sourceforge.net/projects/saga-gis/files/ install is just unzip the files) and update plugin in QGIS 3 using C:\Program Files\saga-9.2.0_x64\saga4qgis\readme.txt Check if really necessary for ProjectX
+  
+R: I tried to generate a geotiff of all modis tiles covering earth, it's a too big file and its boundaries were extended well beyond the earth.    
+     
+R: Former matlab code to generate a geotiff covering earth:
+
+%{
+
+1. Generate a geotiff of pixel size 463 m (modis 500 m resolution) covering the Earth, in projection modissinusoidal.
+Matlab, using the MODISData parametering. Output file : modis_500m_full_earth.tif
+
+modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
+espEnv = ESPEnv(modisData = modisData, scratchPath = 'C:\Users\Torototo\Documents\Tmp_data');
+
+outputFilePath = 'C:\Users\Torototo\Documents\Tmp_data\modis_ancillary\landsubdivision_tmp\modis_500m_full_earth.tif';
+
+tiling = modisData.sensorProperties.tiling;
+bigData = zeros([tiling.rowCount * tiling.rowPixelCount, tiling.columnCount * tiling.columnPixelCount], 'uint8'); % worldwide pixelisation with pixel size 463 m.
+topLeftMapCellsReference = modisData.getMapCellsReference(modisData.getTilePositionIdsAndColumnRowCount('h00v00'));
+bottomRightMapCellsReference = modisData.getMapCellsReference(modisData.getTilePositionIdsAndColumnRowCount('h35v17'));
+referenceMatrix = [[0, -modisData.georeferencing.tileInfo.dy]; ...
+    [modisData.georeferencing.tileInfo.dx, 0]; ...
+    [topLeftMapCellsReference.XWorldLimits(1) - modisData.georeferencing.tileInfo.dx / 2, topLeftMapCellsReference.YWorldLimits(2) + modisData.georeferencing.tileInfo.dy / 2]];
+bigMapCellsReference = refmatToMapRasterReference(referenceMatrix, size(bigData));
+
+geotiffwrite(outputFilePath, ...
+    bigData, ...
+    bigMapCellsReference, ...
+    GeoKeyDirectoryTag = ...
+        modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+    TiffTags = struct('Compression', 'LZW'));
+
+refmat = [[0, -modisData.georeferencing.tileInfo.dy]; ...
+    [modisData.georeferencing.tileInfo.dx, 0]; ...
+    [topLeftMapCellsReference.XWorldLimits(1) - modisData.georeferencing.tileInfo.dx / 2, topLeftMapCellsReference.YWorldLimits(2) + modisData.georeferencing.tileInfo.dy / 2]];
+bMapCellsReference = refmatToMapRasterReference(refmat, [2400, 2400]);
+
+2. Reprojecting the full earth raster into the projections of the website.
+QGIS, use gdal warp reproject, source crs modis sinusoidal, target crs the reprojection crs of the output file, nearest neighbour,
+into modis_500m_full_earth_EPSG3857.tif : problem with that, too too big file !!!!
+    
+        Let's try to do the projection only at the end.
+        
+        
+dirPath = 'C:\Users\Torototo\Documents\Tmp_data\modis_ancillary\mod44w\historic\v006\';
+files = struct2table(dir(dirPath));
+
+for fileIdx = 1:length(files)
+    fileName = files.name{fileIdx};
+    if length(fileName) < 4 | ~strcmp(fileName(end-3:end), '.hdf')
+        continue;
+    end
+    tileName = fileName(17, 22);
+    mapCellsReference = modisData.getMapCellsReference(modisData.getTilePositionIdsAndColumnRowCount(tileName));
+    data = hdfread(fullfile(files.folder{fileIdx}, fileName), 'water_mask');
+    outputFilePath = 
+    geotiffwrite([outputFilenameWithoutExtension '.tif'], ...
+        data, ...
+        tileRegionMapCellsReference, ...
+        GeoKeyDirectoryTag = ...
+        modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+        TiffTags = struct('Compression', 'LZW'));
+end
+%}
+

@@ -1,0 +1,6 @@
+SUBDIVISION
+  replace(replace(@modis_land_tile_2400 , '/land/', '/landsubdivision/'), '_MOD44_50_landmask_463m_sinusoidal', '_geoboundaries_202309_group0')
+  replace(replace(@modis_land_tile_2400 , '/land/', '/landsubdivision/'), '_land_mod44_50', '_geoboundaries_202309_group0')
+  replace(replace(@modis_land_tile_2400 , '/land/', '/landsubdivision/'), '_land_mod44_50', '_geoboundaries_202309_groupadm0')
+ replace(replace(@modis_land_tile_2400 , '/land/', '/landsubdivision/'), '_MOD44_50_landmask_463m_sinusoidal', '_geoboundaries_202309_groupadm0')
+ scp -r C:\Users\Torototo\Documents\Tmp_data\modis_ancillary\v3.2\landsubdivision sele7124@login.rc.colorado.edu:/pl/active/rittger_esp/modis_ancillary/v3.2/
