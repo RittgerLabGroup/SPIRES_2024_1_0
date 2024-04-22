@@ -1,0 +1,10 @@
+inputVarId,inputVarName,outputVarId,outputVarName,comment
+Id of the variable used as an input to calculate the output variable,,Id of the output variable,,0
+36,viewable_snow_fraction,46,viewable_snow_fraction_status,
+46,viewable_snow_fraction_status,47,days_without_observation,
+46,viewable_snow_fraction_status,75,days_since_last_observation,
+40,snow_fraction,45,snow_cover_days,
+54,viewable_snow_fraction_s,76,viewable_snow_fraction_status_s,
+76,viewable_snow_fraction_status_s,77,days_without_observation_s,
+76,viewable_snow_fraction_status_s,78,days_since_last_observation_s,
+55,snow_fraction_s,61,snow_cover_days_s,

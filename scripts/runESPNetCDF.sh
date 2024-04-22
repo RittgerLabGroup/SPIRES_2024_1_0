@@ -2,24 +2,14 @@
 #
 # generate the NetCDF from the mosaic tile .mat files for a tile and a waterYearDate.
 #
-# Set up the SBATCH nodes/ntasks-per-node for 1 matlab job, trial-and-error
-# with top monitoring shows job currently
-# only uses 1 task but needs up to 35GB memory and I can't seem to
-# request only 1 task with this much memory
+# For 1 tile 1 year, runs in 2-6 mins on 2 cores - 8G
 #
 # Arguments:
 #
-#SBATCH --qos normal
-# Caller can override this job-name with specifics
 #SBATCH --job-name netcd
-#SBATCH --time=01:15:00
-#SBATCH --ntasks-per-node=32
-#   Rather use 5-10 when submitting for modis tiles.
 #SBATCH --nodes=1
-# formerly SBATCH --partition=amilan 2023-11-21
-#SBATCH --account=ucb-general
-#SBATCH -o /scratch/alpine/%u/slurm_out/%x-%A_%a.out
-# Set the system up to notify upon completion
+#SBATCH --ntasks-per-node=2
+#SBATCH --time 00:15:00
 #SBATCH --mail-type END,FAIL,INVALID_DEPEND,TIME_LIMIT,REQUEUE,STAGE_OUT
 #SBATCH --array=2023
 #   List of years of the waterYeardates until which we want the generation done.
@@ -64,81 +54,65 @@ usage() {
 export SLURM_EXPORT_ENV=ALL
 
 # Core script.
-#---------------------------------------------------------------------------------------
-# Initialize variables, option setting.
-# Grab the full path to this script
-# depends on whether it's running as sbatch job
+########################################################################################
+# Main script constants. 
+# Can be overriden by pipeline parameters in configuration.sh, itself can be overriden
+# by main script options.
 scriptId=daNetCDF
-defaultSlurmArrayTaskId=2022
-expectedCountOfArguments=4
+defaultSlurmArrayTaskId=292
+expectedCountOfArguments=
 inputDataLabels=(VariablesMatlab)
 outputDataLabels=(VariablesNetCDF)
+filterConfLabel=
+mainBashSource=${BASH_SOURCE}
+mainProgramName=${BASH_SOURCE[0]}
+  # overriden by slurm in toolsStart.sh
+beginTime=
 
-isBatch=
-if [[ ${BASH_SOURCE} == *"slurm_script"* ]]; then
-    # Running as slurm
-    printf "Running as sbatch job...\n"
-    PROGNAME=(`scontrol show job ${SLURM_JOB_ID} | grep Command | tr -s ' ' | cut -d = -f 2`)
-    isBatch=1
-else
-    printf "Not running as sbatch...\n"
-    PROGNAME=${BASH_SOURCE[0]}
-fi
-cd "$(dirname "${PROGNAME}")"
-thisScriptDir=$(pwd)
-printf "Script directory: ${thisScriptDir}\n"
-#Go to parent of this script, so that correct pathdef.m file is used
-cd ..
+# Following can be overriden by pipeling configuration.sh
+thisRegionType=0
+thisSequence=
+thisSequenceMultiplierToIndices=
+thisMonthWindow=12
+
 source scripts/toolsStart.sh
+if [ $? -eq 1 ]; then
+  exit 1
+fi
 
-# Argument setting
-regionName=$1
-year=${SLURM_ARRAY_TASK_ID}
-month=$2
-day=$3
-monthWindow=$4
-countOfWorkers=10
-# countOfWorkers should be an argument.                                            @todo
-
-inputForRegion="'"${regionName}"', '"${regionName}"_mask', espEnv, modisData"
-inputForWaterYearDate="datetime(${year}, ${month}, ${day}), "\
-"region.getFirstMonthOfWaterYear(), ${monthWindow}"
-echo "${PROGNAME}: waterYearDate: ${inputForWaterYearDate}"
+# Argument setting.
+# None.
 
 source scripts/toolsMatlab.sh
 
 # Matlab.
-#---------------------------------------------------------------------------------------
-matlabString=$(cat << EOF
-    clear;
-    try;
-        ${modisDataInstantiation}
-        ${espEnvInstantiation}
-        region = Regions(${inputForRegion});
-        waterYearDate = WaterYearDate(${inputForWaterYearDate});
-        theseDates = waterYearDate.getDailyDatetimeRange();
-        espEnv.configParallelismPool(${countOfWorkers});
-        parfor dateIdx = 1:length(theseDates);
-            thisDate = theseDates(dateIdx);
-            matFilePath = 
-                espEnv.getFilePathForDateAndVarName('${regionName}', 'VariablesMatlab', 
-                thisDate, '', '');
-            netCDFFilePath = espEnv.getFilePathForDateAndVarName('${regionName}', 
-                'VariablesNetCDF', thisDate, '', '');
-            ESPNetCDF.generateNetCDFFromRegionAndMatFile( 
-                region, thisDate, matFilePath, netCDFFilePath);
-        end;
-    catch e;
-        fprintf('%s: %s\n', e.identifier, e.message);
-        exit(-1);
+########################################################################################
+read -r -d '' matlabString << EOM
+
+clear;
+try;
+  ${modisDataInstantiation}
+  ${espEnvInstantiation}
+  espEnv.configParallelismPool(${parallelWorkersNb});
+  region = Regions(${inputForRegion});
+  waterYearDate = WaterYearDate(${inputForWaterYearDate});
+  theseDates = waterYearDate.getDailyDatetimeRange();
+  parfor dateIdx = 1:length(theseDates);
+    thisDate = theseDates(dateIdx);
+    matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
+      'VariablesMatlab', thisDate, '', '');
+    dataLabel = 'VariablesNetCDF';
+    if strcmp(modisData.versionOf.(dataLabel), 'v2022.0');
+      dataLabel = 'daacnetcdfv20220';
     end;
-    exit(0);
-EOF
-)
-#---------------------------------------------------------------------------------------
-matlabString=$(echo $matlabString | tr -d '\n')
+    netCDFFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
+      dataLabel, thisDate, '', '');
+    ESPNetCDF.generateNetCDFFromRegionAndMatFile( ...
+      region, thisDate, matFilePath, netCDFFilePath);
+  end;
+${catchExceptionAndExit}
 
-echo "\n"$matlabString
-matlab -nodesktop -nodisplay -r "${matlabString}" || error_exit "Line $LINENO: matlab error."
+EOM
 
+# Launch Matlab and terminate bash script.
 source scripts/toolsStop.sh

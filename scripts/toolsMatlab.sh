@@ -4,12 +4,13 @@
 # NB: Not very clean, but allow to mutualize code for easier maintenance. SIER_322.
 
 # Script core.
-#---------------------------------------------------------------------------------------
+########################################################################################
 
 # Start the stopwatch
 SECONDS=0
 set_slurm_array_task_id $defaultSlurmArrayTaskId
 log_level_1 "start"
+
 
 module purge
 ml matlab/R2021b
@@ -20,4 +21,4 @@ tmpDir=${scratchPath}.matlabTmp/alpine-$SLURM_JOB_ID
 mkdir -p $tmpDir
 export TMPDIR=$tmpDir
 export TMP=$tmpDir
-
+matlabLaunched=1
