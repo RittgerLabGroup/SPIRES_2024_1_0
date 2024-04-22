@@ -34,11 +34,14 @@ classdef Regions < handle
         lowIllumination % logical cell array for Northern areas
         espEnv          % ESPEnv object, local environment variables (paths...)
                         % and methods. Include the modisData property.
+%{
+                                                                               @obsolete
         snowCoverDayMins % Struct(minElevation (double), minSnowCoverFraction
                          % (double [0:100]))
                          % indicate the minimal elevation and minimal snow cover
                          % fraction to count a pixel as covered by snow.
                          % used in Variables.calcSnowCoverDays()
+%}
         geotiffCrop     % Struct(xLeft (double), xRight (double), yTop (double),
                         % yBottom (double))
                         % Data to crop the geotiff reprojected raster for web use
@@ -136,6 +139,8 @@ classdef Regions < handle
             % take the fieldnames in the file                                      @todo
             regionConf = espEnv.myConf.region(find(strcmp(espEnv.myConf.region.name, ...
                 regionName)), :);
+            obj.myConf = struct();
+            obj.myConf.region = regionConf;
             obj.atmosphericProfile = regionConf.atmosphericProfile{1};
             obj.geotiffCrop.xLeft = regionConf.geotiffCropXLeft;
             obj.geotiffCrop.xRight = regionConf.geotiffCropXRight;
@@ -149,6 +154,8 @@ classdef Regions < handle
 
             obj.filter.snowCoverDay = espEnv.myConf.filter( ...
                 espEnv.myConf.filter.id == regionConf.snowCoverDayConfId, :);
+%{
+                                                                               @obsolete                
             % renaming/copying columns: should edit Variables.calcSnowCoverDays()  @todo
             obj.snowCoverDayMins.minElevation = ...
                 table2array(obj.filter.snowCoverDay( ...
@@ -158,7 +165,7 @@ classdef Regions < handle
                 table2array(obj.filter.snowCoverDay( ...
                     strcmp(obj.filter.snowCoverDay.thresholdedVarName, ...
                         'snow_fraction'), 'minValue'));
-
+%}
             obj.filter.stc = espEnv.myConf.filter( ...
                 espEnv.myConf.filter.id == regionConf.stcConfId, :);
             % STC format should be simplified and copied from other filters        @todo
@@ -236,7 +243,6 @@ classdef Regions < handle
                 espEnv.myConf.filter.id == regionConf.stcConfId, :);
 
             % Variables associated to the region.
-            obj.myConf = struct();
             thisTable = obj.espEnv.myConf.variableregion( ...
                 strcmp(obj.espEnv.myConf.variableregion.regionName, obj.name), :);
             thisTable = join(thisTable, obj.espEnv.myConf.variable, ...
@@ -352,6 +358,56 @@ classdef Regions < handle
             save(filePath, '-struct', 'coordinates', '-v7.3');
             fprintf(['%s: Saved the input coordinates for reprojection ', ...
                 'to EPSG:%s in file .\n'], mfilename(), num2str(geotiffEPSG), filePath);
+        end
+        function buildTileSet(obj, dataLabel, thisDate, varName, geotiffEPSG)
+            % Parameters
+            % ----------
+            % dataLabel: char. Label (type) of data for which the file is required,
+            %   should be a key of ESPEnv.dirWith struct, e.g. VariablesGeotiff.
+            %   For nrt/historic data,
+            %   the version of dataLabel must be in obj.modisData.versionOf.(dataLabel).
+            % thisDate: datetime. For which we want the file.
+            % varName: char. Name of the variable, otherwise set to ''.
+            % geotiffEPSG: char. Only used to add EPSG code for geotiffs. E.g.
+            %   EPSG_3857.
+            %
+            % NB: Only works for .geotiff (and .mat?) right now.
+            complementaryLabel = '';
+            if ~strcmp(geotiffEPSG, '')
+                complementaryLabel = ['EPSG_', num2str(geotiffEPSG)];
+            end
+            fprintf('%s: Starting build of tile set for %s, %s, %s, %s, %s...\n', ...
+                mfilename(), obj.name, dataLabel, char(thisDate, 'yyyy-MM-dd'), ...
+                varName, complementaryLabel);
+              
+            tileRegions = obj.getTileRegions();
+            tileFilePaths = {};
+            tileMapCellsReferences = map.rasterref.MapCellsReference.empty();
+            for tileIdx = 1:length(tileRegions)
+                tileRegion = tileRegions(tileIdx);
+                tileFilePaths{tileIdx} = obj.espEnv.getFilePathForDateAndVarName( ...
+                    tileRegion.name, dataLabel, thisDate, varName, complementaryLabel);
+                tileMapCellsReferences(tileIdx) = ...
+                    tileRegion.getOutCellsReference(geotiffEPSG);
+            end
+            
+            filePath = obj.espEnv.getFilePathForDateAndVarName(obj.name, ...
+                dataLabel, thisDate, varName, complementaryLabel);
+            mapCellsReference = obj.getOutCellsReference(geotiffEPSG);
+            
+            % 2.2. Generation of the Mosaic tileset.
+            fprintf('%s: Building tile set for %s, %s, %s, %s, %s...\n', ...
+                mfilename(), obj.name, dataLabel, char(thisDate, 'yyyy-MM-dd'), ...
+                varName, complementaryLabel);
+            tileSetIsGenerated = Tools.buildTileSet(tileFilePaths, ...
+                tileMapCellsReferences, filePath, mapCellsReference);
+            if tileSetIsGenerated == 0
+                warning('%s: No generated tileset %s.\n', mfilename(), ...
+                    filePath);
+            else
+                fprintf('%s: Saved tile set %s.\n', ...
+                mfilename(), filePath);
+            end
         end
 %{
         function elevations = getElevations(obj)
@@ -598,8 +654,10 @@ classdef Regions < handle
                 % Override any default STC or snowCoverDayMins
                 % settings with values from the upper-level regions obj
                 regionsArray(tileIdx).STC = obj.STC;
+%{
                 regionsArray(tileIdx).snowCoverDayMins = ...
                     obj.snowCoverDayMins;
+%}
             end
         end
         function waterYear = getWaterYearForDate(obj, thisDate)
@@ -615,7 +673,7 @@ classdef Regions < handle
             % (south hemisphere).
             firstMonth = obj.getFirstMonthOfWaterYear();
             waterYear = year(thisDate);
-            if month(thisDate) > firstMonth
+            if month(thisDate) >= firstMonth
                 waterYear = year(thisDate) + 1;
             end
         end
@@ -644,7 +702,7 @@ classdef Regions < handle
         end
 
         function writeGeotiffs(obj, ...
-            varName, waterYearDate, geotiffEPSG)
+            varName, waterYearDate, geotiffEPSG, varargin)
             % Write the geotiffs of the upper level region
             % over a period up to a date to output directory.
             % The geotiff is cropped according geotiffCrop properties
@@ -666,11 +724,21 @@ classdef Regions < handle
             %         Dates for which stats are calculated.
             % geotiffEPSG: int. Code EPSG of the projection or geographic system.
             %   SIER_163.
+            % parallelWorkersNb: int, optional. Number of parallel workers. 
+            %   By default 0, which means that generation is not parallel.
+            %   Beware we cannot have 2 parfor loops imbricated. 2024-03-19.
 
             tic;
             fprintf(['%s: Start regional geotiffs generation and writing for', ...
                 ' region %s, EPSG %d, waterYear %d ...\n'], mfilename(), ...
                 obj.regionName, geotiffEPSG, year(waterYearDate.thisDatetime));
+            
+            p = inputParser;
+            addParameter(p, 'parallelWorkersNb', 0);
+            p.KeepUnmatched = false;
+            parse(p, varargin{:});
+            parallelWorkersNb = p.Results.parallelWorkersNb;
+            
             espEnv = obj.espEnv;
             publicMosaic = PublicMosaic(obj);
 
@@ -788,7 +856,7 @@ classdef Regions < handle
                 end
                 fprintf('%s: Got the data for filter.\n', mfilename());
                 % We handle each variable to generate a geotiff.
-                parfor varIdx=1:length(varIndexes)
+                parfor (varIdx=1:length(varIndexes), parallelWorkersNb), 
                     % varName info
                     % ------------
                     % get the output name and units
@@ -797,7 +865,7 @@ classdef Regions < handle
                     fprintf('%s: Handling variable %s...\n', mfilename(), varName);
 
                     % We only handle notprocessed variable in association to snow_fraction.
-                    if strcmp(varName(1:12), 'notprocessed')
+                    if length(varName) >= 12 && strcmp(varName(1:12), 'notprocessed')
                         continue;
                     end
                     fprintf('%s: Starting geotiff generation for variable %s ...\n', ...
@@ -850,13 +918,18 @@ classdef Regions < handle
                         fprintf('%s: Wrote %s\n', mfilename(), outFilePath);
 
                         % Generation of the no-processed layer which indicates the NaNs
-                        if strcmp(varName, 'snow_fraction')
+                        if ismember(varName, {'snow_fraction', 'snow_fraction_s'})
+                            notProcessedVarName = ['notprocessed', ...
+                                replace(varName, 'snow_fraction', '')];
+                                % We get the extension of snow_fraction variable, either
+                                % none, or '_s'.
+                                % It's very dirty....                              @todo
                             notProcessedData = varData == Variables.uint8NoData;
                             varData = [];
                             outFilePath = ...
                                 obj.espEnv.getFilePathForDateAndVarName( ...
                                 obj.name, 'VariablesGeotiff', thisDate, ...
-                                'notprocessed', ['EPSG_', num2str(geotiffEPSG)]);
+                                notProcessedVarName, ['EPSG_', num2str(geotiffEPSG)]);
                             geotiffwrite(outFilePath, ...
                                 notProcessedData, ...
                                 outCellsReference, ...

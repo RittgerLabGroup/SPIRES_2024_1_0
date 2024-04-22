@@ -20,22 +20,49 @@ classdef Variables
         dataStatus = ...
             struct(observed = 1, ...
                 unavailable = 0, ...
-                unknownSolarZenith = 2, ...
                 cloudyOrOther = 10, ...
                 highSolarZenith = 20, ...
+                unknownSolarZenith = 21, ...
                 lowValue = 30, ...
                 notForGeneralPublic = 40, ...
                 falsePositive = 50, ...
+                noInput = 60, ...
+                noObservation = 61, ...
+                poorQuality = 62, ...
+                noReflectance = 63, ...
+                lowNdsi = 64, ...
+                lowSnowFraction = 65, ...
+                lowGrainSize = 66, ...
+                lowNbOfObservationsOverTime = 67, ...
+                water = 68, ...
+                lowElevation = 69, ...
                 temporary = 255); % possible values
             % for the viewable_snow_fraction_status variable to indicate
             % observed and reliable/unobserved/interpolated data.
             % False positive: dry lakes.
         dataStatusForNoObservation = [Variables.dataStatus.unavailable, ...
             Variables.dataStatus.cloudyOrOther, ...
-            Variables.dataStatus.highSolarZenith]; % Data status values that indicate no
+            Variables.dataStatus.highSolarZenith, ...
+            Variables.dataStatus.unknownSolarZenith, ...
+            Variables.dataStatus.falsePositive, ...
+            Variables.dataStatus.cloudyOrOther, ...
+            Variables.dataStatus.highSolarZenith, ...
+            Variables.dataStatus.lowValue, ...
+            Variables.dataStatus.falsePositive, ...
+            Variables.dataStatus.noInput, ...
+            Variables.dataStatus.noObservation, ...
+            Variables.dataStatus.poorQuality, ...
+            Variables.dataStatus.noReflectance, ...
+            Variables.dataStatus.lowNdsi, ...
+            Variables.dataStatus.lowSnowFraction, ...
+            Variables.dataStatus.lowGrainSize, ...
+            Variables.dataStatus.lowNbOfObservationsOverTime, ...
+            Variables.dataStatus.water, ...
+            Variables.dataStatus.lowElevation]; % Data status values that indicate no
             % observation, used to calculate days_without_observation.
         highSolarZenith = 67.5; % solar zenith value above which the observed data is
             % considered unreliable.
+        varIdsForSnowCoverDays = [45, 61];
     end
 
     methods
@@ -49,41 +76,251 @@ classdef Variables
 
             obj.region = region;
         end
-        function calcDaysWithoutObservation(obj, waterYearDate)
-            % Calculates days_without_observation from snow_fraction_status variable
-            % and updates the dailty mosaic data files with the value.
-            % By default days_without_observation is 0 starting from the 1st day
-            % of the current waterYear and increase over time if there's no data
-            % available for the pixel, the data indicate water, clouds, or noise,
-            % or solar zenith was too high. days_without_observation goes back to
-            % 0 the day when there's a reliable observation.
+        function calcDaysWithoutObservation(obj, waterYearDate, varargin)
+            % Calculates days_without_observation and days_since_last_observation,
+            % from viewable_snow_fraction_status variable,
+            % and updates the daily mosaic data files with the value.
+            %
+            % 1. days_without_observation:
+            % For a specific pixel/day, days_without_observation =0 if there is an
+            % observation for the day. If there is no observation for the day,
+            % days_without_observation = the number of days without observations
+            % surrounding the studied day. E.g. if day 1 has observation, and then day
+            % 2 to 10 don't have observation, and day 11 has observation,
+            % days_without_observation will equal [0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0].
+            % Absence of observation is caused by low values, high solar zenith (for
+            % v2023.0/v2023.0e and by nodata in modscag data, clouds, noise, low values,
+            % high solar zenith in versions >= v2023.1. NB: pixels/days having
+            % unavailable modscag data are considered temporary, same as pixels having
+            % modscag data for v2023.0, v2023.e, k, and thus are considered observed,
+            % contrary to >= v2023.1.
+            % 
+            % 2. days_since_last_observation: for a pixel/day, 0 if observation,
+            % otherwise number of days after the day of last observation + 1 for the
+            % ongoing day. In the case above, days_since_last_observation will equal:
+            % [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0].
             %
             % Called by runSnowTodayStep2.sh \ runUpdateDaysWithoutObservation.sh
             %
             % Parameters
             % ----------
-            % waterYearDate: waterYearDate object.
-            %   Date and range of days before over which calculation
-            %   should be carried out
+            % waterYearDate: WaterYearDate obj. Date and range of days before over
+            %   which calculation should be carried out.
+            % optim: struct(cellIdx, countOfCells, logLevel, parallelWorkersNb).
+            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
+            %     by default. Index are counted starting top to bottom column 1, top to
+            %     bottom column 2, ... until bottom of last column.
+            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %     update. 1 by default.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
 
-            % 0. Initialization, dates
-            %    and collection of units and divisor
-            %---------------------------------------------------------------------------
+            % 0. Initialization, variables, dates...
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             tic;
-            baseVarName = 'viewable_snow_fraction_status';
-            aggregateVarName = 'days_without_observation';
-            fprintf('%s: Start %s calculations\n', mfilename(), aggregateVarName);
+            thisFunction = 'Variables.calcDaysWithoutObservations';
+            p = inputParser;
+            optim = struct(cellIdx = 1, countOfCells = 1, ...
+                logLevel = 0, parallelWorkersNb = 0);
+            addParameter(p, 'optim', optim);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            optimFieldNames = fieldnames(p.Results.optim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
+                end
+            end % fieldIx.
+            fprintf(['%s: Starting, region: %s, waterYearDate: %s, ', ...
+                'cellIdx: %d, countOfCells: %d, logLevel: %d, ', ...
+                'parallelWorkersNd: %d...\n'], thisFunction, obj.region.name, ...
+                waterYearDate.toChar(), optim.cellIdx, optim.countOfCells, ...
+                optim.logLevel, optim.parallelWorkersNb);
+            
             espEnv = obj.region.espEnv;
-            dateRange = waterYearDate.getDailyDatetimeRange();
+            indices = espEnv.modisData.getIndicesForCellInTile(optim.cellIdx, ...
+                    optim.countOfCells);
 
-            thisVarConf = espEnv.myConf.variable(find( ...
-                strcmp(espEnv.myConf.variable.output_name, ...
-                    aggregateVarName)), :);
-            mosaicData = struct();
-            mosaicData.([aggregateVarName '_units']) = thisVarConf.units_in_map{1};
-            mosaicData.([aggregateVarName '_divisor']) = thisVarConf.divisor;
-            mosaicData.([aggregateVarName '_type']) = thisVarConf.type_in_mosaics{1};
-            mosaicData.([aggregateVarName '_nodata_value']) = thisVarConf.nodata_value;
+            inputDataLabel = 'VariablesMatlab';
+            outputDataLabel = 'VariablesMatlab';
+            outputMeasurementTypeId = [47, 75];
+            % 47. days_without_observation, 75. days_since_last_observation
+            [variable, variableLink] = espEnv.getVariable(outputDataLabel, ...
+                inputDataLabel = inputDataLabel, ...
+                outputMeasurementTypeId = outputMeasurementTypeId);
+
+            objectName = obj.region.name;
+            dataLabel = inputDataLabel;
+            theseDates = waterYearDate.getDailyDatetimeRange();
+            inputVarId = unique(variableLink.inputVarId);
+            
+            % For each group of variables (e.g. modis stc, modis spires, ...)
+            for inputVarIdx = 1:length(inputVarId)
+                % 1. Loading status data...
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                thisInputVarId = inputVarId(inputVarIdx);
+                varName = thisInputVarId;
+                fprintf('%s: Starting varId %d...\n', thisFunction, thisInputVarId);
+                dayWithout = innerjoin( ...
+                    variable(variable.measurementTypeId == 47, :), ...
+                    variableLink(variableLink.inputVarId == thisInputVarId, :), ...
+                    LeftKeys = 'id', RightKeys = 'outputVarId');
+                daySince = innerjoin( ...
+                    variable(variable.measurementTypeId == 75, :), ...
+                    variableLink(variableLink.inputVarId == thisInputVarId, :), ...
+                    LeftKeys = 'id', RightKeys = 'outputVarId');
+                
+                thisDaySince = reshape( ...
+                    cast(espEnv.getDataForWaterYearDateAndVarName( ...
+                        objectName, dataLabel, waterYearDate, varName, ...
+                        optim = optim), ...
+                    dayWithout.type{1}), ...
+                    [numel(indices.rowStartId:indices.rowEndId) * ...
+                        numel(indices.columnStartId:indices.columnEndId), ...
+                        length(theseDates)])';
+                % actually it is iniatlly thiStatus.
+                % Each column = temporal series of a pixel.
+   
+                % 2. Calculations...
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % Determine which day is without observation.
+                isNoObservation = ismember(thisDaySince, ...
+                    obj.dataStatusForNoObservation);
+                thisDaySince(isNoObservation) = 1;   
+                thisDaySince(~isNoObservation) = 0;
+                isNoObservation = [];
+                thisDaySince = cast(thisDaySince, 'int16');
+                    % int16 to make diff, which can be negative.
+                indicesForPeriods = cumsum([ones(1, size(thisDaySince, 2)); ...
+                    abs(diff(thisDaySince, 1, 1))]);
+                isEqualSuccessiveIndicesForPeriods = ...
+                    int16([ones(1, size(thisDaySince, 2)); ...
+                        indicesForPeriods(1:end - 1, :)] == ...
+                        indicesForPeriods);
+                indicesForPeriods = [];
+                
+                for rowIdx = 2:size(thisDaySince, 1)
+                    thisDaySince(rowIdx, :) = ...
+                        isEqualSuccessiveIndicesForPeriods(rowIdx, :) ...
+                        .* thisDaySince(rowIdx - 1, :) + thisDaySince(rowIdx, :);
+                end
+
+                thisDayWithout =  thisDaySince;
+                for rowIdx = size(thisDayWithout, 1) - 1: -1: 1
+                    thisDayWithout(rowIdx, :) = ...
+                        isEqualSuccessiveIndicesForPeriods(rowIdx + 1, :) ...
+                        .* thisDayWithout(rowIdx + 1, :) + ...
+                        int16(~isEqualSuccessiveIndicesForPeriods(rowIdx + 1, :)) ...
+                        .* thisDayWithout(rowIdx, :);
+                end
+                isEqualSuccessiveIndicesForPeriods = [];
+%{
+                % Previous implementation too slow. 2024-03-25. Seb.
+                
+                thisStatus = cast(thisStatus, dayWithout.type{1});
+                thisDayWithout = sum(thisStatus, 1, 'native');
+                thisDaySince = cumsum(thisStatus, 1);
+                isSet = ismember(thisDayWithout, [0, ...
+                    length(theseDates)]);
+                thisDayWithout = repmat(thisDayWithout, [length(theseDates), 1]);
+
+                parfor(pixelIdx = 1:size(thisStatus, 2), optim.parallelWorkersNb)
+                    % We don't run the calculations if the pixel temporal series is full
+                    % of observed or full of unobserved.
+                    if ~isSet(pixelIdx)
+                        unobserved = int16(thisStatus(:, pixelIdx));
+                            % 
+                        indicesForPeriods = cumsum([1; diff(unobserved) ~= 0]);
+                            % An additional 1 to get the same size as unobserved.
+                        cumSumForPeriods = arrayfun(@(idxForPeriod) ...
+                            cumsum(unobserved(indicesForPeriods == idxForPeriod)), ...
+                            1:indicesForPeriods(end), UniformOutput = false);
+                        thisDaySinceLastObservation = cat(1, cumSumForPeriods{:});
+                        
+                        maxOfCumSumForPeriods = arrayfun(@(idxForPeriod) ...
+                            repmat( ...
+                                max(thisDaySinceLastObservation( ...
+                                    indicesForPeriods == idxForPeriod)), ...
+                                [length(find(indicesForPeriods == idxForPeriod)), ...
+                                1]), ...
+                            1:indicesForPeriods(end), UniformOutput = false);
+                        
+                        thisDaySince(:, pixelIdx) = ...
+                            thisDaySinceLastObservation; 
+                        thisDayWithout(:, pixelIdx) = ...
+                            cat(1, maxOfCumSumForPeriods{:});
+                    end % isSet.
+                end % pixelIdx.
+%}
+                thisDaySince = ...
+                    cast(reshape(thisDaySince', ...
+                        [numel(indices.rowStartId:indices.rowEndId), ...
+                        numel(indices.columnStartId:indices.columnEndId), ...
+                        length(theseDates)]), daySince.type{1});
+                thisDayWithout = ...
+                    cast(reshape(thisDayWithout', ...
+                        [numel(indices.rowStartId:indices.rowEndId), ...
+                        numel(indices.columnStartId:indices.columnEndId), ...
+                        length(theseDates)]), dayWithout.type{1});
+                
+                % 3. Saving, collection of units and divisor...
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                fprintf('%s: Saving varId %d output...\n', thisFunction, ...
+                    thisInputVarId);
+                output = struct();
+                theseVariables = {daySince, dayWithout};
+                for varIdx = 1:size(theseVariables, 2)
+                    thisVariable = theseVariables{varIdx};
+                    varName = thisVariable.name{1};
+                    
+                    output.([varName '_divisor']) = thisVariable.divisor(1);
+                    output.([varName '_min']) = thisVariable.min(1);
+                    output.([varName '_max']) = thisVariable.max(1);
+                    output.([varName '_nodata_value']) = ...
+                        thisVariable.nodata_value(1);
+                    output.([varName '_type']) = thisVariable.type{1};
+                    output.([varName '_units']) = thisVariable.unit{1};
+                    
+                end % varIdx
+                
+                dataLabel = outputDataLabel;
+                varName = '';
+                complementaryLabel = '';
+                theseFieldNames = fieldnames(output);
+                parfor(dateIdx = 1:length(theseDates), optim.parallelWorkersNb)
+                    thisDate = theseDates(dateIdx);
+                    
+                    [thisFilePath, thisFileExists, ~] = ...
+                        espEnv.getFilePathForDateAndVarName(objectName, dataLabel, ...
+                        thisDate, varName, complementaryLabel);
+                    if ~thisFileExists
+                        warning('%s: Inexistent file %s.\n', mfilename, thisFilePath);
+                    else
+                        thisFileObj = matfile(thisFilePath, Writable = true);
+                        thisFileObj.(daySince.name{1})(...
+                            indices.rowStartId:indices.rowEndId, ...
+                            indices.columnStartId:indices.columnEndId) = ...
+                            thisDaySince(:, :, dateIdx); 
+                            % daily .mat files have only 2 dims.
+                        thisFileObj.(dayWithout.name{1})(...
+                            indices.rowStartId:indices.rowEndId, ...
+                            indices.columnStartId:indices.columnEndId) = ...
+                            thisDayWithout(:, :, dateIdx);
+                        for fieldIdx = 1:length(theseFieldNames)
+                            thisFieldName = theseFieldNames{fieldIdx};
+                            thisFileObj.(thisFieldName) = output.(thisFieldName);
+                        end % fieldIdx.
+                    end % thisFileExists.
+                end % dateIdx.
+                fprintf('%s: Done varId %d output...\n', thisFunction, ...
+                    thisInputVarId);
+            end % inputVarIdx
+            t2 = toc;
+            fprintf(['%s: DONE in %.2f seconds.\n'], thisFunction, t2);
+%{
+            % NB: Older code used in v2023.1.                                  @obsolete
 
             % 1. Initial daysWithoutObservation.
             %---------------------------------------------------------------------------
@@ -171,14 +408,16 @@ classdef Variables
             fprintf('%s: Finished %s update in %s seconds\n', ...
                 mfilename(), aggregateVarName, ...
                 num2str(roundn(t2, -2)));
+%}
         end
-        function calcSnowCoverDays(obj, waterYearDate)
-            % Calculates snow cover days from snow_fraction variable
+        function calcSnowCoverDays(obj, waterYearDate, varargin)
+            % Calculates snow cover days from snow_fraction variable (modis + spires)
             % and updates the daily mosaic data files with the value
             % Cover days are calculated if elevation and snow cover fraction
             % are above thresholds defined at the Region level (attribute
             % snowCoverDayMins.
-            % Cover days is NaN after the first day (included) without snow fraction data.
+            % Cover days is NaN after the first day (included) without snow fraction
+            %   data.
             %
             % Called by runSnowTodayStep1.sh \ runUpdateWaterYearSCD.sh \
             % updateWaterYearSCDFor.m
@@ -187,32 +426,205 @@ classdef Variables
             % ----------
             % waterYearDate: waterYearDate object.
             %   Date and range of days before over which calculation
-            %   should be carried out
+            %   should be carried out.
+            % optim: struct(cellIdx, countOfCells, parallelWorkersNb).
+            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
+            %     by default. Index are counted starting top to bottom column 1, top to
+            %     bottom column 2, ... until bottom of last column.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %     update. 1 by default.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
             %
-            % NB: Calculation was previous on the STC Cubes (upd. 2023-12-28).
-
+            % NB: Calculation was previously on the STC Cubes but are now on Mosaics
+            %   (upd. 2023-12-28).
+            % NB: Refactored following how I refactored calcDaysWithoutObservations().
+            %   2024-03-23.
             tic;
-            fprintf('%s: Start snow_cover_days calculations\n', mfilename());
+            thisFunction = 'Variables.calcSnowCoverDays';
+            p = inputParser;
+            optim = struct(cellIdx = 1, countOfCells = 1, ...
+                logLevel = 0, parallelWorkersNb = 0);
+            addParameter(p, 'optim', optim);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            optimFieldNames = fieldnames(p.Results.optim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
+                end
+            end
+            fprintf(['%s: Starting, region: %s, waterYearDate: %s, ', ...
+                'cellIdx: %d, countOfCells: %d, logLevel: %d, ', ...
+                'parallelWorkersNd: %d...\n'], thisFunction, obj.region.name, ...
+                waterYearDate.toChar(), optim.cellIdx, optim.countOfCells, ...
+                optim.logLevel, optim.parallelWorkersNb);
+            
+            espEnv = obj.region.espEnv;
+            indices = ...
+                espEnv.modisData.getIndicesForCellInTile(optim.cellIdx, ...
+                    optim.countOfCells);
+
+            inputDataLabel = 'VariablesMatlab';
+            outputDataLabel = 'VariablesMatlab';
+            outputMeasurementTypeId = [45];
+            % 45. snow_cover_days.
+            [variable, variableLink, inputVariable] = espEnv.getVariable( ...
+                outputDataLabel, inputDataLabel = inputDataLabel, ...
+                outputMeasurementTypeId = outputMeasurementTypeId);
+
+            objectName = obj.region.name;
+            dataLabel = inputDataLabel;
+            theseDates = waterYearDate.getDailyDatetimeRange();
+            inputVarId = inputVariable.id;
+            
+            % For each group of variables (e.g. modis stc, modis spires, ...)
+            for inputVarIdx = 1:length(inputVarId)
+                % 1. Loading status data...
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                data = struct();
+                thisInputVarId = inputVarId(inputVarIdx);
+                varName = thisInputVarId;
+                fprintf('%s: Starting varId %d...\n', thisFunction, thisInputVarId);
+                snowCoverDay = innerjoin( ...
+                    variable, ...
+                    variableLink(variableLink.inputVarId == thisInputVarId, :), ...
+                    LeftKeys = 'id', RightKeys = 'outputVarId');
+                nameOfSnowCoverDay = snowCoverDay.name{1};
+                
+                snowFraction = inputVariable(inputVariable.id == thisInputVarId, :);
+               
+                data.(nameOfSnowCoverDay) = ...
+                    espEnv.getDataForWaterYearDateAndVarName( ...
+                        objectName, dataLabel, waterYearDate, varName, optim = optim);
+                isNoData = data.(nameOfSnowCoverDay) == ...
+                    snowFraction.nodata_value(1);
+                % snow_fraction, uint8 to uint16. 3rd dimension = temporal series of
+                % a pixel located in 1st + 2nd dim.
+                
+                % 3. Filtering low snow fraction
+                % (set to 0), low elevation (set to no data), and calculating
+                % snow_cover_days...
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                mins = obj.region.filter.snowCoverDay( ...
+                    obj.region.filter.snowCoverDay.replacedVarId == thisInputVarId, :);
+                snowThreshold = Tools.valueInTableForThisField( ...
+                    mins, 'thresholdedVarId', thisInputVarId, 'minValue');
+                if length(snowThreshold) ~= 0 % 0 could be a threshold too.
+                    isLowSnow = data.(nameOfSnowCoverDay) < snowThreshold;
+                    data.(nameOfSnowCoverDay)(isLowSnow) = 0;
+                    data.(nameOfSnowCoverDay)(~isLowSnow) = 1;
+                    isLowSnow = [];
+                    data.(nameOfSnowCoverDay) = cast(data.(nameOfSnowCoverDay), ...
+                        snowCoverDay.type{1});
+                else
+                    data.(nameOfSnowCoverDay) = ones( ...
+                        size(data.(nameOfSnowCoverDay)), snowCoverDay.type{1});    
+                end
+                data.(nameOfSnowCoverDay)(isNoData) = snowCoverDay.nodata_value(1);
+                isNoData = [];
+                elevationThreshold = Tools.valueInTableForThisField( ...
+                    mins, 'thresholdedVarName', 'elevation', 'minValue');
+                if length(elevationThreshold) ~= 0 % 0 could be a threshold too.
+                    data.(nameOfSnowCoverDay)( ...
+                        repmat(espEnv.getDataForObjectNameDataLabel( ...
+                        obj.region.regionName, 'elevation', ...
+                        optim = optim) < elevationThreshold, ...
+                        [1, 1, size(data.(nameOfSnowCoverDay), 3)])) = ...
+                        snowCoverDay.nodata_value(1);
+                end
+
+                data.(nameOfSnowCoverDay) = cumsum(data.(nameOfSnowCoverDay), 3);
+                
+                % 4. Saving, collection of units and divisor...
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                fprintf('%s: Saving varId %d output...\n', thisFunction, ...
+                    thisInputVarId);
+                output = struct();
+                theseVariables = {snowCoverDay};
+                for varIdx = 1:size(theseVariables, 1)
+                    thisVariable = theseVariables{varIdx};
+                    varName = thisVariable.name{1};
+                    output.([varName '_divisor']) = thisVariable.divisor(1);
+                    output.([varName '_min']) = thisVariable.min(1);
+                    output.([varName '_max']) = thisVariable.max(1);
+                    output.([varName '_nodata_value']) = ...
+                        thisVariable.nodata_value(1);
+                    output.([varName '_type']) = thisVariable.type{1};
+                    output.([varName '_units']) = thisVariable.unit{1};
+                end % varIdx
+                
+                dataLabel = outputDataLabel;
+                varName = '';
+                complementaryLabel = '';
+                theseFieldNames = fieldnames(output);
+                parfor(dateIdx = 1:length(theseDates), optim.parallelWorkersNb)
+                    thisDate = theseDates(dateIdx);
+                    [thisFilePath, thisFileExists, ~] = ...
+                        espEnv.getFilePathForDateAndVarName(objectName, dataLabel, ...
+                        thisDate, varName, complementaryLabel);
+                    if ~thisFileExists
+                        warning('%s: Inexistent file %s.\n', mfilename, thisFilePath);
+                    else
+                        thisFileObj = matfile(thisFilePath, Writable = true);
+                        thisFileObj.(nameOfSnowCoverDay) ...
+                            (indices.rowStartId:indices.rowEndId, ...
+                            indices.columnStartId:indices.columnEndId) = ...
+                                data.(nameOfSnowCoverDay)(:, :, dateIdx);
+                        for fieldIdx = 1:length(theseFieldNames)
+                            thisFieldName = theseFieldNames{fieldIdx};
+                            thisFileObj.(thisFieldName) = output.(thisFieldName);
+                        end % fieldIdx.
+                    end % thisFileExists.
+                end % dateIdx.
+                fprintf('%s: Done varId %d output...\n', thisFunction, ...
+                    thisInputVarId);
+            end % inputVarIdx
+            t2 = toc;
+            fprintf(['%s: DONE in %.2f seconds.\n'], thisFunction, t2);
+                
+%{
+            % NB: Older code used in v2023.x.                                  @obsolete               
+                
+inputVarName, outputVarName
+            % inputVarName: char. Name of the variable over which carrying calculations,
+            %   either snow_fraction or snow_fraction_s.
+            % ouputVarName: char. Name of the output variable, either snow_cover_days
+            %   or snow_cover_days_s.
+            
+            tic;
+            fprintf('%s: Start %s calculations\n', mfilename(), outputVarName);
             % 1. Initialization, elevation data, dates
             %    and collection of units and divisor for
             %    snow_cover_days
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             espEnv = obj.region.espEnv;
-            mins = obj.region.snowCoverDayMins;
+            % mins = obj.region.snowCoverDayMins;                              @obsolete
+            mins = obj.region.filter.snowCoverDay(strcmp( ...
+                obj.region.filter.snowCoverDay.replacedVarName, inputVarName), :);
+
             dateRange = waterYearDate.getDailyDatetimeRange();
 
             [elevation, ~, ~] = ...
                 espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'elevation');
 
             snowCoverConf = espEnv.myConf.variable(find( ...
-                strcmp(espEnv.myConf.variable.output_name, 'snow_cover_days')), :);
+                strcmp(espEnv.myConf.variable.output_name, outputVarName)), :);
             snow_cover_days_units = snowCoverConf.units_in_map;
             snow_cover_days_divisor = snowCoverConf.divisor;
-            snow_cover_days_divisor_type = snowCoverConf.type_in_mosaics{1};
+            snow_cover_days_type = snowCoverConf.type_in_mosaics{1};
+                % Correct field name from ..._divisor_type to _type. 2024-02-08.
             snow_cover_days_nodata_value = snowCoverConf.nodata_value;
-            
-            snow_cover_days_min_elevation = mins.minElevation;
-            snow_cover_days_min_snow_cover_fraction = mins.minSnowCoverFraction;
+
+            % snow_cover_days_min_elevation = mins.minElevation;               @obsolete
+            % snow_cover_days_min_snow_cover_fraction = mins.minSnowCoverFraction;
+            snow_cover_days_min_elevation = Tools.valueInTableForThisField( ...
+                mins, 'thresholdedVarName', 'elevation', 'minValue');
+            snow_cover_days_min_snow_cover_fraction = ...
+                Tools.valueInTableForThisField( ...
+                    mins, 'thresholdedVarName', inputVarName, 'minValue');
 
             % 1. Initial snowCoverDays
             %-------------------------
@@ -227,15 +639,15 @@ classdef Variables
                 STCFile = espEnv.MosaicFile(obj.region, dateBefore);
 
                 if isfile(STCFile)
-                    STCData = load(STCFile, 'snow_cover_days');
-                    fprintf('%s: Loading snow_cover_days from %s\n', ...
-                            mfilename(), STCFile);
+                    STCData = load(STCFile, ouputVarName);
+                    fprintf('%s: Loading %s from %s\n', ...
+                            mfilename(), ouputVarName, STCFile);
                     if ~isempty(STCData) && ...
-                        any(strcmp(fieldnames(STCData), 'snow_cover_days'))
-                        lastSnowCoverDays = cast(STCData.snow_cover_days, 'single');
+                        any(strcmp(fieldnames(STCData), ouputVarName))
+                        lastSnowCoverDays = cast(STCData.(ouputVarName), 'single');
                     else
-                        warning('%s: No snow_cover_days variable in %s\n', ...
-                            mfilename(), STCFile);
+                        warning('%s: No %s variable in %s\n', ...
+                            mfilename(), ouputVarName, STCFile);
                         lastSnowCoverDays = NaN;
                     end
                 else
@@ -252,58 +664,67 @@ classdef Variables
                 % 2.a. Loading of the monthly interpolation file
                 %-----------------------------------------------
                 STCFile = espEnv.MosaicFile(obj.region, dateRange(thisDateIdx));
-                
-                if ~isfile(STCFile)
-                    warning('%s: Missing mosaic file %s\n', mfilename(), ...
-                        STCFile);
+                STCData = struct(inputVarName, []);
+                if isfile(STCFile)
+                    STCData = load(STCFile, inputVarName);
+                end
+                if isempty(STCData.(inputVarName))
+                    warning('%s: Missing mosaic file %s or missing %s in it.\n', ...
+                        mfilename(), STCFile, inputVarName);
                     lastSnowCoverDays = NaN;
                     continue;
+                else
+                    fprintf('%s: Loaded %s from %s.\n', ...
+                            mfilename(), inputVarName, STCFile);
                 end
 
-                STCData = load(STCFile, 'snow_fraction');
-                fprintf('%s: Loading snow_fraction from %s\n', ...
-                        mfilename(), STCFile);
-                if isempty(STCData)
-                    warning('%s: No snow_fraction variable in %s\n', ...
-                        mfilename(), STCFile);
-                    lastSnowCoverDays = NaN;
-                    continue;
-                end
-
-                snowCoverFraction = STCData.snow_fraction; % type 'single' in STCCubde
+                snowCoverFraction = STCData.(inputVarName); % type 'single' in STCCubde
                 % 2.b. Below a certain elevation and fraction, the pixel is not
                 % considered covered by snow
                 %--------------------------------------------------------------
                 snowCoverFraction(...
                     snowCoverFraction < ...
-                    snow_cover_days_min_snow_cover_fraction) = 0;
+                    snow_cover_days_min_snow_cover_fraction & ...
+                    snowCoverFraction ~= intmax(class(snowCoverFraction))) = 0;
                 snowCoverFraction(...
-                    elevation < snow_cover_days_min_elevation) = 0;
+                    elevation < snow_cover_days_min_elevation & ...
+                    snowCoverFraction ~= intmax(class(snowCoverFraction))) = 0;
+                    % Exclusion of no data pixels 2024-02-8.
 
                 % 2.c. Cumulated snow cover days calculation and save
                 %----------------------------------------------------
                 snowCoverFractionWithoutNaN = snowCoverFraction;
-                snowCoverFractionWithoutNaN(isnan(snowCoverFraction)) = 0;
-                logicalSnowCoverFraction = cast(logical(snowCoverFractionWithoutNaN), ...
+                snowCoverFractionWithoutNaN( ...
+                    snowCoverFraction == intmax(class(snowCoverFraction))) = 0;
+                    % Correction of the number of days even for nodata when I changed
+                    % the calculations from STC Cubes to Mosaics 2024-02-8.
+                logicalSnowCoverFraction = cast( ...
+                    logical(snowCoverFractionWithoutNaN), ...
                     'single');
-                logicalSnowCoverFraction(isnan(snowCoverFraction)) = NaN;
+                logicalSnowCoverFraction( ...
+                    snowCoverFraction == intmax(class(snowCoverFraction))) = NaN;
                 snow_cover_days = lastSnowCoverDays + logicalSnowCoverFraction;
                 lastSnowCoverDays = snow_cover_days;
-                snow_cover_days = cast(snow_cover_days, snow_cover_days_divisor_type);
+                snow_cover_days(isnan(snow_cover_days)) = snow_cover_days_nodata_value;
+                    % 2024-02-08.
+                snow_cover_days = cast(snow_cover_days, snow_cover_days_type);
 
-                save(STCFile, 'snow_cover_days', ...
-                    'snow_cover_days_divisor', ...
-                    'snow_cover_days_units', ...
-                    'snow_cover_days_min_elevation', ...
-                    'snow_cover_days_min_snow_cover_fraction', ...
-                    'snow_cover_days_nodata_value', '-append');
-                fprintf('%s: Saved snow_cover_days to %s\n', mfilename(), ...
+                thisStruct = struct();
+                suffixes = {'', '_divisor', '_units', '_min_elevation', ...
+                    '_min_snow_cover_fraction', '_nodata_value'};
+                for suffixId = 1:length(suffixes)
+                    thisStruct.([outputVarName, suffixes{suffixId}]) = ...
+                        eval(['snow_cover_days', suffixes{suffixId}]);
+                end
+                save(STCFile, '-struct', 'thisStruct', '-append');
+                fprintf('%s: Saved %s to %s\n', mfilename(), outputVarName, ...
                     STCFile);
             end
             t2 = toc;
-            fprintf('%s: Finished snow cover days update in %s seconds\n', ...
-                mfilename(), ...
+            fprintf('%s: Finished %s update in %s seconds\n', ...
+                mfilename(), outputVarName, ...
                 num2str(roundn(t2, -2)));
+%}
         end
 
         function calcAlbedos(obj, waterYearDate)
@@ -335,7 +756,7 @@ classdef Variables
                 espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'slope');
             slope = cast(slope, 'double');
             [aspect, ~, ~] = ...
-                espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'aspect'); 
+                espEnv.getDataForObjectNameDataLabel(obj.region.regionName, 'aspect');
             aspect = cast(aspect, 'double'); % Slope and aspect are input of cosd within ParBal.sunslope, which only accept double.
 
             albedoNames = {'albedo_clean_mu0'; 'albedo_clean_muZ'; ...
@@ -453,7 +874,7 @@ classdef Variables
                 muZ(muZ > 1.0) = 1.0; % 2024-01-05, occasionally ParBal.sunslope()
                     % returns a few 10-16 higher than 1 (h24v05, 2011/01/08)
                     % Patch should be inserted in ParBal.sunslope().
-                
+
 
                 grainSizeForSpires = mosaicData.grain_size;
                 grainSizeForSpires(grainSizeForSpires > ...
