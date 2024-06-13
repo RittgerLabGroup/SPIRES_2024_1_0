@@ -318,7 +318,7 @@ classdef Variables
                     thisInputVarId);
             end % inputVarIdx
             t2 = toc;
-            fprintf(['%s: DONE in %.2f seconds.\n'], thisFunction, t2);
+            fprintf(['%s: Done in %.2f seconds.\n'], thisFunction, t2);
 %{
             % NB: Older code used in v2023.1.                                  @obsolete
 
@@ -427,15 +427,6 @@ classdef Variables
             % waterYearDate: waterYearDate object.
             %   Date and range of days before over which calculation
             %   should be carried out.
-            % optim: struct(cellIdx, countOfCells, parallelWorkersNb).
-            %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
-            %     by default. Index are counted starting top to bottom column 1, top to
-            %     bottom column 2, ... until bottom of last column.
-            %   logLevel: int, optional. Indicate the density of logs.
-            %       Default 0, all logs. The higher the less logs.
-            %   countOfCells: int, optional. Number of cells dividing the tile to
-            %     update. 1 by default.
-            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
             %
             % NB: Calculation was previously on the STC Cubes but are now on Mosaics
             %   (upd. 2023-12-28).
@@ -443,29 +434,11 @@ classdef Variables
             %   2024-03-23.
             tic;
             thisFunction = 'Variables.calcSnowCoverDays';
-            p = inputParser;
-            optim = struct(cellIdx = 1, countOfCells = 1, ...
-                logLevel = 0, parallelWorkersNb = 0);
-            addParameter(p, 'optim', optim);
-            p.StructExpand = false;
-            parse(p, varargin{:});
-            optimFieldNames = fieldnames(p.Results.optim);
-            for fieldIdx = 1:length(optimFieldNames)
-                thisFieldName = optimFieldNames{fieldIdx};
-                if ismember(thisFieldName, fieldnames(optim))
-                    optim.(thisFieldName) = p.Results.optim.(thisFieldName);
-                end
-            end
-            fprintf(['%s: Starting, region: %s, waterYearDate: %s, ', ...
-                'cellIdx: %d, countOfCells: %d, logLevel: %d, ', ...
-                'parallelWorkersNd: %d...\n'], thisFunction, obj.region.name, ...
-                waterYearDate.toChar(), optim.cellIdx, optim.countOfCells, ...
-                optim.logLevel, optim.parallelWorkersNb);
+            fprintf(['%s: Starting, region: %s, waterYearDate: %s... \n'], ...
+              thisFunction, obj.region.name, ...
+                waterYearDate.toChar());
             
             espEnv = obj.region.espEnv;
-            indices = ...
-                espEnv.modisData.getIndicesForCellInTile(optim.cellIdx, ...
-                    optim.countOfCells);
 
             inputDataLabel = 'VariablesMatlab';
             outputDataLabel = 'VariablesMatlab';
@@ -479,7 +452,15 @@ classdef Variables
             dataLabel = inputDataLabel;
             theseDates = waterYearDate.getDailyDatetimeRange();
             inputVarId = inputVariable.id;
-            
+            if isempty(inputVarId)
+                error('Variables:configurationSCD', ...
+                    ['%s: No snow fraction in configuration versionvariable for ', ...
+                    'inputDataLabel %s %s, outputDataLabel %s %s.\n'], ...
+                    mfilename, inputDataLabel, ...
+                    espEnv.modisData.versionOf.(inputDataLabel), ...
+                    outputDataLabel, ...
+                    espEnv.modisData.versionOf.(outputDataLabel));
+            end
             % For each group of variables (e.g. modis stc, modis spires, ...)
             for inputVarIdx = 1:length(inputVarId)
                 % 1. Loading status data...
@@ -498,7 +479,7 @@ classdef Variables
                
                 data.(nameOfSnowCoverDay) = ...
                     espEnv.getDataForWaterYearDateAndVarName( ...
-                        objectName, dataLabel, waterYearDate, varName, optim = optim);
+                        objectName, dataLabel, waterYearDate, varName);
                 isNoData = data.(nameOfSnowCoverDay) == ...
                     snowFraction.nodata_value(1);
                 % snow_fraction, uint8 to uint16. 3rd dimension = temporal series of
@@ -530,8 +511,7 @@ classdef Variables
                 if length(elevationThreshold) ~= 0 % 0 could be a threshold too.
                     data.(nameOfSnowCoverDay)( ...
                         repmat(espEnv.getDataForObjectNameDataLabel( ...
-                        obj.region.regionName, 'elevation', ...
-                        optim = optim) < elevationThreshold, ...
+                        obj.region.regionName, 'elevation') < elevationThreshold, ...
                         [1, 1, size(data.(nameOfSnowCoverDay), 3)])) = ...
                         snowCoverDay.nodata_value(1);
                 end
@@ -560,7 +540,7 @@ classdef Variables
                 varName = '';
                 complementaryLabel = '';
                 theseFieldNames = fieldnames(output);
-                parfor(dateIdx = 1:length(theseDates), optim.parallelWorkersNb)
+                parfor(dateIdx = 1:length(theseDates), 0)
                     thisDate = theseDates(dateIdx);
                     [thisFilePath, thisFileExists, ~] = ...
                         espEnv.getFilePathForDateAndVarName(objectName, dataLabel, ...
@@ -569,9 +549,7 @@ classdef Variables
                         warning('%s: Inexistent file %s.\n', mfilename, thisFilePath);
                     else
                         thisFileObj = matfile(thisFilePath, Writable = true);
-                        thisFileObj.(nameOfSnowCoverDay) ...
-                            (indices.rowStartId:indices.rowEndId, ...
-                            indices.columnStartId:indices.columnEndId) = ...
+                        thisFileObj.(nameOfSnowCoverDay) = ...
                                 data.(nameOfSnowCoverDay)(:, :, dateIdx);
                         for fieldIdx = 1:length(theseFieldNames)
                             thisFieldName = theseFieldNames{fieldIdx};
@@ -583,7 +561,7 @@ classdef Variables
                     thisInputVarId);
             end % inputVarIdx
             t2 = toc;
-            fprintf(['%s: DONE in %.2f seconds.\n'], thisFunction, t2);
+            fprintf(['%s: Done in %.2f seconds.\n'], thisFunction, t2);
                 
 %{
             % NB: Older code used in v2023.x.                                  @obsolete               
