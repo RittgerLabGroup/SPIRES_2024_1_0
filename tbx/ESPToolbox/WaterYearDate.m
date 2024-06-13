@@ -74,6 +74,42 @@ classdef WaterYearDate < handle
             waterYearDates(idx) = WaterYearDate(endWaterYearDate.thisDatetime, monthWindow);
         end
 %}
+        function dayInWaterYear = getDayInWaterYear(thisDate, firstMonthOfWaterYear)
+            % Parameters
+            % ----------
+            % thisDate: datetime. For which the day number will be given. E.g.
+            %   2024-01-02 will give 94 for region h08v04.
+            % firstMonthOfWaterYear: int. E.g. 10 for westernUS.
+            %
+            % Return
+            % ------
+            % dayInWaterYear: int. from 1 to 366.
+            waterYear = WaterYearDate.getWaterYearFromDate(thisDate, ...
+              firstMonthOfWaterYear);
+            dayInWaterYear = daysact( ...
+                datetime(waterYear - 1, firstMonthOfWaterYear, ...
+                WaterYearDate.monthFirstDay) - 1, ...
+                dateshift(thisDate, start = 'day'));
+                % Floor because daysact can give decimal numbers if times are different.
+        end
+        function countOfDayInWaterYear = getCountOfDayInWaterYear(thisDate, ...
+            firstMonthOfWaterYear)
+            % Parameters
+            % ----------
+            % firstMonthOfWaterYear: int. E.g. 10 for westernUS.
+            %
+            % Return
+            % ------
+            % countOfDayInWaterYear: int. 365 or 366.
+            waterYear = WaterYearDate.getWaterYearFromDate(thisDate, ...
+              firstMonthOfWaterYear);
+            lastMonth = min(max(firstMonthOfWaterYear - 1, 0), 12);
+            lastDate = datetime(waterYear, lastMonth, eomday(waterYear, lastMonth));
+            firstDate = datetime(waterYear - 1, firstMonthOfWaterYear, ...
+                WaterYearDate.monthFirstDay);
+            countOfDayInWaterYear = floor(daysact(firstDate, lastDate)) + 1;
+                % Floor because daysact can give decimal numbers if times are different.
+        end
         function lastWYDateForWaterYear = getLastWYDateForWaterYear(waterYear, ...
             firstMonth, monthWindow, varargin)
             % Parameters
@@ -108,6 +144,22 @@ classdef WaterYearDate < handle
                 WaterYearDate.dayStartTime.HH, WaterYearDate.dayStartTime.MIN, ...
                 WaterYearDate.dayStartTime.SS) - caldays(1), firstMonth, ...
                 monthWindow, dateOfToday = dateOfToday);
+        end
+        function waterYear = getWaterYearFromDate(thisDate, firstMonthOfWaterYear)
+            % Parameters
+            % ----------
+            % thisDate: datetime. For which the day number will be given. E.g.
+            %   2024-01-02 will give 94 for region h08v04.
+            % firstMonthOfWaterYear: int. E.g. 10 for westernUS.
+            %
+            % Return
+            % ------
+            % waterYear: int.  WaterYear associated with the date and region.
+            [waterYear, thisMonth, ~] = ymd(thisDate);
+            waterYear = cast(waterYear, 'uint16');
+            if thisMonth >= firstMonthOfWaterYear
+                waterYear = waterYear + 1;
+            end
         end
         function [thisYear, thisMonth] = getYearMonthFromWaterYearNegativeMonth( ...
             waterYear, month)
@@ -336,7 +388,18 @@ classdef WaterYearDate < handle
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
         end
-
+        function lastActualDateOfWaterYear = getLastActualDateOfWaterYear(obj)
+            % Return
+            % ------
+            % lastActualDateOfWaterYear: datetime.
+            %   Last date of the wateryear of the current waterYearDate, can go beyond
+            %   today.
+            lastActualDateOfWaterYear = datetime(obj.getWaterYear(), ...
+                obj.firstMonth, ...
+                obj.monthFirstDay, ...
+                obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
+                obj.dayStartTime.SS) - days(1);
+        end 
         function lastDayWaterYearDate = getLastWYDateOfWaterYear(obj)
             % Return
             % ------
@@ -411,9 +474,38 @@ classdef WaterYearDate < handle
             % ------
             % lastMonth: int. Last month of the waterYear associated to this object.
             lastMonth = obj.firstMonth - 1;
-            if month <= 0
+            if lastMonth <= 0
                 lastMonth = 12 + lastMonth;
             end
+        end
+        function waterYearDate = shortenToDate(obj, thisDate)
+            % Parameters
+            % ----------
+            % thisDate: datetime, anterior to obj.thisDatetime but posterior to start
+            % of obj, consistently with obj.monthWindow.
+            %
+            % Return
+            % ------
+            % waterYearDate: WaterYearDate obj. Corresponds to the same period as obj,
+            % but shorten to thisDate.
+            %
+            % NB: Not tested for overlapping dates...                           @warning
+            thisFunction = 'WaterYearDate.shortenToDate';
+            theseDate = obj.getDailyDatetimeRange();
+            if thisDate > theseDate(end) | thisDate < theseDate(1)
+                error('WaterYearDateShorten:badDate', ...
+                    sprintf(['%s: Date %s should be included in the period covered', ...
+                        ' by waterYearDate %s.\n'], thisFunction, ...
+                        string(thisDate, 'yyyy-MM-dd'), obj.toChar()));
+            end
+            waterYearDate = obj;
+            if ~ismember(waterYearDate.monthWindow, [0, 1])
+                waterYearDate.monthWindow = split(between(theseDate(1), ...
+                    dateshift(thisDate, start = 'month'), 'months'), {'months'}) + 1;
+            end
+            waterYearDate.thisDatetime = datetime(year(thisDate), month(thisDate), ...
+                day(thisDate), obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
+                obj.dayStartTime.SS);
         end
         function waterYearDateChar = toChar(obj)
             % Return
