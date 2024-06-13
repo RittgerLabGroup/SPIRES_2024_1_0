@@ -1,3 +1,4 @@
+#: '
 if [ $matlabLaunched ] && [ ${#matlabString} -gt 0 ]; then
   printf "\n\n\n\n"
   printf "#############################################################################\n"
@@ -44,7 +45,10 @@ if [ $matlabLaunched ] && [ ${#matlabString} -gt 0 ]; then
   if [ $exitCode -ne 0 ] || [ $matlabExitCode == "no" ]; then
     error_exit "$thisMessage"
   fi
-else
-  $thisMessage="Exit=, matlab=no, Matlab not executed."
+elif [ ${#matlabString} -gt 0 ]; then
+  error_exit "Exit=, matlab=no, Matlab not executed."
 fi
+#'
+#sleep 50
+thisMessage="Exit=0, matlab=0, Matlab executed."
 log_level_1 "end:DONE" "$thisMessage"

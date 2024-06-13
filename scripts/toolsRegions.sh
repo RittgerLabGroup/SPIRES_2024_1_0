@@ -85,12 +85,12 @@ tileArrayStringForTileGroup4="369,370,406,407,408,444,445,481,482"
 
 # Region names for tiles and big regions.
 declare -A allRegionNames
-eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allRegionNames[" $18 "]=" $1 ";\n" }')
+eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allRegionNames[" $19 "]=" $1 ";\n" }')
 # Probably a simpler way than accumulate the greps...                              @todo
 
 # Big regions for tiles.
 declare -A bigRegionForTile
-eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep modisTile | grep -E "v3.1|v3.2" | awk -F, '{ printf sep "bigRegionForTile[" $18 "]=" $19 ";\n" }')
+eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep modisTile | grep -E "v3.1|v3.2" | awk -F, '{ printf sep "bigRegionForTile[" $19 "]=" $20 ";\n" }')
 # $workingDirectory defined in toolsStart.sh
 # Not clean way to do it, since configuration files can change columns. And eval is
 # dirty...

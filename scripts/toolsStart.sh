@@ -8,18 +8,18 @@
 ########################################################################################
 fileSeparator='/'
 
-sleep 2
+sleep 5
 # Might help to make work sacct (sacct not fully informed at the beginning of a job).
 
 # User should have set scriptId, which appears in logs.
 # NB: not sure it works
-if [ -v ${scriptId} ]; then
+if [ ! -v scriptId ]; then
     # ${scriptId} defined in main .sh script.
   scriptId="noName"
   printf "Warning: No script name set for logs.\n"
 fi
-if [ -v $expectedCountOfArguments ]; then expectedCountOfArguments=0; fi
-if [ -v $defaultSlurmArrayTaskId ]; then defaultSlurmArrayTaskId=292; fi
+if [ ! -v expectedCountOfArguments ]; then expectedCountOfArguments=0; fi
+if [ ! -v defaultSlurmArrayTaskId ]; then defaultSlurmArrayTaskId=292; fi
 
 source scripts/configuration.sh
 source scripts/toolsJobs.sh
@@ -35,7 +35,7 @@ set_slurm_array_task_id(){
   # ----------
   # $1: char/num. Default value for SLURM_ARRAY_TASK_ID.
   #                                                                            obsolete
-  if [ -v ${SLURM_ARRAY_TASK_ID} ]; then
+  if [ ! -v SLURM_ARRAY_TASK_ID ]; then
     SLURM_ARRAY_TASK_ID=$defaultSlurmArrayTaskId
     # $defaultSlurmArrayTaskId defined in main .sh script.
     printf "Default set SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}\n";
@@ -66,18 +66,24 @@ log_level_1(){
   # $2: char. Message
   #
   # NB: Formatting could be improved.
+  # NB: Beware if you modify this formatting because, toolsJobAchieved.sh and
+  # runSubmitter.sh extract info
+  # from this, so don't forget to check/change that script too !!               @warning
   thisPad=$(printf "%50s")
   formatSlurmJobId="${SLURM_JOB_ID}${thisPad:$(( ${#thisPad} - 8 + ${#SLURM_JOB_ID} ))}"
-  formatObjectId="${objectId}${thisPad:$(( ${#thisPad} - 6 + ${#objectId} ))}"
-  formatCell="${cellIdx}/${countOfCells}"
-  formatCell="${formatCell}${thisPad:$(( ${#thisPad} - 5 + ${#formatCell} ))}"
+  formatObjectId="${thisPad:$(( ${#thisPad} - 4 + ${#objectId} ))}${objectId}"
+  formatCell=" "
+  if [ -v thisSequence ] && [ "$thisSequence" != "0" ]; then
+    formatCell="${cellIdx}"
+  fi
+  formatCell="${thisPad:$(( ${#thisPad} - 4 + ${#formatCell} ))}${formatCell}"
   formatDate="${waterYearDateString}${thisPad:$(( ${#thisPad} - 13 + ${#waterYearDateString} ))}"
   formatStatus="${1}${thisPad:$(( ${#thisPad} - 9 + ${#1} ))}"
   formatHostName="${HOSTNAME}${thisPad:$(( ${#thisPad} - 15 + ${#slurmBatchHost} ))}"
   formatMessage="${2}"
   formatMessage=${formatMessage//[$'\t\r\n']}
     # Remove newline and tab characters.
-  printf "\ndate%6s; dura.; script  ; job%5s; object; cell ; date%9s; status%3s; "
+  printf "\ndate%6s; dura.; script  ; job%5s; obj.; cel.; date%9s; status%3s; "
   printf "hostname%7s; CPU%%; mem%%; cores; totalMem; message\n"
   printf ".....................................................................\n"
   printf "$(date '+%m%dT%H:%M'); $(TZ=UTC0 printf '%(%H:%M)T' "$SECONDS"); "
@@ -110,7 +116,7 @@ log_level_1(){
   memRequired=$(get_mem_in_Gb ${memRequired})
   nbOfCoresRequired=$(sacct --format AllocCPUS -j 16531438_292 | tr -d '' '' | tr ''\n'' ; | cut -d ; -f 4)
 ' memRequired=
-  if [ ! -v ${slurmMem} ]; then
+  if [ -v slurmMem ]; then
     memRequired=$(get_mem_in_Gb ${slurmMem})
   fi
   printf "%0d; " ${slurmNTasksPerNode}
@@ -142,7 +148,7 @@ printf "########################################################################
 
 # 1. Check that the slurm node has logged in and has the slurm environment
 ########################################################################################
-if [ ! -v ${SLURM_JOB_ID} ] && [ -v ${USER} ]; then
+if [ -v SLURM_JOB_ID ] && [ ! -v USER ]; then
   printf " Error no USER exported.\n"
   printf "#############################################################################\n"
   printf "Environment variables:\n"
@@ -160,6 +166,21 @@ if [ ! -v ${SLURM_JOB_ID} ] && [ -v ${USER} ]; then
   printf "Sacct job info:\n"
   printf "#############################################################################\n"
   sacct -j ${SLURM_JOB_ID} -l --json
+  
+  # Quick get of objectId/cellId (also done above when node logged in).
+  if [ -v SLURM_ARRAY_TASK_ID ]; then
+    objectId=${SLURM_ARRAY_TASK_ID}
+    cellIdx=1
+  
+    # If sequence, SLURM_ARRAY_TASK_ID includes objectId in the left and cellIdx in the
+    # right.
+    # Here, $thisSequence can be defined either in main script constants or in pipeline
+    # configuration.
+    if [ -v thisSequence ] && [ "$thisSequence" != "0" ]; then
+      cellIdx=$((10#${objectId: -3}))
+      objectId=${objectId::-3}
+    fi
+  fi
 
   printf "\n\n\n\n"
   error_exit "Exit=1, matlab=no, Defective node, impossible to login."
@@ -170,10 +191,10 @@ fi
 ########################################################################################
 sbatchCommand=
 isBatch=
-if [ ! -v ${SLURM_JOB_ID} ]; then
+if [ -v SLURM_JOB_ID ]; then
   isBatch=1
   slurmFullJobId=${SLURM_JOB_ID}
-  if [ ! -v ${SLURM_ARRAY_TASK_ID} ]; then
+  if [ -v SLURM_ARRAY_TASK_ID ]; then
     slurmFullJobId=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
   fi
   # NB: scontrol only works for ongoing jobs.
@@ -193,8 +214,12 @@ if [ ! -v ${SLURM_JOB_ID} ]; then
   # Should be constructed as "${slurmLogDir}${SLURM_JOB_NAME}-${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
   slurmLogDir=$(dirname "${slurmStdOut}")${fileSeparator}
   slurmTime=$(echo "$thisSControl" | grep TimeLimit | cut -d = -f 2)
+  #slurmStartTime=$(echo "$thisSControl" | grep StartTime | cut -d = -f 2)
+  #slurmEndTime=$(echo "$thisSControl" | grep EndTime | cut -d = -f 2)
   slurmWorkingDir=$(echo "$thisSControl" | grep WorkDir | cut -d = -f 2)
-
+  
+  #slurmDurationSec=$(($(date -d $slurmEndTime +%s) - $(date -d $slurmStartTime +%s)))
+  
   programName=$(echo "$thisSControl" | grep Command | tr -s ' ' | cut -d = -f 2)
 
   thisSControlAlloc=$(echo "$thisSControl" | grep AllocTRES | sed 's/AllocTRES=//' | tr ',' '\n')
@@ -261,7 +286,7 @@ if [[ ${mainBashSource} == *"slurm_script"* ]]; then
   sacct -j ${slurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+/{ print $0 }' | xargs
   sbatchSubmitLine=$(sacct -j ${slurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+/{ print $0 }' | xargs)
 
-  if [ ! -v ${SLURM_ARRAY_TASK_ID} ]; then
+  if [ -v SLURM_ARRAY_TASK_ID ]; then
     # Occasionally, sacct doesnt return any submit line to this job id, although it can
     # return it later. This is why I take the one of the array job.
     printf "\n\nSubmit line of the array job:\n"
@@ -315,7 +340,7 @@ printf "########################################################################
 printf "\n"
 
 # thisSequence set to 0 if unset.
-if [ -v $thisSequence ]; then
+if [ ! -v thisSequence ]; then
   thisSequence=0
 fi
   read -s -r -d '' mainScriptDefaultConstant << EOM
@@ -342,13 +367,13 @@ EOM
 # These parameters can still be overriden by the options sent to the script.    @warning
 # First parsing of options to get the pipeline.
 OPTIND=1
-while getopts "A:b:c:d:D:hiI:L:noO:q:Q:Rx:y:w:Z:" opt; do
+while getopts "A:b:c:d:D:hiI:L:M:noO:q:Q:Rx:y:w:Z:" opt; do
   case $opt in
     Z) pipeLineId="$OPTARG"
     printf "\npipeLineId=${pipeLineId}\n\n";;
   esac
 done
-if [ ! -v $isBatch ] && [ ! -v ${pipeLineId} ]; then
+if [ -v isBatch ] && [ -v pipeLineId ]; then
   # We cant use namerefs for dynamic variables referencing arrays because bash is 4.2
   # in blanca/alpine and not 4.4.
   # declare -n pipeLineScriptIds=pipeLineScriptIds${pipeLineId}
@@ -414,7 +439,7 @@ fi
 objectId=$defaultSlurmArrayTaskId
 cellIdx=1
 countOfCells=1
-if [ ! -v ${SLURM_ARRAY_TASK_ID} ]; then
+if [ -v SLURM_ARRAY_TASK_ID ]; then
   objectId=${SLURM_ARRAY_TASK_ID}
   cellIdx=1
   countOfCells=1
@@ -422,7 +447,7 @@ if [ ! -v ${SLURM_ARRAY_TASK_ID} ]; then
   # right.
   # Here, $thisSequence can be defined either in main script constants or in pipeline
   # configuration.
-  if [ ! -v $thisSequence ] && [ "$thisSequence" != "0" ]; then
+  if [ -v thisSequence ] && [ "$thisSequence" != "0" ]; then
     cellIdx=$((10#${objectId: -3}))
     objectId=${objectId::-3}
     countOfCells=$((10#${slurmArrayTaskIds: -3}))
@@ -432,9 +457,9 @@ if [ ! -v ${SLURM_ARRAY_TASK_ID} ]; then
 fi
 # Option -b, default first to last index of object/cell to handle.
 firstToLastIndex=1-65535
-if [ ! -v $thisSequence ] && [ "$thisSequence" != "0" ]; then
-  if [ ! -v $thisSequenceMultiplierToIndices ]; then
-    tmpMultiplier=1
+if [ -v thisSequence ] && [ "$thisSequence" != "0" ]; then
+  if [ ! -v thisSequenceMultiplierToIndices ]; then
+    thisSequenceMultiplierToIndices=1
   fi
   firstToLastIndex=$((($cellIdx - 1) * $thisSequenceMultiplierToIndices + 1))-$((($cellIdx) * $thisSequenceMultiplierToIndices))
     # $firstIndex is always > 0 (like $cellIdx)
@@ -445,7 +470,7 @@ fi
 # Option -A, version of ancillary data.
 # Default declared in configuration.sh.
 versionOfAncillary=${defaultVersionOfAncillary}
-if [ ! -v ${thoseVersionsOfAncillary[$objectId]} ]; then
+if [ ${thoseVersionsOfAncillary[$objectId]} ]; then
   versionOfAncillary=${thoseVersionsOfAncillary[$objectId]}
 fi
 # Option -c, id of the filter configuration (in configuration_of_filters.csv). 0
@@ -460,7 +485,7 @@ if [ $(date +%H) -ge 19 ]; then dateOfToday=$(date -d "+1 days" +%Y-%m-%d); fi;
 # Option -D, default waterYearDateString.
 # $thisMonthWindow can be earlier defined in main script constants and overriden by
 # pipeline configuration.
-if [ -v $thisMonthWindow ]; then
+if [ ! -v thisMonthWindow ]; then
   $thisMonthWindow=12
 fi
 waterYearDateString=$(echo $(date +"%Y-%m-%d")-${thisMonthWindow})
@@ -468,16 +493,24 @@ waterYearDateString=$(echo $(date +"%Y-%m-%d")-${thisMonthWindow})
 inputFromArchive=
 # Option -L, inputLabel, version of the input files, and also outputLabel when not
 # supplied. Can be earlier defined by pipeline configuration.
-if [ -v $inputLabel ]; then
+if [ ! -v inputLabel ]; then
   inputLabel="test"
+fi
+# Option -M, thisMode, indicates which part of the matlab string is run. By default 0,
+# for all.
+if [ ! -v thisMode ]; then
+  thisMode=0
 fi
 # Option -o, rsync output files from scratch to archive. Default no rsync.
 outputToArchive=
 # Option -O, version label of the output files. E.g. v2024.0. Default = LABEL
 # Can be earlier defined by pipeline configuration.
-if [ -v $outputLabel ]; then
+if [ ! -v outputLabel ]; then
   outputLabel=$inputLabel
 fi
+# Option -r, if present, indicates resubmission allowed if error (except specific errors
+# such as cancel by user or out of memory).
+isToResubmitIfError=
 # Option -R, if present, plan a repeat of the job. By default, no repeat
 isToBeRepeated=
 # Option -v, verbosity level, also called log level. 0 all logs, increased value less
@@ -486,9 +519,9 @@ verbosityLevel=0
 # Option -w, default nb of parallel workers used by parfor loops in matlab.
 # No parameter means all cores available. If 0, means no parallelism.
 # Can be earlier defined by pipeline configuration.
-if [ -v parallelWorkersNb ]; then
+if [ ! -v parallelWorkersNb ]; then
   parallelWorkersNb=0
-  if [ ! -v ${slurmFullJobId} ]; then
+  if [ -v slurmFullJobId ]; then
     #tmpVar=$(sacct -j ${slurmFullJobId} --format=AllocCPUS | tail -n 1 | sed -e "s/ //g")
     #if [ -z "${tmpVar//[0-9]}" ] && [ -n "$tmpVar" ]; then
     #  parallelWorkersNb=$tmpVar
@@ -502,7 +535,7 @@ scratchPath=${espScratchDir}
 # Option -y, location of the archive Path. By default environment variable.
 archivePath=${espArchiveDir}
 # Option -Z, is pipeline and gives the pipeLineId (configuration in configuration.sh).
-if [ -v pipeLineId ]; then
+if [ ! -v pipeLineId ]; then
   pipeLineId=
 fi
 
@@ -523,8 +556,9 @@ firstToLastIndex=${firstToLastIndex};
 versionOfAncillary=${versionOfAncillary}; filterConfId=${filterConfId};
 dateOfToday=${dateOfToday}; waterYearDateString=${waterYearDateString};
 inputFromArchive=${inputFromArchive}; inputLabel=${inputLabel};
-outputToArchive=${outputToArchive}; outputLabel=${outputLabel}; 
-isToBeRepeated=${isToBeRepeated}; verbosityLevel=${isToBeRepeated};
+outputToArchive=${outputToArchive}; outputLabel=${outputLabel}; thisMode=${thisMode};
+isToBeRepeated=${isToBeRepeated}; isToResubmitIfError=${isToResubmitIfError};
+verbosityLevel=${isToBeRepeated};
 parallelWorkersNb=${parallelWorkersNb}; scratchPath=${scratchPath};
 archivePath=${archivePath}; pipeLineId=${pipeLineId};
 EOM
@@ -532,7 +566,7 @@ printf "\n${defaultOption}\n\n"
 
 # Second parsing of options.
 OPTIND=1
-while getopts "A:b:c:d:D:hiI:L:noO:q:Q:Rx:y:w:Z:" opt
+while getopts "A:b:c:d:D:hiI:L:M:noO:q:Q:Rrx:y:w:Z:" opt
 # NB: add a : in string above when option expects a value.
 do
   case $opt in
@@ -549,12 +583,17 @@ do
     i) inputFromArchive=1;;
     I) objectId="$OPTARG";;
     L) inputLabel="$OPTARG";;
+    M) thisMode="$OPTARG";;
     n) noPipeline=1;;
     o) outputToArchive=1;;
     O) outputLabel="$OPTARG";;
     q) cellIdx="$OPTARG";;
     Q) countOfCells="$OPTARG";;
-    R) if [ -v $isToBeRepeated ]; then
+    r) if [ ! -v isToResubmitIfError ]; then
+        isToResubmitIfError=1
+      fi
+      ;; 
+    R) if [ ! -v isToBeRepeated ]; then
         isToBeRepeated=1
       fi
       ;;
@@ -577,8 +616,9 @@ firstToLastIndex=${firstToLastIndex};
 versionOfAncillary=${versionOfAncillary}; filterConfId=${filterConfId}; 
 dateOfToday=${dateOfToday}; waterYearDateString=${waterYearDateString};
 inputFromArchive=${inputFromArchive}; inputLabel=${inputLabel};
-outputToArchive=${outputToArchive}; outputLabel=${outputLabel}; 
-isToBeRepeated=${isToBeRepeated}; verbosityLevel=${isToBeRepeated};
+outputToArchive=${outputToArchive}; outputLabel=${outputLabel}; thisMode=${thisMode};
+isToBeRepeated=${isToBeRepeated};  isToResubmitIfError=${isToResubmitIfError};
+verbosityLevel=${isToBeRepeated};
 parallelWorkersNb=${parallelWorkersNb}; scratchPath=${scratchPath};
 archivePath=${archivePath}; pipeLineId=${pipeLineId};
 EOM
@@ -593,7 +633,7 @@ firstToLastIndexArray=(${firstToLastIndex//-/ })
 firstIndex=${firstToLastIndexArray[0]}
 lastIndex=${firstToLastIndexArray[1]}
 
-if [ -v ${regionName} ] && [ ${objectId} -lt 1300 ]; then
+if [ ! -v regionName ] && [ ${objectId} -lt 1300 ]; then
   regionName=${allRegionNames[$objectId]}
   # $allRegionNames defined in toolsRegions.sh.
 fi
@@ -707,7 +747,7 @@ EOM
 ########################################################################################
 # Limited to the first task id, = first object of the group which are tackled by
 # SLURM_ARRAY_JOB_ID.
-if [ ! -v $isBatch ] && [ ! -v $isToBeRepeated ] && [ $isToBeRepeated -eq 1 ] && \
+if [ -v isBatch ] && [ -v isToBeRepeated ] && [ $isToBeRepeated -eq 1 ] && \
 [ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ]; then
 
   thisTime=$(date +%H:%M:%S)
@@ -736,7 +776,7 @@ if [ ! -v $isBatch ] && [ ! -v $isToBeRepeated ] && [ $isToBeRepeated -eq 1 ] &&
   printf "Submit schedule for repeated job.\n"
   printf "Time: ${repeatBeginTime}.\n"
   printf "SbatchSubmitLine: ${sbatchSubmitLine}\n"
-  printf "Next sbatch: $(echo $repeatSubmitLine  | sed s~%~%%~g)\n"
+  printf "Next repeat sbatch: $(echo $repeatSubmitLine  | sed s~%~%%~g)\n"
   $repeatSubmitLine
   printf "#############################################################################\n"
 fi
@@ -751,7 +791,7 @@ fi
 # Update options for next script to submit in the pipeline.
 # Most options are defined in the pipeline configuration, with the waterYearDate
 # derived from this script waterYearDate.
-if [ ! -v $isBatch ] && [ ! -v ${pipeLineId} ] && [ ! -v $SLURM_ARRAY_TASK_ID ] && \
+if [ -v isBatch ] && [ -v pipeLineId ] && [ -v SLURM_ARRAY_TASK_ID ] && \
 [ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ] && \
 [[ "${pipeLineScriptIds[@]/${scriptId}//}" == */* ]]; then
 
@@ -836,17 +876,17 @@ EOM
     fi
     # nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( -L )~ -D ${nextWaterYearDate}\1~")
 
-    if [[ "${nextSubmitLine}" != *" --depend="* ]]; then
-      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~(sbatch )~\1--depend=afterok:${SLURM_ARRAY_JOB_ID} ~")
+    if [[ "${nextSubmitLine}" != *" --dependency="* ]]; then
+      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~(sbatch )~\1--dependency=afterok:${SLURM_ARRAY_JOB_ID} ~")
     else
-      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( --depend=)[a-zA-Z0-9\:\_\-]+ ~\1afterok:${SLURM_ARRAY_JOB_ID} ~")
+      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( --dependency=)[a-zA-Z0-9\:\_\-]+ ~\1afterok:${SLURM_ARRAY_JOB_ID} ~")
     fi
 
     printf "\n\n\n"
     printf "#############################################################################\n"
     printf "Submit schedule for next job in the pipeline.\n"
     printf "SbatchSubmitLine: ${nextSubmitLine}\n"
-    printf "Next sbatch: $(echo $nextSubmitLine  | sed s~%~%%~g)\n"
+    printf "Next pipeline sbatch: $(echo $nextSubmitLine  | sed s~%~%%~g)\n"
     $nextSubmitLine
     printf "#############################################################################\n"
   fi
@@ -876,7 +916,7 @@ printf "Environment variables:\n"
 printf "#############################################################################\n"
 export
 
-if [ ! -v ${slurmFullJobId} ]; then
+if [ -v slurmFullJobId ]; then
   printf "\n\n\n\n"
   printf "#############################################################################\n"
   printf "Scontrol show job variables:\n"
