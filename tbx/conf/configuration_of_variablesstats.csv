@@ -1,5 +1,5 @@
 id,landSubdivisionStatId,output_name
-unique id of the variable. NB: must be unique per sensor/platform/algorithm/output_name. Mustnt be changed,"id of the daily or aggregate statistic to apply to the variable on the landsubdivisions (to transfer to the website, class Subdivision). The descriptions associated to these id are in configuration_of_landsubdivisionstats.csv","variable name in Mosaics, PublicMosaics/geotiffs"
+unique id of the variable. NB: must be unique per sensor/platform/algorithm/output_name. Mustn’t be changed,"id of the daily or aggregate statistic to apply to the variable on the landsubdivisions (to transfer to the website, class Subdivision). The descriptions associated to these id are in configuration_of_landsubdivisionstats.csv","variable name in Mosaics, PublicMosaics/geotiffs"
 48,3,albedo_clean_mu0
 49,3,albedo_observed_mu0
 50,3,albedo_clean_muZ
@@ -24,6 +24,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,3,albedo_s
 63,3,radiative_forcing_s
 67,1,gap_snow_fraction
+96,3,deltavis_s
 48,10,albedo_clean_mu0
 49,10,albedo_observed_mu0
 50,10,albedo_clean_muZ
@@ -48,6 +49,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,10,albedo_s
 63,10,radiative_forcing_s
 67,10,gap_snow_fraction
+96,10,deltavis_s
 48,11,albedo_clean_mu0
 49,11,albedo_observed_mu0
 50,11,albedo_clean_muZ
@@ -72,6 +74,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,11,albedo_s
 63,11,radiative_forcing_s
 67,11,gap_snow_fraction
+96,11,deltavis_s
 48,12,albedo_clean_mu0
 49,12,albedo_observed_mu0
 50,12,albedo_clean_muZ
@@ -96,6 +99,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,12,albedo_s
 63,12,radiative_forcing_s
 67,12,gap_snow_fraction
+96,12,deltavis_s
 48,21,albedo_clean_mu0
 49,21,albedo_observed_mu0
 50,21,albedo_clean_muZ
@@ -120,6 +124,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,21,albedo_s
 63,21,radiative_forcing_s
 67,22,gap_snow_fraction
+96,21,deltavis_s
 48,31,albedo_clean_mu0
 49,31,albedo_observed_mu0
 50,31,albedo_clean_muZ
@@ -144,6 +149,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,31,albedo_s
 63,31,radiative_forcing_s
 67,32,gap_snow_fraction
+96,31,deltavis_s
 48,41,albedo_clean_mu0
 49,41,albedo_observed_mu0
 50,41,albedo_clean_muZ
@@ -168,6 +174,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,41,albedo_s
 63,41,radiative_forcing_s
 67,42,gap_snow_fraction
+96,41,deltavis_s
 48,51,albedo_clean_mu0
 49,51,albedo_observed_mu0
 50,51,albedo_clean_muZ
@@ -192,6 +199,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,51,albedo_s
 63,51,radiative_forcing_s
 67,52,gap_snow_fraction
+96,51,deltavis_s
 48,60,albedo_clean_mu0
 49,60,albedo_observed_mu0
 50,60,albedo_clean_muZ
@@ -216,6 +224,7 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,60,albedo_s
 63,60,radiative_forcing_s
 67,60,gap_snow_fraction
+96,60,deltavis_s
 48,70,albedo_clean_mu0
 49,70,albedo_observed_mu0
 50,70,albedo_clean_muZ
@@ -240,3 +249,4 @@ unique id of the variable. NB: must be unique per sensor/platform/algorithm/outp
 62,70,albedo_s
 63,70,radiative_forcing_s
 67,70,gap_snow_fraction
+96,70,deltavis_s
