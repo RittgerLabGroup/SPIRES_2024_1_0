@@ -181,6 +181,24 @@ classdef Tools
             fileExtension = ['.', ...
                 char(Tools.valueAt(flip(strsplit(fileName, '.')), 1))];
         end
+        function parforSaveAsFieldInFile(filePath, varName, varData, appendFlag)
+            % Save structure as a field in a .mat file to bypass the Transparency
+            % violation error
+            % that occurs by calls to save and eval in the parfor loop
+            %
+            % Parameters
+            % ----------
+            % filePath: array(char). Filepath where the data are saved.
+            % varName: char. Name of the field saved.
+            % varData: anything. The data that are saved.
+            % appendFlag: char. new_file: New file, append: existing file.
+            eval([varName, ' = varData; ']);
+            if strcmp(appendFlag, 'new_file')
+                save(filePath, varName, '-v7.3');
+            elseif strcmp(appendFlag, 'append')
+                save(filePath, varName, '-append');
+            end
+        end
         function parforSaveFieldsOfStructInFile(filename, myStruct, appendFlag)
             % Save fields of structure to bypass the Transparency violation error
             % that occurs by calls to save and eval in the parfor loop
@@ -191,8 +209,7 @@ classdef Tools
             %   Filename where the data are saved.
             % myStruct: struct
             %   Struct with fields which values are to be saved
-            % appendFlag: bool
-            %   If true, the data are saved by append
+            % appendFlag: char. new_file: New file, append: existing file.
             if strcmp(appendFlag, 'new_file')
                 save(filename, '-struct', 'myStruct', '-v7.3');
             elseif strcmp(appendFlag, 'append')
@@ -208,6 +225,10 @@ classdef Tools
             % Return
             % ------
             % value: any type. the Value at the indices yielded in varargin.
+            %
+            % Use case
+            % --------
+            % thisValue = Tools.valueAt(dec2bin(bitset(3, [3 4], [0 1])), 2, ':').
             value = thisArray(varargin{:});
             % Case when return 1 cell only: convert to string.
             if iscell(value) & numel(value) == 1
