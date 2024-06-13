@@ -29,7 +29,7 @@ usage() {
   echo "Usage: ${PROGNAME} [-A LABEL_ANCILLARY]" 1>&2
   echo "  [-b firstToLastIndex] " 1>&2
   echo "  [-d dateOfToday] " 1>&2
-  echo "  [-h] [-i] [-L LABEL] [-o] " 1>&2
+  echo "  [-h] [-i] [-L LABEL] [-M thisMode] [-o] " 1>&2
   echo "  [-O outputLabel] [-x scratchPath] [-w parallelWorkersNb]" 1>&2
   echo "  " 1>&2
   echo "  Calculates daily statistics for a specific WATERYEAR" 1>&2
@@ -52,6 +52,8 @@ usage() {
   echo "  -i: update input data from archive to scratch" 1>&2
   echo "  -L LABEL: string with version label for directories" 1>&2
   echo "     e.g. for operational processing, use -L v2023.x" 1>&2
+  echo "  -M thisMode: indicates if code is run only partly. By default 0 runs all" 1>&2
+  echo "     1: only runs the historic daily stats" 1>&2
   echo "  -o: update output data from scratch to archive" 1>&2
   echo "  -O outputLabel: string with version label for output files" 1>&2
   echo "     If -O not precised, LABEL is used for both input and output files" 1>&2
@@ -100,13 +102,8 @@ thisMonthWindow=12
 
 source scripts/toolsStart.sh
 if [ $? -eq 1 ]; then
-  exit 1
+  error_exit "Exit=1, matlab=no, toolStart.sh failed at some point."
 fi
-
-# Argument setting
-outputType=1
-# Find a way to use the script both for daily stats web-app and generation of stats
-# of previous years, for which we wont need json and geotiffs...                   @todo
 
 source scripts/toolsMatlab.sh
 
@@ -140,7 +137,7 @@ try;
     espEnvWOFilter.configParallelismPool(${parallelWorkersNb});
   end;
   subdivisionConf = espEnvWOFilter.myConf.landsubdivision( ...
-    strcmp(espEnvWOFilter.myConf.landsubdivision.sourceRegionName, '${regionName}'), :);
+    espEnvWOFilter.myConf.landsubdivision.sourceRegionId == ${objectId}, :);
   lastIndex = ${lastIndex};
   if lastIndex > size(subdivisionConf, 1);
     lastIndex = size(subdivisionConf, 1);
@@ -156,8 +153,8 @@ try;
     subdivisionId = subdivisionIds(subdivisionIdx);
     subdivision = Subdivision(subdivisionId, region);
     subdivision.calcDailyStats(waterYearDate);
-    subdivision.calcAggregates(waterYearDate);
-    if ${outputType} == 1;
+    if ${thisMode} == 0;
+      subdivision.calcAggregates(waterYearDate);
       subdivision.writeStatCsvAndJson(1);
     end;
   end;
