@@ -165,6 +165,8 @@ classdef MODISData < handle
                 'mod09ga', label, ...
                 'mod09gasqueezed', label, ...
                 'modisspiresfill', label, ...
+                'modisspiresdaily', label, ...
+                'modisspiresyeartmp', label, ...
                 'modisspiressmooth', label, ...
                 'modisspiressmoothbycell', label, ...
                 'SCAGDRFSGap',  label, ...
@@ -313,6 +315,7 @@ classdef MODISData < handle
             end
         end
         function firstMonth = getFirstMonthOfWaterYear(obj, tileRegionName)
+            %                                                                @deprecated
             % Parameters
             % ----------
             % tileRegionName: char. Tile region name (format h00v00).
@@ -328,67 +331,6 @@ classdef MODISData < handle
                 firstMonth = WaterYearDate.defaultFirstMonthForSouthTiles;
             end
         end
-        function indices = ...
-            getIndicesForCellInTile(obj, cellIdx, countOfCells, varargin)
-            % Calculates the row and colum indices for a cell if we divide a tile by
-            % cells to improve parallelization of computations. Based on the hypothesis
-            % that the tile is square.
-            %
-            % Parameters
-            % ----------
-            % cellIdx: int. Idx of the cell part of a tile. Index are counted starting
-            %   top to bottom column 1, top to
-            %   bottom column 2, ... until bottom of last column.
-            % countOfCells: int. Number of cells dividing the tile.
-            % countOfPixelPerDimension: int, optional. Number of pixels in a dimension.
-            %   By default,
-            %   obj.sensorProperties.tiling.rowPixelCount (2400 for MODIS). Supposed
-            %   identic to obj.sensorProperties.tiling.columnPixelCount.
-            %
-            % Return
-            % ------
-            % indices: struct(rowStart: int, rowEnd:int, columnStart: int,
-            %   columnEnd: int. Row and columns start/end indices of the cell.
-            thisFunctionName = 'MODISData.getIndicesForCellInTile';
-            p = inputParser;
-            addParameter(p, 'countOfPixelPerDimension', ...
-                obj.sensorProperties.tiling.rowPixelCount);
-            p.KeepUnmatched = false;
-            parse(p, varargin{:});
-            countOfCells = single(countOfCells);
-                % NB: All calculations should be done at least in single, otherwise,
-                % if int, doesnt work because of the division.
-            countOfPixelPerDimension = single(p.Results.countOfPixelPerDimension);
-            countOfCellPerDimension = single(sqrt(countOfCells));
-            countOfPixelInCellPerDimension = ...
-                countOfPixelPerDimension / countOfCellPerDimension;
-            if cellIdx > countOfCells
-                error(['%s: cellIdx %d > countOfCells %d.'], ...
-                    thisFunctionName, cellIdx, countOfCellPerDimension^2);
-            end
-            if (countOfPixelInCellPerDimension ~= ...
-                floor(countOfPixelPerDimension / countOfCellPerDimension))
-                error(['%s: Division of the tile in cells results in decimal ', ...
-                    ' indices, countOfCells: %d, countOfPixelPerDimension: %d.'], ...
-                    thisFunctionName, countOfCells, countOfPixelPerDimension);
-            end
-            
-            indices = struct();
-            countOfCellPerDimension = uint32(countOfCellPerDimension);
-            countOfPixelInCellPerDimension = uint32(countOfPixelInCellPerDimension);
-            countOfPixelPerDimension = uint32(countOfPixelPerDimension);
-            cellIdx = uint32(cellIdx);
-            
-            indices.rowStartId = mod( ...
-                countOfPixelInCellPerDimension * (cellIdx - 1) + 1, ...
-                countOfPixelPerDimension);
-            indices.rowEndId = indices.rowStartId + ...
-                countOfPixelInCellPerDimension - 1;
-            indices.columnStartId = countOfPixelInCellPerDimension * ( ...
-                floor((cellIdx - 1) / countOfCellPerDimension)) + 1;
-            indices.columnEndId = (indices.columnStartId + ...
-                countOfPixelInCellPerDimension - 1);
-        end    
         function mapCellsReference = getMapCellsReference(obj, positionalData)
             % Parameters
             % ----------
@@ -418,7 +360,7 @@ classdef MODISData < handle
             dy = obj.georeferencing.tileInfo.dy;
             northWestX =  obj.georeferencing.northwest.x0 + ...
                 positionalData.horizontalId * ...
-                obj.georeferencing.tileInfo.columnCount * dx;
+                obj.georeferencing.tileInfo.columnCount * dx;disp(northWestX);
                 % don't use positionalData.columnCount here, we need the size of modis
                 % elemental tiles to get the space from x0.
             northWestY = obj.georeferencing.northwest.y0 - ...
@@ -428,7 +370,7 @@ classdef MODISData < handle
                 northWestY - dy / 2 + dy]]; % Should give result same as deprecated
                                             % makerefmat()
             mapCellsReference = refmatToMapRasterReference(refMatrix,...
-                    [positionalData.rowCount positionalData.columnCount]);
+                    [positionalData.rowCount positionalData.columnCount]);disp(refMatrix)
 %{
 % Version before 2023-06-19. Doesn't work for some tiles and didn't figure out why.
             mapCellsReference = maprefcells([ ...
