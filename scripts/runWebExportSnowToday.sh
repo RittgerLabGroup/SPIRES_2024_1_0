@@ -146,7 +146,10 @@ try;
 
   % Get the subdivision names and source regions (to get ancillary version) and
   % the hierarchy from the configuration.
-  espEnvWOFilter.setAdditionalConf('landsubdivision');
+  espEnvWOFilter.setAdditionalConf('landsubdivision', ...
+      confFieldNames = {'name', 'id', 'code', 'subdivisionType', 'sourceRegionId', ...
+      'sourceRegionName', 'used', 'root', 'CRS', 'firstMonthOfWaterYear', ...
+      'versionOfAncillary'});
   espEnvWOFilter.setAdditionalConf('landsubdivisionlink');
   espEnvWOFilter.setAdditionalConf('landsubdivisiontype');
   espEnvWOFilter.setAdditionalConf('webname');

@@ -29,22 +29,22 @@ classdef ExporterToWebsite < handle
     % Don't forget to use the script AncillaryOutput.m to generate updated all
     % region .json, if the configuration .csv files have changed and then sync
     % from archive to scratch [WARNING].
-
+    toBeUsedFlag = 1; % By default 1.
     label = 'v2024.0';
     versionOfAncillary = 'v3.2'; % Only for initiating the exporter.
     versionOfAncillariesToExport = {'v3.1', 'v3.2'}; % all these versions are exported.
-    dataLabel = 'landsubdivisioninjson';
+    dataLabel = 'landsubdivisionrootinjson';
     thisDate = '';
     varName = '';
     complementaryLabel = '';
-    scratchPath = getenv('espArchiveDir');
+    scratchPath = '/rc_scratch/sele7124/'; % getenv('espArchiveDir');
     setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
     espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
     exporter = ExporterToWebsite(espEnv, versionOfAncillariesToExport);
     exporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, varName, ...
         complementaryLabel);
-    exporter.generateAndExportTrigger(); % Beware this will launch ingestion, so don't
+    %exporter.generateAndExportTrigger(); % Beware this will launch ingestion, so don't
         % excute this line if web-app unready. Alternatively, parameter a filename
         % different from 'TRIGGER' in configuration_of_filepaths.csv.
         % to handle that more transparently for testing                            @todo
@@ -65,17 +65,14 @@ classdef ExporterToWebsite < handle
     varName = '';
     complementaryLabel = '';
     scratchPath = '/rc_scratch/sele7124/'; %getenv('espArchiveDir');
-    setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
+    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForQA'));
-    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
+    setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
     espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
     exporter = ExporterToWebsite(espEnv, versionOfAncillariesToExport, ...
         toBeUsedFlag = toBeUsedFlag);
     for dataLabelIdx = 1:length(dataLabels)
-        if dataLabelIdx == 4
-            continue;
-        end
         dataLabel = dataLabels{dataLabelIdx};
         exporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, varName, ...
             complementaryLabel);
@@ -96,9 +93,9 @@ classdef ExporterToWebsite < handle
     thisDate = ''; %datetime(2024, 2, 28);
     complementaryLabel = ['EPSG_', num2str(Regions.webGeotiffEPSG)];
     scratchPath = '/rc_scratch/sele7124/'; %getenv('espArchiveDir');
-    setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
+    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForQA'));
-    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
+    setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
     espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
     espEnvWOFilter = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
@@ -133,7 +130,7 @@ classdef ExporterToWebsite < handle
             complementaryLabel);
     end
 
-    exporter.generateAndExportTrigger(); % Beware this will launch ingestion, so don't
+    %exporter.generateAndExportTrigger(); % Beware this will launch ingestion, so don't
         % excute this line if web-app unready. Alternatively, parameter a filename
         % different from 'TRIGGER' in configuration_of_filepaths.csv.
         % to handle that more transparently for testing                            @todo
@@ -338,7 +335,9 @@ classdef ExporterToWebsite < handle
                 
                 % For some dataLabels get the landsubdivision conf.
                 if ismember(dataLabel, {'VariablesGeotiff', 'VariablesGeotiffv20231'})
-                    thisEspEnv.setAdditionalConf('landsubdivision'); 
+                    thisEspEnv.setAdditionalConf('landsubdivision' , ...
+                      confFieldNames = {'name', 'id', 'code', 'sourceRegionName', ...
+                          'used', 'root'}); 
                         % NB: already done in getMetadata ...?                  @tocheck
                     % espEnv.setAdditionalConf('landsubdivisionlink');
                     %espEnv.setAdditionalConf('landsubdivisiontype');
