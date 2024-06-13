@@ -241,6 +241,8 @@ classdef Regions < handle
                 espEnv.myConf.filter.id == regionConf.statisticConfId, :);
             obj.filter.stc = espEnv.myConf.filter( ...
                 espEnv.myConf.filter.id == regionConf.stcConfId, :);
+            obj.filter.spires = espEnv.myConf.filter( ...
+                espEnv.myConf.filter.id == regionConf.spiresConfId, :);
 
             % Variables associated to the region.
             thisTable = obj.espEnv.myConf.variableregion( ...
@@ -438,17 +440,22 @@ classdef Regions < handle
         end
 %}
         function firstMonth = getFirstMonthOfWaterYear(obj)
+            %                                                                @deprecated
             % Return
             % ------
             % firstMonth: int. First month of the waterYear on which stats will be
             %   calculated for the region, depends on location of the region.
             % NB: takes the coordinates of the NW corner of the region.
             % NB: implementation doesn't work for north region touching Equator    @todo
+            firstMonth = obj.myConf.region.firstMonthOfWaterYear;
+%{
+            % Former implementation before 2024-04-01.
             if max(obj.getMapCellsReference().YWorldLimits) > 0 % North Hemisphere
                 firstMonth = WaterYearDate.defaultFirstMonthForNorthTiles;
             else % South Hemisphere
                 firstMonth = WaterYearDate.defaultFirstMonthForSouthTiles;
             end
+%}
         end
         function [xExtent, yExtent] = getGeotiffExtent(obj, geotiffEPSG)
             % Returns two vector indicating the x-y limits of the geotiff
@@ -746,14 +753,22 @@ classdef Regions < handle
             %-------------------------------
             % NB: Need to make dynamic (if no data for variable, don't try to generate
             % the geotiff.                                                       @todo
+            inputDataLabel = 'VariablesMatlab';
+            outputDataLabel = 'VariablesGeotiff';
+            [availableVariables, ~, ~] = espEnv.getVariable(outputDataLabel, ...
+                inputDataLabel = inputDataLabel);
+%{
+            % Former implementation.
             availableVariables = espEnv.myConf.variableregion( ...
                 strcmp(espEnv.myConf.variableregion.regionName, obj.name) & ...
                 espEnv.myConf.variableregion.writeGeotiffs == 1, ...
                 {'varId'});
+
             availableVariables = join(availableVariables, espEnv.myConf.variable, ...
-                LeftKeys = 'varId', ...
+                LeftKeys = 'id', ...
                 RightKeys = 'id', LeftVariables = {}, ...
                 RightVariables = {'id', 'output_name', 'nodata_value', 'type'});
+%}
 
             % instantiate the variable indexes on which to loop
             % ------------------------------------------------------------
@@ -764,7 +779,7 @@ classdef Regions < handle
                 varIndexes = 1:availableVariablesSize(1);
             else
                 % Check if the varName is ok
-                index = find(strcmp(availableVariables.output_name, varName));
+                index = find(strcmp(availableVariables.name, varName));
                 if isempty(index)
                     ME = MException('Regions:WriteGeotiffs_UnauthorizedVarName', ...
                         sprintf(['%s: varName %s not found in the ', ...
@@ -798,7 +813,7 @@ classdef Regions < handle
             % NB: this implies that viewable_snow_fraction must be write_geotiffs =1
             % in the configuration_of_variableregion.csv file.
             varnamesToPreLoad = intersect( ...
-                availableVariables.output_name, ...
+                availableVariables.name, ...
                 unique(obj.thresholdsForPublicMosaics.thresholded_varname));
 
             % Obtain output projection/system.
@@ -856,12 +871,12 @@ classdef Regions < handle
                 end
                 fprintf('%s: Got the data for filter.\n', mfilename());
                 % We handle each variable to generate a geotiff.
-                parfor (varIdx=1:length(varIndexes), parallelWorkersNb), 
+                parfor (varIdx=1:length(varIndexes), parallelWorkersNb)
                     % varName info
                     % ------------
                     % get the output name and units
                     varNameInfos = availableVariables(varIndexes(varIdx), :);
-                    varName = varNameInfos.('output_name'){1};
+                    varName = varNameInfos.('name'){1};
                     fprintf('%s: Handling variable %s...\n', mfilename(), varName);
 
                     % We only handle notprocessed variable in association to snow_fraction.
