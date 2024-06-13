@@ -7,9 +7,9 @@ classdef ESPNetCDF < handle
     % --------
 %{
     label = 'v2023.1'; % or 'v2022.0' for v03 HMA ASHimalaya.
-    if strcmp(label, 'v2023.1')
+    if strcmp(label, 'v2023.0e')
         modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
-        regionName = 'h08v04';
+        regionName = 'h08v05';
         thisDate = datetime(2023, 1, 1);
     elseif strcmp(label, 'v2022.0')
         modisData = MODISData(label = 'v03', versionOfAncillary = 'v3.2');
@@ -229,6 +229,36 @@ classdef ESPNetCDF < handle
                 'int32', 'uint32', 'int16', 'uint16', ...
                 'int8', 'uint8', 'char', 'string'});
     end
+    methods(Static)
+        function varData = read(filePath, varName, startIdx, thisSize)
+            % Read netcdf data by keeping types and not replacing nodata_values,
+            % as ncread doesnt, since it automatically converts to double when
+            % variable attribute FillValue is set in the netcdf file.
+            %
+            % Parameters
+            % ----------
+            % filePath: char. FilePath of the NetCdf file.
+            % varName: char. Name of the variable within the file.
+            % startIdx: array(int), as [dim1StartIdx, dim2StartIdx, dim3StartIdx], using
+            %   matlab indices (starting with 1, not 0 as in c).
+            % thisSize: array(int) as [dim1ThisSize, dim2ThisSize, dim3ThisSize].
+            %   size along each dimension to return.
+            %
+            % NB: Can only read files with variables having three dimensions:
+            % rowxcolumnxtime.                                                  @warning
+            thisFunction = 'ESPNetCDF.read';
+            ncid = netcdf.open(netCDFFilePath,'NC_NOWRITE');
+            try
+              varid = netcdf.inqVarID(ncid, varName);
+              data = netcdf.getVar(ncid,varid, startIdx - 1, thisSize);
+                % low level function, arrays start with index 0.
+            catch e
+              netcdf.close(ncid)
+              error('ESPNetCDF_read', [thisFunction, ': Impossible to read %s.'], ...
+                netCDFFilePath);
+            end
+        end
+    end
     methods
         function obj = ESPNetCDF(region, thisDate)
             % ESPNetCDF constructor, initializes global/projection metadata
@@ -296,11 +326,19 @@ classdef ESPNetCDF < handle
             % Geotransform is a string separated by spaces and ended by a space.
 
             myRR = obj.region.getMapCellsReference();
-            GeoTransform = [...
+            GeoTransform = sprintf('%.20f %.20f 0.0 %.20f 0.0 %.20f ', ...
+              myRR.XWorldLimits(1), myRR.CellExtentInWorldX, myRR.YWorldLimits(2), ...
+              -1 * myRR.CellExtentInWorldY);
+              % don't use num2str here, since it rounds to 4 decimals, which might
+              % create a problem when cutting in comparison with other modis type tiles
+              % as mod10 2024-05-08 chat with Ross.
+%{
+            [...
                 num2str(myRR.XWorldLimits(1)), ' ', ...
                 num2str(myRR.CellExtentInWorldX), ' ', '0.0', ' ', ...
                 num2str(myRR.YWorldLimits(2)), ' ', '0.0', ' ', ...
                 num2str(-1 * myRR.CellExtentInWorldY), ' '];
+%}
             params = myRR.ProjectedCRS.ProjectionParameters;
 
             % 3.Define the crs variable. It is instantiated first with name 'sinusoidal'
@@ -557,7 +595,7 @@ classdef ESPNetCDF < handle
                     thisFieldName = theseFieldNames{fieldIdx};
                     obj.globalAttribute.(thisFieldName) = ...
                         obj.v2024_0Attribute.(thisFieldName);
-                end 
+                end
             end
 
             % Add runtime global attributes
@@ -577,16 +615,16 @@ classdef ESPNetCDF < handle
             regionConf = obj.region.myConf.region;
             obj.globalAttribute.geospatial_bounds_crs = 'EPSG:4326';
             obj.globalAttribute.geospatial_bounds = ['POLYGON((', ...
-                num2str(regionConf.boxLatitude1(1)), ' ', ...
-                num2str(regionConf.boxLongitude1(1)), ', ', ...
-                num2str(regionConf.boxLatitude2(1)), ' ', ...
-                num2str(regionConf.boxLongitude2(1)), ', ', ...
-                num2str(regionConf.boxLatitude3(1)), ' ', ...
-                num2str(regionConf.boxLongitude3(1)), ', ', ...
-                num2str(regionConf.boxLatitude4(1)), ' ', ...
-                num2str(regionConf.boxLongitude4(1)), ', ', ...
-                num2str(regionConf.boxLatitude1(1)), ' ', ...
-                num2str(regionConf.boxLongitude1(1)), '))'];
+                sprintf('%.8f', regionConf.boxLatitude1), ' ', ...
+                sprintf('%.8f', regionConf.boxLongitude1), ', ', ...
+                sprintf('%.8f', regionConf.boxLatitude2), ' ', ...
+                sprintf('%.8f', regionConf.boxLongitude2), ', ', ...
+                sprintf('%.8f', regionConf.boxLatitude3), ' ', ...
+                sprintf('%.8f', regionConf.boxLongitude3), ', ', ...
+                sprintf('%.8f', regionConf.boxLatitude4), ' ', ...
+                sprintf('%.8f', regionConf.boxLongitude4), ', ', ...
+                sprintf('%.8f', regionConf.boxLatitude1), ' ', ...
+                sprintf('%.8f', regionConf.boxLongitude1), '))'];
         end
         function obj = setVariable(obj, var, ...
                 varName, varType, attribute)
@@ -617,7 +655,7 @@ classdef ESPNetCDF < handle
                     % '_FillValue' in netcdf file.
                     % NB: cant use putAtt() for FillValue, 2024-01-09.
                     % NB: default behavior of ncread() when FillValue set to true
-                    % is to load the data as double (even if they are stored as uint8.
+                    % is to load the data as double (even if they are stored as uint8).
                     netcdf.defVarFill(obj.ncid, varID, false, ...
                         attribute.(theseFieldnames{i}));
                 else
@@ -811,7 +849,8 @@ classdef ESPNetCDF < handle
                 writeNetCDFField = 'v2024_0';
                   % NB: all this should be translated using configuration of
                   % versionvariables rather than of variables.                     @todo
-                if strcmp(region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2023.1')
+                if ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, ...
+                  {'v2023.0e', 'v2023.1'})
                     writeNetCDFField = 'v2023_1';
                 elseif strcmp(region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2022.0')
                     writeNetCDFField = 'v2022_0';
