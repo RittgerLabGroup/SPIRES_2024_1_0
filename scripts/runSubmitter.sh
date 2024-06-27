@@ -178,7 +178,7 @@ EOM
         # If in error with exit 1, add the task in the resubmission list.
 : '
         # For testing purpose:
-        if [[ $thisTaskId -eq 364001 || $thisTaskId -eq 364002 ]] && [[ ! -v isErrorDone ]]; then 
+        if [[ $thisTaskId -eq 364001 || $thisTaskId -eq 364002 ]] && [[ ! -v isErrorDone ]]; then
           thisStatus="; end:ERROR; Exit=1, Defective node, impossible to login;"
           isErrorDone=1
         fi
@@ -254,7 +254,7 @@ EOM
     countOfTaskIdDone=$(printf "$updatedSynthesis" | grep "end:DONE" | wc -l)
     printf "Jobs done: ${countOfTaskIdDone}/${countOfTaskId}.\n\n"
   done
-  
+
   if [[ firstTaskInError -ne 1 ]]; then
     # We save the synthesis only if first task done.
     printf "$updatedSynthesis" >> $jobSynthesisFilePath
@@ -264,21 +264,31 @@ EOM
   #                                                                                @todo
   # USE A PARAM TO ACTIVATE/DEACTIVATE RESUBMISSION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   #if [[ $sbatchSubmitLine == *" -r "* ]]
-  
+
   # Next jobs in the pipeline.
   # Reset of dependency (necessary if some of tasks went on error exit=1).
   if [ -z $isFatal ]; then
-    
+
     if [[ firstTaskInError -eq 1 ]]; then
       # If first task in error we relaunch the full job, the first task in error may
       # have not submitted the next job in pipeline. We also exclude the nodes which
       # failed
+
+      # Adding nodes to exclude (similar code to above).
       if [[ ! -z ${nodesToExclude} ]]; then
         nodesToExclude=$(echo $nodesToExclude | sed 's~,$~~')
-        submitLine=$(echo ${submitLine} | sed -E "s~( --exclude=[]\[a-zA-Z0-9\,\-]+) ~\1,${nodesToExclude} ~")
-          # NB: regexp requires that if [ is part of a group, it be placed just after
-          # the opening [ of the group.
+        if [[ $submitLine == *" --exclude="* ]]; then
+          submitLine=$(echo ${submitLine} | sed -E "s~( --exclude=[]\[a-zA-Z0-9\,\-]+) ~\1,${nodesToExclude} ~")
+            # NB: regexp requires that if [ is part of a group, it be placed just after
+            # the opening [ of the group.
+        else
+          submitLine=$(echo ${submitLine} | sed -E "s~ --array=~ --exclude=${nodesToExclude} --array=~")
+        fi
       fi
+
+      submitLine=$(echo ${submitLine} | sed -E "s~ --dependency=[a-zA-Z0-9\:\,]+~~")
+          # We also remove the dependency otherwise slurm raises an error (if the
+          # dependent job is achieved).
       printf "Full resubmission because first task in error, submitLine:\n"
       echo "${submitLine}"
       thatArrayJobId=$($submitLine)

@@ -28,6 +28,7 @@
 #
 # Arguments:
 #
+#SBATCH --export=NONE
 #SBATCH --qos normal
 # Caller can override this with tileID
 #SBATCH --job-name Spires

@@ -9,6 +9,7 @@
 #
 # Arguments:
 #
+#SBATCH --export=NONE
 #SBATCH --qos normal
 # Caller can override this job-name with specifics
 #SBATCH --job-name mosSpi

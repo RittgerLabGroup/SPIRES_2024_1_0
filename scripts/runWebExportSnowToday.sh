@@ -216,7 +216,7 @@ try;
 
   % Trigger web-app ingest.
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % exporter.generateAndExportTrigger(); % Beware this will launch ingestion.
+  exporter.generateAndExportTrigger(); % Beware this will launch ingestion.
 
 ${catchExceptionAndExit}
 

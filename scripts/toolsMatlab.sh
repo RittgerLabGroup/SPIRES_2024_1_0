@@ -11,9 +11,16 @@ SECONDS=0
 set_slurm_array_task_id $defaultSlurmArrayTaskId
 log_level_1 "start"
 
-
+printf "Environment \$PATH: ${PATH}.\n"
+printf "Loading matlab/R2021b...\n"
 module purge
 ml matlab/R2021b
+printf "Environment \$PATH: ${PATH}.\n"
+
+if [ -z $(echo ${PATH} | grep "/curc/sw/matlab/R2021b/bin") ]; then
+  printf "Failed to load matlab/R2021b.\n"
+  error_exit "Exit=1, matlab=no, Failed to load matlab/R2021b."
+fi
 
 #Make a unique temporary directory for matlab job storage
 #Set TMPDIR/TMP to this location so job array uses it for tmp location
@@ -26,4 +33,4 @@ mkdir -p $tmpDir
 export TMPDIR=$tmpDir
 export TMP=$tmpDir
 matlabLaunched=1
-echo "Matlab launched (?) with tmpDir=${tmpDir}\n"
+printf "Matlab launched (?) with tmpDir=${tmpDir}\n"

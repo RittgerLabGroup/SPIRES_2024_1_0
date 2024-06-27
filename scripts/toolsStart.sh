@@ -146,6 +146,13 @@ printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
 printf "$(bash --version | grep version | head -1)\n"
 printf "#############################################################################\n\n"
 
+if [ ! -z $CURC_CONTAINER_DIR_OOD ]; then
+  printf "/etc/bashrc executed.\n"
+fi
+if [ ! -z $espWebExportUser ]; then
+  printf ".bashrc executed.\n"
+fi
+
 # 1. Check that the slurm node has logged in and has the slurm environment
 ########################################################################################
 if [ -v SLURM_JOB_ID ] && [ ! -v USER ]; then
@@ -203,7 +210,7 @@ if [ -v SLURM_JOB_ID ]; then
   # ${SLURM_JOB_ACCOUNT} is not set when interactive.
   slurmBatchHost=$(echo "$thisSControl" | grep BatchHost | cut -d = -f 2)
   slurmCommand=$(echo "$thisSControl" | grep Command | cut -d = -f 2)
-  # the "" are there to keep displaying the \n using echo command.
+  # the "" are there to keep displaying the\n using echo command.
   slurmMailType=$(echo "$thisSControl" | grep MailType | cut -d = -f 2)
   slurmMailUser=$(echo "$thisSControl" | grep MailUser | cut -d = -f 2)
   slurmNodeList=$(echo "$thisSControl" | grep NodeList | grep -v Req | grep -v Exc | cut -d = -f 2)
@@ -224,9 +231,9 @@ if [ -v SLURM_JOB_ID ]; then
 
   thisSControlAlloc=$(echo "$thisSControl" | grep AllocTRES | sed 's/AllocTRES=//' | tr ',' '\n')
   if [ ! -z "$thisSControlAlloc" ]; then
-    # NB: the "" around $thisSControlAlloc are important to keep it a string without \n$
+    # NB: the "" around $thisSControlAlloc are important to keep it a string without\n$
     # otherwise the condition doesnt work (msg -bash: [: too many arguments)
-    # NB: the "" around the variable are important to keep displaying the \n using echo.
+    # NB: the "" around the variable are important to keep displaying the\n using echo.
     # -z: test if variable empty string. Beware -v only test if variable exists.
     slurmMem=$(echo "$thisSControlAlloc" | grep mem | cut -d = -f 2)
     slurmNTasksPerNode=$(echo "$thisSControlAlloc" | grep cpu | cut -d = -f 2)
@@ -447,7 +454,7 @@ if [ -v SLURM_ARRAY_TASK_ID ]; then
   # right.
   # Here, $thisSequence can be defined either in main script constants or in pipeline
   # configuration.
-  if [ -v thisSequence ] && [ "$thisSequence" != "0" ]; then
+  if [ -v thisSequence ] && [ "$thisSequence" != "" ] && [ "$thisSequence" != "0" ]; then
     cellIdx=$((10#${objectId: -3}))
     objectId=${objectId::-3}
     countOfCells=$((10#${slurmArrayTaskIds: -3}))
@@ -457,7 +464,7 @@ if [ -v SLURM_ARRAY_TASK_ID ]; then
 fi
 # Option -b, default first to last index of object/cell to handle.
 firstToLastIndex=1-65535
-if [ -v thisSequence ] && [ "$thisSequence" != "0" ]; then
+if [ -v thisSequence ] && [ "$thisSequence" != "" ] && [ "$thisSequence" != "0" ]; then
   if [ ! -v thisSequenceMultiplierToIndices ]; then
     thisSequenceMultiplierToIndices=1
   fi
@@ -633,7 +640,7 @@ firstToLastIndexArray=(${firstToLastIndex//-/ })
 firstIndex=${firstToLastIndexArray[0]}
 lastIndex=${firstToLastIndexArray[1]}
 
-if [ ! -v regionName ] && [ ${objectId} -lt 1300 ]; then
+if [[ ! -v regionName ]] && [[ ${objectId} -lt 1300 ]]; then
   regionName=${allRegionNames[$objectId]}
   # $allRegionNames defined in toolsRegions.sh.
 fi
@@ -747,8 +754,8 @@ EOM
 ########################################################################################
 # Limited to the first task id, = first object of the group which are tackled by
 # SLURM_ARRAY_JOB_ID.
-if [ -v isBatch ] && [ -v isToBeRepeated ] && [ $isToBeRepeated -eq 1 ] && \
-[ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ]; then
+if [[ -v isBatch ]] && [[ -v isToBeRepeated ]] && [[ $isToBeRepeated -eq 1 ]] && \
+[[ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ]]; then
 
   thisTime=$(date +%H:%M:%S)
   repeatBeginTime=

@@ -54,7 +54,7 @@ pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:20:00 00:20:00 00:30:00 00:30:00 0
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
-:'
+: '
 pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daGeoBig daStatis webExpSn)
 pipeLineLabels1=(v061 v2024.0c v2024.0c v2024.0 v2024.0 v2024.0 v2024.0 v2024.0 v2024.0 v2024.0)
 pipeLineRegionTypes1=(0 0 0 0 0 0 1 1 1 10)
@@ -72,7 +72,7 @@ pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:20:00 00:20:00 00:30:00 00:30:00 0
 # NB: daStatis: time for 3 subdivisions only.
 '
 
-:'
+: '
 pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daMosBig daGeoBig daStatis webExpSn ftpExpor)
 pipeLineLabels1=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
 pipeLineRegionTypes1=(0 0 0 0 0 1 1 1 10 10)

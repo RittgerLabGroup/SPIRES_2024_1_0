@@ -10,6 +10,7 @@
 #
 # Arguments:
 #
+#SBATCH --export=NONE
 #SBATCH --qos normal
 # Caller can override this with regionName
 #SBATCH --job-name SCD-regionName

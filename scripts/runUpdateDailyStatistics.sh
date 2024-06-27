@@ -4,6 +4,7 @@
 #   calculates and save the daily statistics for all the landsubdivisions having a
 #   specific source region, e.g. westernUS, for a set of waterYears.
 
+#SBATCH --export=NONE
 #SBATCH --qos normal
 # formerly SBATCH --partition=amilan 2023-11-21
 #SBATCH --job-name 3HistST
@@ -77,6 +78,8 @@ usage() {
   echo "  where directory /scratch/alpine/$USER/slurm_out_SnowToday/ " 1>&2
   echo "  is assumed to exist" 1>&2
 }
+
+export SLURM_EXPORT_ENV=ALL
 
 # Core script.
 ########################################################################################
