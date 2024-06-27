@@ -4,7 +4,7 @@ This page develops the submission of the daily update of nrt snow property data 
 
 ## Introduction
 
-Every day runSubmitter.sh script is launched to submit the series of scripts that forms the import, snow property calculation, and production of output files, which are transferred to the website, and also should be transferred to the ftp (To be implemented 2024-06-13). In other words, the job submitted launching runSubmitter.sh manages the jobs of the pipeline.
+Every day runSubmitter.sh script is launched to submit the series of scripts that forms the import, snow property calculation, and production of output files, which are transferred to the website, and also should be transferred to the ftp (To be implemented 2024-06-27). In other words, the job submitted launching runSubmitter.sh manages the jobs of the pipeline.
 
 runSubmitter.sh will run enough time to launch the successive scripts as slurm jobs, to capture the exit status of the jobs, and in case of error, resubmit the job.
 
@@ -32,11 +32,21 @@ For the first step, the tasks are split among the sensor (modis) tiles. But the 
 - 
 The ids of tiles and big regions are stored in `tbx/conf/configuration_of_regions.csv` (field: id) and the ids of all land subdivisions are stored in `tbx/conf/configuration_of_landsubdivisions.csv` (field: id). All ids are unique, and a tile id cannot be the same as a land subdivision id. These ids are given as task ids in the argument --array of the sbatch command.
 
+## Cases/Fails/Errors not handled in runSubmitter.sh
+
+**Dual cancel error**
+
+This case happens when a sub-job (spiFillC or others) is cancelled because of time-limit and the job updating the status line in the log of that sub-job (endlogxxx) is cancelled too.
+
+Rarely, the Alpine or Blanca clusters shut down or the nodes are set in unstable state, which make the sub-jobs (spiFillC, etc...) stagnating until they are cancelled due to time limit. In that case, the jobs updating the status end line of the logs of thesub-jobs (endlogxxx) can also be cancelled due to time limit and not update the status end-line of the sub-jobs. In that case, runSubmitter runs until time-limit without getting the final status of the sub-jobs. This error can be compensated by:
+- cancelling all the submitted/running jobs for Snow-Today.
+- resubmitting from start runSubmitter.sh.
+
 ## Spires pipeline scripts
 
 The most recent series of scripts are in scripts/configuration.sh. These scripts are called main scripts and technically, they generate the string of matlab call which will be executed by a call to scripts/toolsStop.sh.
 
-At date of writing (2024-06-13), the scripts are launched in the following order:
+At date of writing (2024-06-27), the scripts are launched in the following order:
 
 - mod09gaI, `./scripts/runGetMod09gaFiles.sh`: import of the daily mod09ga tiles, historic and if absent, nrt tiles. TaskIds: tiles.
 - spiFillC, `./scripts/runSpiresFill.sh`: generation of the monthly spires gap files. TaskIds: tiles. Output consists of files corresponding to a cell cutting of each tile
@@ -94,4 +104,4 @@ sbatch --account=${slurmAccount} --qos=${slurmQos} -o ${slurmLogDir}%x_%a_%A.out
 
 Author: Sebastien Lenard
 
-Date of modification: 2024/06/13
+Date of modification: 2024-06-27
