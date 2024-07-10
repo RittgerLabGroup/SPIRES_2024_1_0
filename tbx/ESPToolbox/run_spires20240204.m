@@ -33,7 +33,7 @@ function out=run_spires20240204(R0,R,solarZ,Ffile,mask,shade,...
 
 % Seb 20240304: Add saving in spires fill files of several variables, with arguments fname, divisor, dtype.
 
-outvars={'fsca','fshade','grainradius','dust'};
+outvars={'fsca','fshade','grainradius','dust', 'spatial_grain_size_s', 'spatial_dust_concentration_s'};
 
 sz=size(R);
 
@@ -138,21 +138,25 @@ for i=1:sz(4) %for each day
         w=ones(length(pxR),1);
 
        o=speedyinvert(pxR,pxR0,sZ,Ffile,shade,1,1,w);
+       o.x(5) = o.x(3);
+       o.x(6) = o.x(4); % To save the original values grainradius and dust in positions 3 and 4, with positions 5 and 6 used for spatial grain size and dust. 20240614.
        %fsca too low for grain size, set for interpolation
        if o.x(1) < grain_thresh %|| o.x(2)>0.01
-          o.x(3)=NaN;
+          o.x(5)=NaN;
        end
 
         %fsca too low or too dark for dust
         if o.x(1) < dust_thresh %|| o.x(2)>0.01 %can be solved for dust
-           o.x(4)=NaN; 
+           o.x(6)=NaN; 
         end
         
         temp(j,:)=o.x;
     end
+    
+    
     %second pass, use interpolated dust/grain sizes
-    g=temp(:,3);
-    d=temp(:,4);
+    g=temp(:,5);
+    d=temp(:,6);
     tt_grain=~isnan(g);
     tt_dust=~isnan(d);
     if nnz(tt_grain) > 0 && nnz(tt_dust) > 0 % if there are solved dust/grain values
@@ -180,7 +184,7 @@ for i=1:sz(4) %for each day
 
             fs=temp(j,:);
             
-            temp(j,:)=[fs(1:2) G D];
+            temp(j,:)=[fs(1:4) G D];
         end
     end
 
@@ -188,7 +192,7 @@ for i=1:sz(4) %for each day
     for j=1:size(temp,1) % the unique indices
         idx=im{j}; %indices for each unique val
         for k=1:length(outvars)
-            repxx(idx,k)=temp(j,k); %fsca,fshade,grain size,dust
+            repxx(idx,k)=temp(j,k); %fsca,fshade,grain size,dust, spatial_grain_size_s, spatial_dust_concentration_s 20240624
         end
     end
     %now fill out all pixels
@@ -224,8 +228,8 @@ isNotNaNR = [];
 saveVariableForSpiresFill20240204(fname, isNotNaNR0, 'isNotNaNR0', 15, divisor, dtype, '-append');
 isNotNaNR0 = [];
 %}
-out.grainradius(out.fsca==0) = NaN; % Seb
-out.dust(out.fsca==0) = NaN; % Seb
+out.spatial_grain_size_s(out.fsca==0) = NaN; % Seb
+out.spatial_dust_concentration_s(out.fsca==0) = NaN; % Seb
 
 % SEB added save below.
 for i=1:length(outvars)
@@ -248,6 +252,10 @@ saveVariableForSpiresFill20240204(fname, out.grainradius, 'grainradius', 3, divi
 out.grainradius = [];
 saveVariableForSpiresFill20240204(fname, out.dust, 'dust', 4, divisor, dtype, '-append');
 out.dust = [];
+saveVariableForSpiresFill20240204(fname, out.spatial_grain_size_s, 'spatial_grain_size_s', 26, divisor, dtype, '-append');
+out.spatial_grain_size_s = [];
+saveVariableForSpiresFill20240204(fname, out.spatial_dust_concentration_s, 'spatial_dust_concentration_s', 27, divisor, dtype, '-append');
+out.spatial_dust_concentration_s = [];
 
 
 end

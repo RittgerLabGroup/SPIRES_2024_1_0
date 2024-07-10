@@ -1,8 +1,9 @@
 function out = saveVariableForSpiresSmooth20240204(i, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag)
     tic;
-    fprintf('Saving variable %d...\n', i);
-    %for i=1:length(outvars)
     member=outnames{i};
+    fprintf('Saving variable %d/%s...\n', i, member);
+    %for i=1:length(outvars)
+    
     Value=out.(outvars{i});
     dS.(member).divisor=outdivisors(i);
     dS.(member).dataType=outdtype{i};
