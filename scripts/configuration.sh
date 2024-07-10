@@ -32,6 +32,20 @@ thoseVersionsOfAncillary[328]=v3.1
 thoseVersionsOfAncillary[329]=v3.1
 thoseVersionsOfAncillary[364]=v3.1
 thoseVersionsOfAncillary[5]=v3.1
+# v3.2 regions: 255,291,326,327,362,363,398,399,433,434,469,470 USAlaska
+thoseVersionsOfAncillary[255]=v3.2
+thoseVersionsOfAncillary[291]=v3.2
+thoseVersionsOfAncillary[326]=v3.2
+thoseVersionsOfAncillary[327]=v3.2
+thoseVersionsOfAncillary[362]=v3.2
+thoseVersionsOfAncillary[363]=v3.2
+thoseVersionsOfAncillary[398]=v3.2
+thoseVersionsOfAncillary[399]=v3.2
+thoseVersionsOfAncillary[433]=v3.2
+thoseVersionsOfAncillary[434]=v3.2
+thoseVersionsOfAncillary[469]=v3.2
+thoseVersionsOfAncillary[470]=v3.2
+thoseVersionsOfAncillary[1]=v3.2
 
 ########################################################################################
 # Configuration of pipelines with succession of scripts and versions of file data.
@@ -66,7 +80,8 @@ pipeLineParallelWorkersNb1=(0 18 10 10 0 2 6 0 0 0)
 
 # sbatch parameters
 pipeLineTasksPerNode1=(1 18 10 10 5 2 6 1 1 1)
-pipeLineMems1=(1G 120G 30G 40G 30G 5G 30G 8G 8G 3G)
+pipeLineMems1=(1G 140G 30G 40G 30G 5G 30G 8G 8G 3G)
+# 120G replaced by 140G for 2 months may-june.
 pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:20:00 00:20:00 00:30:00 00:30:00 00:20:00 01:00:00 01:00:00)
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
