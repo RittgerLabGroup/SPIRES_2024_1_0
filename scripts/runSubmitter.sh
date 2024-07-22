@@ -110,7 +110,8 @@ while [ ! -z $thatArrayJobId ]; do
   jobName=$(echo $submitLine | sed -E 's~[^@]+ --job-name=([/_%\.0-9a-zA-Z]+) [^@]+~\1~')
   printf "Track logs of ${jobName} ${thatArrayJobId}, for submitLine:\n"
   echo "${submitLine}"
-  logFilePathPattern=$(echo $submitLine | sed -E 's~[^@]+ -o ([/_%\.0-9a-zA-Z]+) [^@]+~\1~')
+  logFilePathPattern=$(echo $submitLine | sed -E 's~[^@]+ -o ([/_%\.0-9a-zA-Z\-]+) [^@]+~\1~')
+    # Nb: \- should always be at the end of a regexp pattern.
   echo "$logFilePathPattern"
 
   # taskIds form the list of unique objects for which the job is required.
@@ -170,7 +171,7 @@ EOM
     for ((idx = 0 ; idx < $countOfTasksForArrayJobIds ; idx++ )); do
       thisTaskId=${tasksForArrayJobIds[$idx]}
       thisArrayJobId=${arrayJobIds[$idx]}
-      thisLogFilePath=$(echo $logFilePathPattern | sed -E "s~/%[a-zA-Z_]+%a_([0-9_]*)%A~/*${thisTaskId}_\1${thisArrayJobId}~")
+      thisLogFilePath=$(echo $logFilePathPattern | sed -E "s~/%[a-zA-Z_]+%a_([0-9_\-]*)%A~/*${thisTaskId}_\1${thisArrayJobId}~")
       echo ${thisLogFilePath}
       thisStatus=""
       if [ -f ${thisLogFilePath} ]; then
@@ -301,7 +302,7 @@ EOM
       idx=0
       thisTaskId=${tasksForArrayJobIds[$idx]}
       thisArrayJobId=${arrayJobIds[$idx]}
-      thisLogFilePath=$(echo $logFilePathPattern | sed -E "s~/%[a-zA-Z_]+%a_([0-9_]*)%A~/*${thisTaskId}_\1${thisArrayJobId}~")
+      thisLogFilePath=$(echo $logFilePathPattern | sed -E "s~/%[a-zA-Z_]+%a_([0-9_\-]*)%A~/*${thisTaskId}_\1${thisArrayJobId}~")
       echo $thisLogFilePath
       submitLine=$(cat $thisLogFilePath | grep "Next pipeline sbatch: " -A 1 | tail -2 | sed 's~%~%%~g')
       thatArrayJobId=$(printf "$submitLine" | grep "Submitted batch" | cut -d ' ' -f 4)
