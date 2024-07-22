@@ -157,11 +157,15 @@ function [out,fname,vars,divisor,dtype]=fill_and_run_modis20240204(region, matda
     %       = 0 and grainsize/dust = NaN.
     
     for i=1:length(m)
+        tForFill = tic;
         idx=dv(:,2)==m(i);
         rundates=matdates(idx);
         fname=fullfile(outloc, datestr(rundates(end),'yyyy'), [nameprefix , '_', datestr(rundates(1),'yyyymm') '.mat']); % Seb 20240204
         %lockname=fullfile(outloc,[nameprefix '_', datestr(rundates(1),'yyyymm') '.matlock']); % Seb 20240204
 
+        if ~isdir(fullfile(outloc, datestr(rundates(end),'yyyy')))
+          mkdir(fullfile(outloc, datestr(rundates(end),'yyyy')));
+        end
         % Seb 20240204
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         thisHdfbasedir = fullfile(hdfbasedir, regionName, datestr(rundates(1),'yyyy'));   
@@ -191,6 +195,8 @@ function [out,fname,vars,divisor,dtype]=fill_and_run_modis20240204(region, matda
         [R,solarZ,~,~]=...
             fillMODIScube20240204(tiles,rundates,thisHdfbasedir,net,red_b,swir_b, fname, divisor, dtype);
             % thisHdfbasedir. Seb 20240204.
+        fprintf('Fill for %s done in %.2f min.\n', datestr(rundates(end),'mm'), toc(tForFill) / 60);
+        
         bweights = [];
         out=run_spires20240204(R0,R,solarZ,Ffile,mask,shade,...
             grain_thresh,dust_thresh,tolval,red_b,swir_b,bweights, fname, divisor, dtype, region);

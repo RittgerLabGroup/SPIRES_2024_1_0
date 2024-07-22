@@ -53,7 +53,15 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     maxdust = 950;
     mingrainradius = 40;
     maxgrainradius = 1190;
-    el_cutoff = 500; 
+    
+    regionName = region.name; % Seb 2024-03-02
+    % 2024-07-12. No elevation min for other regions than westernUS
+    el_cutoff = 0;
+    if ismember(regionName, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'})
+      el_cutoff = 500;
+    end
+    fprintf('WARNING: Elevation threshold below which snow fraction = 0.\n');
+
     fsca_thresh = 0.10;
     b_R = 2.7;
     dust_rg_thresh = 300;
@@ -70,7 +78,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     columnStartId = uint32(countOfPixels / sqrt(countOfCells) * (floor((cellIdx - 1) / sqrt(countOfCells))) + 1);
     columnEndId = uint32(columnStartId + countOfPixels / sqrt(countOfCells) - 1);
     
-    regionName = region.name; % Seb 2024-03-02
+    
     espEnv = region.espEnv;
     scratchPath = espEnv.scratchPath;
     if ismember(regionName, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) % Sen 2024-03-02 Special handling of westernUs with Ned's ancillaries.
@@ -113,7 +121,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
    
     % 2024-07-03 wateryear rather than year
     firstMonthOfWaterYear= 10;
-    waterYear = WaterYearDate.getWaterYearFromDate(datetime(matdates(end), ConvertFrom = 'datenum'), firstMonthOfWaterYear)
+    waterYear = WaterYearDate.getWaterYearFromDate(datetime(matdates(end), ConvertFrom = 'datenum'), firstMonthOfWaterYear);
     fileName = ['spiressmooth_', regionName, '_', num2str(waterYear), ...
         '_', num2str(rowStartId), '_', num2str(rowEndId), '_', num2str(columnStartId), '_', num2str(columnEndId), '.', ...
         region.espEnv.modisData.versionOf.modisspiressmooth, '.h5']; % Seb 20240227 name.
@@ -170,15 +178,24 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
         'uint8', 'uint8', 'uint8', 'uint8', 'uint8', 'uint8', 'uint8', ...
         'int16', '', '', '', '', '', '', 'uint16', 'uint16'};
 
-    dv=datevec(matdates);
-    dv=dv(dv(:,3)==1,:);
+    firstDateOfMonthForSmoothing = datetime(matdates, convertFrom = 'datenum');
+    
+    % Smoothing includes the 3 months before start of the waterYear if we have less than 6 months of data for the waterYear. 2024-07-10.
+    indicesToSave = 1:length(firstDateOfMonthForSmoothing);
+    if calmonths(between(datetime(matdates(1), convertFrom = 'datenum'), datetime(matdates(end), convertFrom = 'datenum'))) <= 6
+        datesToAdd = (datetime(matdates(1), convertFrom = 'datenum') - calmonths(3)) : (datetime(matdates(1), convertFrom = 'datenum') - caldays(1));
+        firstDateOfMonthForSmoothing = [datesToAdd, firstDateOfMonthForSmoothing];
+        indicesToSave = (length(datesToAdd) + 1) : length(firstDateOfMonthForSmoothing);    
+    end
+    firstDateOfMonthForSmoothing = firstDateOfMonthForSmoothing(day(firstDateOfMonthForSmoothing) == 1);
     %check that full set of matdates exists
-    for i=1:size(dv,1)
+    % 2024-07-10. Simplify use of date functions of firstDateOfMonthForSmoothing (former dv).
+    for i=1:size(firstDateOfMonthForSmoothing,1)
         inloc = [scratchPath, 'modis/intermediary/spiresfill_', ...
             region.espEnv.modisData.versionOf.modisspiresfill, ...
-            '/v006/', regionName, '/', datestr(dv(i,:),'yyyy'), '/']; 
+            '/v006/', regionName, '/', char(firstDateOfMonthForSmoothing(i), 'yyyy'), '/']; 
             % Seb 20240204 location of input distinct from output.
-        fname=fullfile(inloc,[regionName, '_', datestr(dv(i,:),'yyyymm'), ...
+        fname=fullfile(inloc,[regionName, '_', char(firstDateOfMonthForSmoothing(i), 'yyyyMM'), ...
             '_', num2str(rowStartId), '_', num2str(rowEndId), '_', num2str(columnStartId), '_', num2str(columnEndId), '.mat']);
             % Seb 20240227: change of input filename (cell-dependent).
         %if fname doesn't exist,  delete lock, throw error
@@ -192,11 +209,11 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     out.matdates=matdates;
     
 %{
-    for i=1:size(dv,1)
+    for i=1:size(firstDateOfMonthForSmoothing,1)
         fprintf('Handling wateryear month %d...\n', i);
-        inloc = [scratchPath, 'modis/intermediary/spiresfill_v2024.0/v006/', regionName, '/', datestr(dv(i,:),'yyyy'), '/']; 
+        inloc = [scratchPath, 'modis/intermediary/spiresfill_v2024.0/v006/', regionName, '/', datestr(firstDateOfMonthForSmoothing(i,:),'yyyy'), '/']; 
             % Seb 20240204 location of input distinct from output.
-        fname=fullfile(inloc,[regionName, '_', datestr(dv(i,:),'yyyymm'), '.mat']);
+        fname=fullfile(inloc,[regionName, '_', datestr(firstDateOfMonthForSmoothing(i,:),'yyyymm'), '.mat']);
         m=matfile(fname);
 
         if i==1
@@ -205,7 +222,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
                     length(matdates)],'single');
             end
         end
-        doy_start=datenum(dv(i,:))-datenum(dv(1,:))+1;
+        doy_start=datenum(firstDateOfMonthForSmoothing(i,:))-datenum(firstDateOfMonthForSmoothing(1,:))+1;
         doy_end=doy_start+size(m.fsca,3)-1;
 
         %convert to single and scale
@@ -231,17 +248,17 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     % - all fsca is set to 0 when mask = 1.
     
     %store raw values before any adjustments
-    out = loadVariableForSpiresSmooth20240204(1, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading fsca.
+    out = loadVariableForSpiresSmooth20240204(1, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading fsca.
     % out.fsca_raw=out.fsca; moved down Seb 20240318.
-    saveVariableForSpiresSmooth20240204(10, outvars, outnames, outdtype, outdivisors, out, h5name, '-new'); % Seb 20240204-0624 save raw_viewable_snow_fraction_s (formerly gap_fsca). dont take out, for which fsca_raw has been deleted.
+    saveVariableForSpiresSmooth20240204(10, outvars, outnames, outdtype, outdivisors, out, h5name, '-new', indicesToSave); % Seb 20240204-0624 save raw_viewable_snow_fraction_s (formerly gap_fsca). dont take out, for which fsca_raw has been deleted.
 
     %run binary fsca mask through temporal filter
     % grainradius
-    out = loadVariableForSpiresSmooth20240204(3, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240624 Loading grainradius.
-    out = saveVariableForSpiresSmooth20240204(38, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save raw_grain_size_s (initially calculated grainradius) and remove it from out.
-    out = loadVariableForSpiresSmooth20240204(35, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240624 Loading spatial_grain_size_s.
+    out = loadVariableForSpiresSmooth20240204(3, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240624 Loading grainradius.
+    out = saveVariableForSpiresSmooth20240204(38, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save raw_grain_size_s (initially calculated grainradius) and remove it from out.
+    out = loadVariableForSpiresSmooth20240204(35, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240624 Loading spatial_grain_size_s.
     out.grainradius = out.spatial_grain_size_s; % grainradius for the smoothing is spatial_grain_size_s.
-    out = saveVariableForSpiresSmooth20240204(35, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save spatial_grain_size_s and remove it from out.
+    out = saveVariableForSpiresSmooth20240204(35, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save spatial_grain_size_s and remove it from out.
     out.tmask=out.fsca>fsca_thresh & out.grainradius > mingrainradius;
     fprintf('Starting movingPersist...\n');
     tic
@@ -255,7 +272,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     out.fsca(~out.tmask)=0;
     % out.fsca_raw(~out.tmask)=0; SEB 2024-03-18
     
-    out = saveVariableForSpiresSmooth20240204(29, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save (and delete from out) cloudMaskMovingPersist (tmask).
+    out = saveVariableForSpiresSmooth20240204(29, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save (and delete from out) cloudMaskMovingPersist (tmask).
 
     % 3. - Load sensor_zenith,
     % - Calculate canopy correction factor with canopy cover, sensor_zenith, using GOvgf
@@ -283,13 +300,13 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     t=out.fsca==0;
 
     %use GO model
-    out = loadVariableForSpiresSmooth20240204(6, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading sensorZ.
+    out = loadVariableForSpiresSmooth20240204(6, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading sensorZ.
     fprintf('Starting GOvgf...\n');
     tic;
     cc_adj=1-GOvgf(cc,0,0,out.sensorZ,0,b_R);
     fprintf('Done Govgf in %f secs.\n', toc);
     
-    out = saveVariableForSpiresSmooth20240204(6, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save and remove sensor_zenith (formerly sensorZ).
+    out = saveVariableForSpiresSmooth20240204(6, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save and remove sensor_zenith (formerly sensorZ).
     clear cc;
     
     fprintf('Loading fice...\n');
@@ -299,18 +316,18 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     out.fsca_raw=out.fsca; % Seb 2024-03-18. Moved down here to lower mem use.
 
     %combine cc and fshade adjustment
-    out = loadVariableForSpiresSmooth20240204(2, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading fshade.
+    out = loadVariableForSpiresSmooth20240204(2, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading fshade.
     tic;
     fprintf('Starting fice...\n');
     out.fsca=out.fsca./(1-cc_adj-out.fshade-fice);
     if ~fshadeIsInterpolated
-        out = saveVariableForSpiresSmooth20240204(40, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save and remove raw_shade_fraction_s (formerly fshade).
+        out = saveVariableForSpiresSmooth20240204(40, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save and remove raw_shade_fraction_s (formerly fshade).
     end
     out.fsca(out.fsca>1 | out.fsca<0)=1;
     %fix 0/0
     out.fsca(t)=0;
     fprintf('Done fice in %f secs.\n', toc);
-    saveVariableForSpiresSmooth20240204(30, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save canopy corrected raw_snow_fraction_s, formerly cc_snow_fraction.
+    saveVariableForSpiresSmooth20240204(30, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save canopy corrected raw_snow_fraction_s, formerly cc_snow_fraction.
 
     %elevation filter
     % [Z,hdr]=GetTopography(topofile,'elevation'); %Seb20240204 moved on top of function.
@@ -327,10 +344,10 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     clear Zmask; % Seb 20240204.
     fprintf('Done masking in %f secs.\n', toc);
 
-    saveVariableForSpiresSmooth20240204(31, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save gap_viewable_snow_fraction_s (formerly presmoothed raw snow_fraction).
-    saveVariableForSpiresSmooth20240204(32, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save gap_snow_fraction_s (formerly presmoothed snow_fraction).
+    saveVariableForSpiresSmooth20240204(31, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save gap_viewable_snow_fraction_s (formerly presmoothed raw snow_fraction).
+    saveVariableForSpiresSmooth20240204(32, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save gap_snow_fraction_s (formerly presmoothed snow_fraction).
     
-    out = loadVariableForSpiresSmooth20240204(5, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading weights.
+    out = loadVariableForSpiresSmooth20240204(5, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading weights.
     newweights=out.weights;
     newweights(isnan(out.fsca))=0;
 
@@ -378,11 +395,11 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
         out.fshade(out.fsca_raw<fsca_thresh)=0;
         out.fshade(bigmask)=NaN;
         clear bigmask; % Seb 20240204.
-        out = saveVariableForSpiresSmooth20240204(2, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save and remove fshade.
+        out = saveVariableForSpiresSmooth20240204(2, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save and remove fshade.
         fprintf('Filtered fshade in %d secs.\n', toc);
     end
     
-    out = saveVariableForSpiresSmooth20240204(8, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save and remove viewable_snow_fraction_s (formerly fsca_raw).
+    out = saveVariableForSpiresSmooth20240204(8, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save and remove viewable_snow_fraction_s (formerly fsca_raw).
     
     
     %fix values below thresh to ice values
@@ -402,11 +419,11 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     
     anyfsca=any(out.fsca,3);
     
-    out = loadVariableForSpiresSmooth20240204(4, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240624 Loading initial dust.
-    out = saveVariableForSpiresSmooth20240204(39, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save raw_dust_concentration_s (initially calculated dust) and remove it from out.
-    out = loadVariableForSpiresSmooth20240204(36, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204-0624 Loading spatialdust (formerly dust).
+    out = loadVariableForSpiresSmooth20240204(4, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240624 Loading initial dust.
+    out = saveVariableForSpiresSmooth20240204(39, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save raw_dust_concentration_s (initially calculated dust) and remove it from out.
+    out = loadVariableForSpiresSmooth20240204(36, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204-0624 Loading spatialdust (formerly dust).
     out.dust = out.spatial_dust_concentration_s; % dust for smoothing is spatial_dust_concentration_s.
-    out = saveVariableForSpiresSmooth20240204(36, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save spatial_dust_concentration_s and remove it from out.
+    out = saveVariableForSpiresSmooth20240204(36, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save spatial_dust_concentration_s and remove it from out.
 
     fprintf('Filtering on grainradius/dust...\n');
     tic;
@@ -424,12 +441,12 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     %don't set out.grainradius to nan where fsca==0 until later
     %this helps maintain high grain size values
     % Save gap_grain_size_s and gap_dust_concentration_s 20240624.
-    saveVariableForSpiresSmooth20240204(41, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save gap_grain_size_s (presmoothed grain size) and not remove it from out.
-    saveVariableForSpiresSmooth20240204(42, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save gap_dust_concentration_s (presmoothed dust) and not remove it from out.
+    saveVariableForSpiresSmooth20240204(41, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save gap_grain_size_s (presmoothed grain size) and not remove it from out.
+    saveVariableForSpiresSmooth20240204(42, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save gap_dust_concentration_s (presmoothed dust) and not remove it from out.
 
     % create new weights for grain size and dust
     newweights=out.weights;
-    out = saveVariableForSpiresSmooth20240204(5, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save and remove time_interp_weight_s (formerly weights).
+    out = saveVariableForSpiresSmooth20240204(5, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save and remove time_interp_weight_s (formerly weights).
     newweights(isnan(out.grainradius) | out.fsca==0)=0;
     
     if size(out.grainradius, 3) < 365
@@ -568,7 +585,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     out.grainradius(out.grainradius>maxgrainradius)=maxgrainradius;
     out.grainradius(out.fsca==0)=NaN;
     fprintf('Done filtering on grainradius in %f secs.\n', toc);
-    saveVariableForSpiresSmooth20240204(3, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save smoothed grainradius but not remove.
+    saveVariableForSpiresSmooth20240204(3, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save smoothed grainradius but not remove.
 
     %clean up out of bounds splines
     fprintf('Filtering on dust...\n');
@@ -577,7 +594,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     out.dust(out.dust<mindust)=mindust;
     out.dust(out.fsca==0)=NaN;
     fprintf('Done filtering on dust in %f secs.\n', toc);
-    saveVariableForSpiresSmooth20240204(4, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save dust but not remove.
+    saveVariableForSpiresSmooth20240204(4, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save dust but not remove.
 
     fprintf('finished smoothing dust %s...%s\n',datestr(matdates(1)),...
         datestr(matdates(end)));
@@ -590,9 +607,9 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
 %}
     fprintf('writing cubes %s...%s\n',datestr(matdates(1)),...
         datestr(matdates(end)));
-    out = saveVariableForSpiresSmooth20240204(1, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); % Seb 20240204 save and remove snow_fraction_s (formerly fsca).
+    out = saveVariableForSpiresSmooth20240204(1, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); % Seb 20240204 save and remove snow_fraction_s (formerly fsca).
     
-    out = loadVariableForSpiresSmooth20240204(7, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading solarZ.
+    out = loadVariableForSpiresSmooth20240204(7, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading solarZ.
     % Seb 20240222 Interpolating temporally solarZ.
     out.(vars{7})(out.(vars{7}) > 90) = NaN;
 
@@ -604,17 +621,17 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
         out.(vars{7}) = fillmissing(out.(vars{7}), 'linear', 3, EndValues = 'nearest'); % Seb 2024-03-19, in replacement of FillCubeDateLinear().
     end
     %out.(vars{7}) = FillCubeDateLinear(matdates, matdates, out.(vars{7}), 90); % Seb 20240222
-    saveVariableForSpiresSmooth20240204(7, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); 
+    saveVariableForSpiresSmooth20240204(7, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); 
     % Seb 20240204 save and not remove solar_zenith (formerly solarZ). Not very performant since we convert back and forth to single, with a division...
     
-    out = loadVariableForSpiresSmooth20240204(28, dv, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading SolarAzimuth.
+    out = loadVariableForSpiresSmooth20240204(28, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx); % Seb 20240204 Loading SolarAzimuth.
     % Seb 20240222 Interpolating temporally SolarAzimuth.
     out.(vars{28})(out.(vars{28}) > 180) = NaN;
     if any(isnan(out.(vars{28})), 'all')
         out.(vars{28}) = fillmissing(out.(vars{28}), 'linear', 3, EndValues = 'nearest'); % Seb 2024-03-19, in replacement of FillCubeDateLinear().
     end
     % out.(vars{28}) = FillCubeDateLinear(matdates, matdates, out.(vars{28}), 180); % Seb 20240222
-    saveVariableForSpiresSmooth20240204(28, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); 
+    saveVariableForSpiresSmooth20240204(28, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); 
     % Seb 20240204 save and remove solar_azimuth (formerly SolarAzimuth). Not very performant since we convert back and forth to single, with a division...
     
     % Albedo calculation. Seb 20240227:
@@ -651,9 +668,9 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
          varName = 'radiative_forcing_s';
          out.(varName)(indicesForNotNaN) = radiativeForcing;
     end
-    out = saveVariableForSpiresSmooth20240204(9, outvars, outnames, outdtype, outdivisors, out, h5name, '-append');
-    out = saveVariableForSpiresSmooth20240204(33, outvars, outnames, outdtype, outdivisors, out, h5name, '-append');
-    out = saveVariableForSpiresSmooth20240204(34, outvars, outnames, outdtype, outdivisors, out, h5name, '-append'); 
+    out = saveVariableForSpiresSmooth20240204(9, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave);
+    out = saveVariableForSpiresSmooth20240204(33, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave);
+    out = saveVariableForSpiresSmooth20240204(34, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave); 
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % 20240624 albedo_muZ_s (quick and dirty implementation)
@@ -692,7 +709,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
             out.dust(indicesForNotNaN), muZ(indicesForNotNaN));
           out.(varName)(indicesForNotNaN) = albedo;
     end
-    out = saveVariableForSpiresSmooth20240204(37, outvars, outnames, outdtype, outdivisors, out, h5name, '-append');
+    out = saveVariableForSpiresSmooth20240204(37, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % End albedo calculation.
 %{
@@ -700,12 +717,12 @@ function out=smoothSPIREScube20240204(region, cellIdx, matdates, fshadeIsInterpo
     % western US for ongoing 2024 water year.
     for varIdx = 11:27
         try
-            out = loadVariableForSpiresSmooth20240204(varIdx, dv, region, vars, divisor, dtype, matdates, out, cellIdx);
+            out = loadVariableForSpiresSmooth20240204(varIdx, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx);
         catch e
             warning(e.message);
             continue;
         end
-        out = saveVariableForSpiresSmooth20240204(varIdx, outvars, outnames, outdtype, outdivisors, out, h5name, '-append');
+        out = saveVariableForSpiresSmooth20240204(varIdx, outvars, outnames, outdtype, outdivisors, out, h5name, '-append', indicesToSave);
     end
 %}
 %{
