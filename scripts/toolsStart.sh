@@ -683,6 +683,7 @@ inputForWaterYearDate="datetime(${thisYear}, ${thisMonth}, ${thisDay}), "\
 
 read -r -d '' objectTimeVariable << EOM
 Object and time variable values:
+#############################################################################
 firstIndex=${firstIndex}; lastIndex=${lastIndex}; objectId=${objectId};
 regionName=${regionName}; thisYear=${thisYear}; thisMonth=${thisMonth};
 thisDay=${thisDay}; monthWindow=${monthWindow};
