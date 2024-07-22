@@ -533,7 +533,7 @@ classdef ESPEnv < handle
                 if maxWorkers == 0 || maxWorkers > S.cluster.NumWorkers
                     maxWorkers = S.cluster.NumWorkers;
                 end
-                S.pool = parpool(S.cluster, maxWorkers);
+                S.pool = parpool(S.cluster, maxWorkers, IdleTimeout = 60 * 24); % 2024-07-14 no automatic shutdown of a pool before a day (spiresFill constraints)
                 S.cluster.disp();
             end
             S.pool.disp();
