@@ -64,7 +64,7 @@ pipeLineParallelWorkersNb1=(0 18 10 10 0 2 6 0 0 0)
 # sbatch parameters
 pipeLineTasksPerNode1=(1 18 10 10 5 2 6 1 1 1)
 pipeLineMems1=(1G 120G 30G 40G 30G 5G 30G 8G 8G 3G)
-pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:20:00 00:20:00 00:30:00 00:30:00 00:20:00 03:00:00 01:30:00)
+pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:20:00 00:20:00 00:30:00 00:40:00 00:20:00 03:00:00 01:30:00)
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
