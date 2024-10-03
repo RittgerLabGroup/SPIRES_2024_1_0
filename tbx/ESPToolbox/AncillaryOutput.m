@@ -11,7 +11,7 @@ classdef AncillaryOutput < handle
     % configuration_of_landsubdivisionlinks.csv to 1 and update toBeUsedFlag to 1 too.
     uncondensedJson = 1;
     includeSubdivisionTypeInJson = 0; 
-    versionLabel = 'v2024.0'; % Not used, but necessary to instantiate espEnv
+    versionLabel = 'v2024.0d'; % Not used, but necessary to instantiate espEnv
     versionOfAncillary = 'v3.1'; % This is not used to save each subdivision shapefile,
         % another espEnv with the versionOfAncillary of the source region is used.
     scratchPath = '/rc_scratch/sele7124/'; %getenv('espScratchDir');
@@ -29,6 +29,12 @@ classdef AncillaryOutput < handle
     espEnvWOFilter.setAdditionalConf('landsubdivisionlink');
     espEnvWOFilter.setAdditionalConf('landsubdivisiontype');
     espEnvWOFilter.setAdditionalConf('webname');
+    
+    % Temporary for integration albedo/radiative_forcing.
+    espEnvWOFilter.myConf.variableregion( ...
+      strcmp(espEnvWOFilter.myConf.variableregion.regionName, ...
+      'westernUS') & ...
+      ismember(espEnvWOFilter.myConf.variableregion.varId, [62, 63]), 'webIsPresent') = {1};
     
     ancillaryOutput = AncillaryOutput(espEnvWOFilter, ...
         includeSubdivisionTypeInJson = includeSubdivisionTypeInJson, ...
@@ -136,33 +142,33 @@ classdef AncillaryOutput < handle
             %                                                                      @todo
             % NB: A root region is not displayed if there's no geotiff.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            dataLabel = 'landsubdivisionrootinjson';
-            outFilePath = obj.espEnvWOFilter.getFilePathForObjectNameDataLabel( ...
-                '', dataLabel);
-                % NB: no version in the path, see configuration_of_filepaths.csv.
-            fprintf('%s: Start generating subdivision root file %s...\n', ...
-                mfilename(), outFilePath);
-                
-            myConfWOFilter = obj.espEnvWOFilter.myConf;
-            rootSubdivisionTable = myConfWOFilter.landsubdivision( ...
-                myConfWOFilter.landsubdivision.used >= obj.toBeUsedFlag & ...
-                myConfWOFilter.landsubdivision.root == 1, ...
-                {'id', 'name', 'code', 'subdivisionType', 'sourceRegionName', ...
-                'root', 'CRS'});
-            rootSubdivisionTable = sortrows(rootSubdivisionTable, 'name');
-            subdivisionList = struct();
-            relativePathDataLabels = {'landsubdivisioninjson', ...
-                'landsubdivisionlinkinjson', 'landsubdivisionshapeingeojson'};
-            relativePathFieldNames = {'subdivisionListAndMetadataRelativePath', ...
-                'subdivisionHierarchyRelativePath', 'shapefileRelativePath'};
-            fieldList = {'name', 'code', 'CRS'};
-            if obj.includeSubdivisionTypeInJson
-                fieldList = {'name', 'code', 'subdivisionType', 'CRS'};
-            end  % this is for debug only, the schema doesn't accept subdivisionType.
+              dataLabel = 'landsubdivisionrootinjson';
+              outFilePath = obj.espEnvWOFilter.getFilePathForObjectNameDataLabel( ...
+                  '', dataLabel);
+                  % NB: no version in the path, see configuration_of_filepaths.csv.
+              fprintf('%s: Start generating subdivision root file %s...\n', ...
+                  mfilename(), outFilePath);
+                  
+              myConfWOFilter = obj.espEnvWOFilter.myConf;
+              rootSubdivisionTable = myConfWOFilter.landsubdivision( ...
+                  myConfWOFilter.landsubdivision.used >= obj.toBeUsedFlag & ...
+                  myConfWOFilter.landsubdivision.root == 1, ...
+                  {'id', 'name', 'code', 'subdivisionType', 'sourceRegionName', ...
+                  'root', 'CRS'});
+              rootSubdivisionTable = sortrows(rootSubdivisionTable, 'name');
+              subdivisionList = struct();
+              relativePathDataLabels = {'landsubdivisioninjson', ...
+                  'landsubdivisionlinkinjson', 'landsubdivisionshapeingeojson'};
+              relativePathFieldNames = {'subdivisionListAndMetadataRelativePath', ...
+                  'subdivisionHierarchyRelativePath', 'shapefileRelativePath'};
+              fieldList = {'name', 'code', 'CRS'};
+              if obj.includeSubdivisionTypeInJson
+                  fieldList = {'name', 'code', 'subdivisionType', 'CRS'};
+              end  % this is for debug only, the schema doesn't accept subdivisionType.
 
-            rootIdsToRemoveFromRootSubdivisionTable = [0];
-                % List of root ids that are to be excluded because they don't have
-                % variables and data.
+              rootIdsToRemoveFromRootSubdivisionTable = [0];
+                  % List of root ids that are to be excluded because they don't have
+                  % variables and data.
                 
             for rootIdx = 1:size(rootSubdivisionTable, 1)
                 rootId = rootSubdivisionTable.id(rootIdx);
@@ -192,7 +198,7 @@ classdef AncillaryOutput < handle
                 end
                 
                 % Filling metadata of the root subdivision.
-                subdivisionList.(rootIdWithT) = ...
+                thatSubdivisionInfo = ...
                     table2struct(rootSubdivisionTable(rootIdx, fieldList)); 
                 
                 % Water Year info.
@@ -230,7 +236,7 @@ classdef AncillaryOutput < handle
                 for sensorTextIdx = 1:length(sensorTexts)
                     thisVarConf = regionVarConf(strcmp(regionVarConf.web_sensor_text, ...
                         sensorTexts{sensorTextIdx}), :);
-                    subdivisionList.(rootIdWithT).sources.(['t', num2str(sensorTextIdx)]) = ...
+                    thatSubdivisionInfo.sources.(['t', num2str(sensorTextIdx)]) = ...
                         struct(source = sensorTexts{sensorTextIdx}, isDefault = 0);
             %}
                 thisVarConf = regionVarConf;
@@ -246,10 +252,49 @@ classdef AncillaryOutput < handle
                     % if one the variable is default one, set the sensor/source to
                     % default too.
                     if varMetadata.isDefault == 1
-                        subdivisionList.(rootIdWithT).sources. ...
+                        thatSubdivisionInfo.sources. ...
                             (['t', num2str(sensorTextIdx)]).isDefault = 1;
                     end
             %}
+                    
+                    % Get the waterYearDate dynamically from the last geotiff available
+                    % for this region
+                    % and determine waterYear, waterYearStartDate, lastDateWithData,
+                    % historicWaterYearRange, historicSource. NB: historicSource should
+                    % be DYNAMIC                                                   @todo
+                    % NB: what if there is only the not_processed geotiff?         @todo
+                    
+                    dataLabel = 'VariablesGeotiff';
+                    thisDate = '';
+                    varName = thisVarConf.id(varIdx); % And not output_name.
+                        % NB: a bit confusional, should find a solution in file name
+                        % methods in ESPEnv.                                       @todo
+                    complementaryLabel = ['EPSG_', num2str(Regions.webGeotiffEPSG)];
+                    patternsToReplaceByJoker = {'thisDate', 'thisWaterYear', 'thisYear'};
+                    [filePath, ~, ~] = obj.espEnvWOFilter. ...
+                        getFilePathForDateAndVarName(objectName, dataLabel, ...
+                            thisDate, varName, complementaryLabel, ...
+                            patternsToReplaceByJoker = patternsToReplaceByJoker);
+                    if isempty(filePath) || ...
+                        (size(filePath, 1) == 1 && contains(filePath, '*')) % Add joker case, because popup an error for OCNewZealand, dont know why. @warning
+                        continue;
+                    elseif size(filePath, 1) > 1
+                        filePath = filePath{1}; % the first is the most recent.
+                    end
+                    [~, ~, thisDate, ~, ~] = obj.espEnvWOFilter. ...
+                        getMetadataFromFilePath(filePath, dataLabel);
+                    thisWaterYearDate = WaterYearDate(thisDate, ...
+                        region.getFirstMonthOfWaterYear(), ...
+                        WaterYearDate.yearMonthWindow);
+                    varMetadata.waterYear = thisWaterYearDate.getWaterYear();
+                    varMetadata.waterYearStartDate = ...
+                        convertStringsToChars( ...
+                            string(thisWaterYearDate.getFirstDatetimeOfWaterYear(), ...
+                            'yyyy-MM-dd'));                
+                    varMetadata.lastDateWithData = ...
+                        convertStringsToChars( ...
+                            string(thisWaterYearDate.thisDatetime, 'yyyy-MM-dd'));
+
                     % Determine the max nb days for snow_cover_days variable.
                     % NB: based on the last geotiff. Doesn't check if snow_cover_days
                     % has been effectively updated.                             @warning
@@ -290,39 +335,6 @@ classdef AncillaryOutput < handle
                         varMetadata.geotiffRelativePath, ...
                         {'cogs', 'tif'}, {'legends', 'svg'});
 %%}
-                    
-                    % Get the waterYearDate dynamically from the last geotiff available
-                    % for this region
-                    % and determine waterYear, waterYearStartDate, lastDateWithData,
-                    % historicWaterYearRange, historicSource. NB: historicSource should
-                    % be DYNAMIC                                                   @todo
-                    % NB: what if there is only the not_processed geotiff?         @todo
-                    
-                    thisDate = '';
-                    complementaryLabel = ['EPSG_', num2str(Regions.webGeotiffEPSG)];
-                    patternsToReplaceByJoker = {'thisDate', 'thisWaterYear', 'thisYear'};
-                    [filePath, ~, ~] = obj.espEnvWOFilter. ...
-                        getFilePathForDateAndVarName(objectName, dataLabel, ...
-                            thisDate, varName, complementaryLabel, ...
-                            patternsToReplaceByJoker = patternsToReplaceByJoker);
-                    if isempty(filePath)
-                        continue;
-                    elseif size(filePath, 1) > 1
-                        filePath = filePath{1}; % the first is the most recent.
-                    end
-                    [~, ~, thisDate, ~, ~] = obj.espEnvWOFilter. ...
-                        getMetadataFromFilePath(filePath, dataLabel);
-                    thisWaterYearDate = WaterYearDate(thisDate, ...
-                        region.getFirstMonthOfWaterYear(), ...
-                        WaterYearDate.yearMonthWindow);
-                    varMetadata.waterYear = thisWaterYearDate.getWaterYear();
-                    varMetadata.waterYearStartDate = ...
-                        convertStringsToChars( ...
-                            string(thisWaterYearDate.getFirstDatetimeOfWaterYear(), ...
-                            'yyyy-MM-dd'));                
-                    varMetadata.lastDateWithData = ...
-                        convertStringsToChars( ...
-                            string(thisWaterYearDate.thisDatetime, 'yyyy-MM-dd'));
 
                     % Historic info.
                     % NB: this info depends on the sensor too, so it should and need to 
@@ -333,7 +345,7 @@ classdef AncillaryOutput < handle
                         strcmp(thisEspEnv.myConf.region.name, ...
                         rootSubdivisionTable.sourceRegionName{rootIdx}), :);
 %{                       
-                    subdivisionList.(rootIdWithT).historicStartWaterYear = ...
+                    thatSubdivisionInfo.historicStartWaterYear = ...
                         thisRegionConf.historicStartWaterYear; % TEMPORARY
 %}
                     varMetadata.historicWaterYearRange = ...
@@ -347,7 +359,7 @@ classdef AncillaryOutput < handle
                         % IMPORTANT!!!!
                     
                     % Set the metadata for the variable in the struct...
-                    subdivisionList.(rootIdWithT). ...
+                    thatSubdivisionInfo. ...
                         variables.(['t', num2str(thisVarConf.id(varIdx))]) = ...
                         varMetadata;
                         % Formerly variables was kid of source:
@@ -367,21 +379,17 @@ classdef AncillaryOutput < handle
                     tmpFilePath = Tools.valueInTableForThisField( ...
                         myConfWOFilter.filePath, 'dataLabel', ...
                         dataLabel, 'webRelativeFilePathInJson');        
-                    subdivisionList.(rootIdWithT).( ...
+                    thatSubdivisionInfo.( ...
                         relativePathFieldNames{relativePathIdx}) = ...
                         thisEspEnv.replacePatternsInFileOrDirPaths(...
                             tmpFilePath, rootId, ...
                             dataLabel, thisDate, varName, complementaryLabel);
                 end
                 % If no geotiff is available, the region is not displayed.
-                if ~ismember('variables', fieldnames(subdivisionList.(rootIdWithT)))
-                    rootIdsToRemoveFromRootSubdivisionTable(end + 1) = rootId;
+                if ismember('variables', fieldnames(thatSubdivisionInfo))
+                    subdivisionList.(rootIdWithT) = thatSubdivisionInfo;
                 end
             end
-            % Removal of rootIds without variables.
-            % NB: there's a problem because this is not used in the following...   @todo
-            rootSubdivisionTable(ismember(rootSubdivisionTable.id, ...
-                rootIdsToRemoveFromRootSubdivisionTable), :) = [];
             
             thisStruct = subdivisionList;
             dataLabel = 'landsubdivisionrootinjson';
@@ -468,7 +476,7 @@ classdef AncillaryOutput < handle
                     ismember(myConfWOFilter.landsubdivisiontype.code, rank1Codes), :);
                 rank1Tree = struct();
 
-                webRank1Tree = struct(); % Stores the hierarchy of the current root region
+                webRank1Tree = struct(collections = struct()); % Stores the hierarchy of the current root region
                     % (rank0Idx), which will be saved for use in the website.
 
                 for rank1Idx = 1:size(rank1Data, 1)
