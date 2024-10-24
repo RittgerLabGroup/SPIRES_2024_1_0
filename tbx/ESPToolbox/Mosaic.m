@@ -21,7 +21,7 @@ classdef Mosaic
             % obj: Mosaic object
             obj.region = region;
         end
-        function buildTileSet(obj, waterYearDate)
+        function buildTileSet(obj, waterYearDate, dataLabel)
             % Generate the daily Mosaic files over several months of a waterYear by
             % assembling the daily tile Mosaic files. For instance, for 2023/1/2
             % westerUS, I assemble the Mosaics for 2023/1/2 of h08v04, h08v05, h09v04,
@@ -29,14 +29,23 @@ classdef Mosaic
             % NB: ends generation if a tile lacks for a day.
             % NB: Mosaic became ambiguous as it can mean the type of dataset (here) or
             % the assembly of tiles / tileset.
+            %
+            % Parameters
+            % ----------
+            % dataLabel: char. E.g. VariablesMatlab (classic), modspiresdaily
+            %     (for spires > v2024.0f).
             % 1. Initialize.
             fprintf(['%s: Start Mosaic tileset generation for waterYearDate', ...
-                ' %s - %d...\n'], ...
+                ' %s - %d, dataLabel %s...\n'], ...
                     mfilename(), string(waterYearDate.thisDatetime, 'yyyyMMdd'), ...
-                    waterYearDate.monthWindow);
+                    waterYearDate.monthWindow, dataLabel);
             espEnv = obj.region.espEnv;
             espEnv.configParallelismPool(10);
             dateRange = waterYearDate.getDailyDatetimeRange();
+            
+            objectName = obj.region.name;
+            varName = '';
+            complementaryLabel = '';
             
             % 2. Build tileset for the big region for each day of waterYearDate,
             % with stop when a tile isn't available.
@@ -44,14 +53,20 @@ classdef Mosaic
                 % 2.1. Information on date, tile and region filepaths, 
                 % mapCellsReferences.
                 thisDate = dateRange(dateIdx);
-                filePath = espEnv.MosaicFile(obj.region, thisDate);
+                filePath = espEnv.getFilePathForDateAndVarName(objectName, ...
+                    dataLabel, thisDate, varName, complementaryLabel);
+                % espEnv.MosaicFile(obj.region, thisDate); obsolete 20241008.
                 mapCellsReference = obj.region.getMapCellsReference();
                 tileRegions = obj.region.getTileRegions();
                 tileFilePaths = {};
                 tileMapCellsReferences = map.rasterref.MapCellsReference.empty();
                 for tileIdx = 1:length(tileRegions)
                     tileRegion = tileRegions(tileIdx);
-                    tileFilePaths{tileIdx} = espEnv.MosaicFile(tileRegion, thisDate);
+                    tileObjectName = tileRegion.name;
+                    tileFilePaths{tileIdx} = espEnv.getFilePathForDateAndVarName( ...
+                        tileObjectName, dataLabel, thisDate, varName, ...
+                        complementaryLabel);
+                    % tileFilePaths{tileIdx} = espEnv.MosaicFile(tileRegion, thisDate); obsolete 20241008.
                     tileMapCellsReferences(tileIdx) = tileRegion.getMapCellsReference();
                 end
                 
@@ -644,20 +659,23 @@ classdef Mosaic
                 error(errorStruct);
             end
         end
-        function writeSpiresData(obj, waterYearDate)
+        function writeSpiresData(obj, waterYearDate, inputDataLabel, ...
+            outputDataLabel)
+            % inputDataLabel: char. E.g. modisspiressmoothbycell.
+            % outputDataLabel: char. E.g. VariablesMatlab, modspiresdaily.
+      
             espEnv = obj.region.espEnv;
             fprintf(['%s: Starting mosaic .mat generation/writing for ', ...
                 'region %s, date %s...\n'], ...
                 mfilename(), obj.region.name, waterYearDate.toChar());   
-            inputDataLabel = 'modisspiressmoothbycell';
-            outputDataLabel = 'VariablesMatlab';
+            % inputDataLabel = 'modisspiressmoothbycell';
+            % outputDataLabel = 'VariablesMatlab';
             [outputVariable, ~] = espEnv.getVariable(outputDataLabel, ...
               inputDataLabel = inputDataLabel);
             
             varMetadataNames = {'type', 'units', 'multiplicator_for_mosaics', ...
                 'divisor', 'min', 'max', 'nodata_value'};
             objectName = obj.region.name;
-            dataLabel = 'VariablesMatlab';
             thisDate = '';
             varName = '';
             complementaryLabel = '';
@@ -689,7 +707,7 @@ classdef Mosaic
             parfor dateIdx = 1:length(theseDates) 
                 % Here we may replace for by parfor loop to benefit from matlab
                 % parallel computing
-                dataLabel = 'VariablesMatlab';
+                dataLabel = outputDataLabel;
                 thisDate = theseDates(dateIdx);
                 varName = '';
                 [outFilePath, fileExists, ~] = ...
@@ -698,7 +716,14 @@ classdef Mosaic
                 fprintf(['%s: Starting file %s...\n'], mfilename(), outFilePath);
                 appendFlag = 'append';
                 if ~fileExists
-                    appendFlag = 'new_file';
+                    if ismember(outputDataLabel, {'modspiresdaily', 'vnpspiresdaily'})
+                        error('Mosaic:NoSpiresDailyFile', ...
+                            sprintf(['%s: No %s file %s. ', ...
+                            'Generate or sync them to scratch and rerun.\n'], ...
+                            mfilename(), outputDataLabel, outFilePath));
+                    else % case VariablesMatlab
+                        appendFlag = 'new_file';
+                    end
                 end
 %{                
                 % Get and save solar variables and metadata...
@@ -736,7 +761,7 @@ classdef Mosaic
                 % and need to be combine/aggregate to form a full tile.         @warning
                 %-----------------------------------------------------------------------
                 varData2 = struct();
-                dataLabel = 'modisspiressmoothbycell';
+                dataLabel = inputDataLabel;
                 varName = '';
                 patternsToReplaceByJoker = ...
                     {'rowStartId', 'rowEndId', 'columnStartId', 'columnEndId'};
@@ -746,8 +771,7 @@ classdef Mosaic
                     objectName, dataLabel, thisDate, varName, complementaryLabel, ...
                     patternsToReplaceByJoker = patternsToReplaceByJoker);
                 if sum(cell2mat(fileExists)) ~= 36
-                    % NB: Hard-coded 36 cell files expected. Improve....            @todo
-                    this
+                    % NB: Hard-coded 36 cell files expected. Improve....           @todo
                     ME = MException('Mosaic:writeSpiresDataNoFile', ...
                         sprintf(['%s: No 36 v2024.0b spires cell files for %s, ', ...
                         ' %s, %s. Generate or sync them to scratch and rerun', ...
@@ -755,38 +779,110 @@ classdef Mosaic
                         string(thisDate, 'yyyy-MM-dd')));
                     throw(ME);
                 end
-                
-                for varIdx = 1:size(outputVariable, 1)
-                    varName = outputVariable.name{varIdx};
-                    varData2.(varName) = espEnv.getDataForDateAndVarName( ...
-                        objectName, dataLabel, thisDate, varName,...
-                        complementaryLabel, ...
-                        patternsToReplaceByJoker = patternsToReplaceByJoker);
-                    if isempty(varData2.(varName))
-                        warning('%s: No data for %s, variable %s.\n', mfilename(), ...
-                            char(thisDate, 'yyyy-MM-dd'), varName);
-                        continue;
+                % Test one file whether the input files have the date, we suppose that
+                % if one of the input file has the date, all have, which can be false
+                % if the smoothing process failed for some of the cells.        @warning
+                inputFileInfo = h5info(filePath{1});
+                for filePathIdx = 2:length(filePath)
+                  thisFilePath = filePath{filePathIdx};
+                  fprintf('Testing validity of %s...\n', thisFilePath);
+                  h5info(thisFilePath);
+                    % Raise an error if inexistent file or file corrupted (but don't 
+                    % detect all corruption cases.                              @warning
+                end
+                inputFileDates = datetime( ...
+                    inputFileInfo.Attributes(1).Value, convertFrom = 'datenum');
+                if ~ismember(thisDate, inputFileDates)
+                    warning('%s: SKIP - No data for %s.\n', mfilename(), ...
+                        char(thisDate, 'yyyy-MM-dd'), varName);
+                    continue;
+                end
+                if ismember(outputDataLabel, {'modspiresdaily', 'vnpspiresdaily'})
+                    % Using the save -append method with
+                    % Tools.parforSaveFieldsOfStructInFile() on existing files
+                    % corrupt file. We use here matfile() hoping that will solve the
+                    % issue...                                                  @warning
+                    fprintf('matfile loop...');
+                    for varIdx = 1:size(outputVariable, 1)
+                        varName = outputVariable.name{varIdx};
+                        varData2.(varName) = espEnv.getDataForDateAndVarName( ...
+                            objectName, dataLabel, thisDate, varName,...
+                            complementaryLabel, ...
+                            patternsToReplaceByJoker = patternsToReplaceByJoker);
+                        if isempty(varData2.(varName))
+                            warning('%s: No data for %s, variable %s.\n', ...
+                                mfilename(), ...
+                                char(thisDate, 'yyyy-MM-dd'), varName);
+                            continue;
+                        end
+                        espEnv.saveData(varData2.(varName), objectName, ...
+                            outputDataLabel, theseDate = thisDate, varName = varName);
+                            
+                        % Metadata from the configuration file for this variable...
+                        %---------------------------------------------------------------
+                        if espEnv.slurmEndDate <= ...
+                            datetime('now') + ...
+                                seconds(espEnv.slurmSafetySecondsBeforeKill)
+                            error('ESPEnv:TimeLimit', ...
+                                'Error, Job has reached its time limit.');
+                        end
+                        thisMatfile = matfile(outFilePath, Writable = true);
+                        thisMatfile.([varName '_type']) = ...
+                            outputVariable.type{varIdx};
+                        thisMatfile.([varName '_units']) = ...
+                            outputVariable.unit{varIdx};
+                        thisMatfile.([varName '_multiplicator_for_mosaics']) = ...
+                            outputVariable.multiplicator_for_mosaics(varIdx);
+                        thisMatfile.([varName '_divisor']) = ...
+                            outputVariable.divisor(varIdx);
+                        thisMatfile.([varName '_min']) = outputVariable.min(varIdx) * ...
+                            outputVariable.divisor(varIdx);
+                        thisMatfile.([varName '_max']) = outputVariable.max(varIdx) * ...
+                            outputVariable.divisor(varIdx);
+                        thisMatfile.([varName '_nodata_value']) = ...
+                            outputVariable.nodata_value(varIdx);
+                        thisMatfile.statusOfTimeSmoothing = 1;
+                        thisMatfile = [];
                     end
                     
-                    % Metadata from the configuration file for this variable...
-                    %-------------------------------------------------------------------
-                    varData2.([varName '_type']) = ...
-                        outputVariable.type{varIdx};
-                    varData2.([varName '_units']) = ...
-                        outputVariable.unit{varIdx};
-                    varData2.([varName '_multiplicator_for_mosaics']) = ...
-                        outputVariable.multiplicator_for_mosaics(varIdx);
-                    varData2.([varName '_divisor']) = outputVariable.divisor(varIdx);
-                    varData2.([varName '_min']) = outputVariable.min(varIdx) * ...
-                        outputVariable.divisor(varIdx);
-                    varData2.([varName '_max']) = outputVariable.max(varIdx) * ...
-                        outputVariable.divisor(varIdx);
-                    varData2.([varName '_nodata_value']) = ...
-                        outputVariable.nodata_value(varIdx);
+                else
+                    for varIdx = 1:size(outputVariable, 1)
+                        varName = outputVariable.name{varIdx};
+                        varData2.(varName) = espEnv.getDataForDateAndVarName( ...
+                            objectName, dataLabel, thisDate, varName,...
+                            complementaryLabel, ...
+                            patternsToReplaceByJoker = patternsToReplaceByJoker);
+                        if isempty(varData2.(varName))
+                            warning('%s: No data for %s, variable %s.\n', mfilename(), ...
+                                char(thisDate, 'yyyy-MM-dd'), varName);
+                            continue;
+                        end
+                        
+                        % Metadata from the configuration file for this variable...
+                        %-------------------------------------------------------------------
+                        varData2.([varName '_type']) = ...
+                            outputVariable.type{varIdx};
+                        varData2.([varName '_units']) = ...
+                            outputVariable.unit{varIdx};
+                        varData2.([varName '_multiplicator_for_mosaics']) = ...
+                            outputVariable.multiplicator_for_mosaics(varIdx);
+                        varData2.([varName '_divisor']) = outputVariable.divisor(varIdx);
+                        varData2.([varName '_min']) = outputVariable.min(varIdx) * ...
+                            outputVariable.divisor(varIdx);
+                        varData2.([varName '_max']) = outputVariable.max(varIdx) * ...
+                            outputVariable.divisor(varIdx);
+                        varData2.([varName '_nodata_value']) = ...
+                            outputVariable.nodata_value(varIdx);
+                    end
+                    if espEnv.slurmEndDate <= ...
+                        datetime('now') + seconds(espEnv.slurmSafetySecondsBeforeKill)
+                        error('ESPEnv:TimeLimit', 'Error, Job has reached its time limit.');
+                    end
+                    Tools.parforSaveFieldsOfStructInFile(outFilePath, ...
+                        varData2, appendFlag);
+                    appendFlag = 'append';
                 end
-                Tools.parforSaveFieldsOfStructInFile(outFilePath, ...
-                    varData2, appendFlag);
-                appendFlag = 'append';
+
                 fprintf(['%s: Saved spires variables and metadata in %s.\n'], ...
                     mfilename(), outFilePath);
                 varData2.snow_fraction_s = [];
@@ -844,7 +940,7 @@ classdef Mosaic
                 fprintf(['%s: Saved albedo and metadata in %s.\n'], ...
                     mfilename(), outFilePath); 
  %} 
-            end
+            end % parfor dateIdx.
             fprintf(['%s: Done mosaic .mat generation/writing for ', ...
                 'region %s, date %s...\n'], ...
                 mfilename(), obj.region.name, waterYearDate.toChar());

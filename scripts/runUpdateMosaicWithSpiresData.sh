@@ -70,7 +70,7 @@ scriptId=moSpires
 defaultSlurmArrayTaskId=292
 expectedCountOfArguments=
 inputDataLabels=(modisspiressmoothbycell)
-outputDataLabels=(VariablesMatlab)
+outputDataLabels=(VariablesMatlab modspiresdaily vnpspiresdaily)
 filterConfLabel=
 mainBashSource=${BASH_SOURCE}
 mainProgramName=${BASH_SOURCE[0]}
@@ -101,12 +101,18 @@ clear;
 try;
   ${modisDataInstantiation}
   ${espEnvInstantiation}
-  espEnv.configParallelismPool(${parallelWorkersNb});
+  espEnv.configParallelismPool(${parallelWorkersNb}); feature('numcores');
   region = Regions(${inputForRegion});
   waterYearDate = WaterYearDate(${inputForWaterYearDate});
   mosaic = Mosaic(region);
-  mosaic.delete(waterYearDate);
-  mosaic.writeSpiresData(waterYearDate);
+  inputDataLabel = 'modisspiressmoothbycell';
+  if ismember(region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'});
+    mosaic.delete(waterYearDate);
+    outputDataLabel = 'VariablesMatlab';
+  else;
+    outputDataLabel = 'modspiresdaily';
+  end;
+  mosaic.writeSpiresData(waterYearDate, inputDataLabel, outputDataLabel);
 ${catchExceptionAndExit}
 
 EOM
