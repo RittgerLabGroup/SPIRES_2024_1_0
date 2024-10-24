@@ -70,8 +70,8 @@ export SLURM_EXPORT_ENV=ALL
 scriptId=daMosBig
 defaultSlurmArrayTaskId=5
 expectedCountOfArguments=
-inputDataLabels=(VariablesMatlab)
-outputDataLabels=(VariablesMatlab)
+inputDataLabels=(VariablesMatlab modspiresdaily vnpspiresdaily)
+outputDataLabels=(VariablesMatlab modspiresdaily vnpspiresdaily)
 filterConfLabel=
 mainBashSource=${BASH_SOURCE}
 mainProgramName=${BASH_SOURCE[0]}
@@ -105,7 +105,11 @@ try;
   region = Regions(${inputForRegion});
   waterYearDate = WaterYearDate(${inputForWaterYearDate});
   mosaic = Mosaic(region);
-  mosaic.buildTileSet(waterYearDate);
+  dataLabel = 'modspiresdaily';
+  if ismember(region.name, {'westernUS'});
+    dataLabel = 'VariablesMatlab';
+  end;
+  mosaic.buildTileSet(waterYearDate, dataLabel);
 ${catchExceptionAndExit}
 
 EOM

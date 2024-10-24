@@ -21,7 +21,7 @@ classdef PublicMosaic
         end
 
         function publicMosaicData = getThresholdedData(obj, varName, thisDatetime, ...
-            publicMosaicData)
+            publicMosaicData, varargin)
             % Provide the temporary public Mosaic data for the variable
             % varName needed to generate stats and geotiffs.
             % Public Mosaics are an update of the Mosaics: when some variables
@@ -43,10 +43,17 @@ classdef PublicMosaic
             % publicMosaicData: struct(elevation=array(doublexdouble), 
             %   viewable_snow_fraction=array(uint8xuint8)).
             %   Previous publicMosaicData if already called, otherwise struct().
+            % dataLabel: char, optional. DataLabel of the mosaic, by default
+            %   'modspiresdaily'. Historically 'VariablesMatlab'.
 
             % 1. Initialization and configuration of variables
             %-------------------------------------------------
-
+            p = inputParser;
+            addParameter(p, 'dataLabel', 'modspiresdaily');
+            p.KeepUnmatched = false;
+            parse(p, varargin{:});
+            dataLabel = p.Results.dataLabel;
+            
             thisRegion = obj.region;
             espEnv = thisRegion.espEnv;
             confOfVar = espEnv.myConf.variable;
@@ -55,14 +62,18 @@ classdef PublicMosaic
 
             % 2. Mosaic data and elevation
             %-----------------------------
-
-            mosaicFile = espEnv.MosaicFile(thisRegion, thisDatetime);
-            if ~isfile(mosaicFile)
+            objectName = thisRegion.name;
+            thisDate = thisDatetime;
+            complementaryLabel = '';
+            [filePath, fileExists, ~, ~] = espEnv.getFilePathForDateAndVarName( ...
+                objectName, dataLabel, thisDate, varName, complementaryLabel);
+            if ~fileExists
                 warning('%s: Missing mosaic file %s\n', mfilename(), ...
                     mosaicFile);
                 publicMosaicData = struct();
                 return;
             end
+            mosaicFile = filePath;
             fields = fieldnames(publicMosaicData);
             if ~ismember(varName, fields)
                 varData = load(mosaicFile, varName).(varName);

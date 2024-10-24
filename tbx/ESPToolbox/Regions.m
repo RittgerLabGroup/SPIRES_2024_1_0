@@ -95,6 +95,8 @@ classdef Regions < handle
             %    Modis environment, with paths . SIER_322/345                @deprecated
             % Mask variable
             %---------------
+%{
+            % obsolete when including landsat pathrow. 20241017.
             if ~exist('maskName', 'var')
                 maskName = 'State_mask';
             end
@@ -104,7 +106,7 @@ classdef Regions < handle
                     mfilename(), maskName);
                 throw(ME);
             end
-
+%}
             obj.maskName = maskName;
             obj.regionName = regionName;
             obj.name = regionName; % NB: duplicate attribute. Improve this!        @todo
@@ -112,25 +114,31 @@ classdef Regions < handle
             obj.modisData = espEnv.modisData;
 
             % Fetch the structure with the requested region information
-            [regionFilePath, ~] = espEnv.getFilePathForObjectNameDataLabel( ...
-                maskName, 'region');
-            mObj = matfile(regionFilePath);
-            varNames = who(mObj);
-            if isempty(varNames)
-                ME = MException('Region:BadRegionFile', ...
-                    '%s: empty RegionFile %s\n', ...
-                    mfilename(), regionFilePath);
-                throw(ME);
-            end
+            % WARNING:
+            % only for modis Tiles. That means that there's a lot of methods/classes
+            % currently used for modis Tiles which won't work for pathrows, notably
+            % the crs, sizes, and projections.
+            if ~isempty(maskName)
+                [regionFilePath, ~] = espEnv.getFilePathForObjectNameDataLabel( ...
+                    maskName, 'region');
+                mObj = matfile(regionFilePath);
+                varNames = who(mObj);
+                if isempty(varNames)
+                    ME = MException('Region:BadRegionFile', ...
+                        '%s: empty RegionFile %s\n', ...
+                        mfilename(), regionFilePath);
+                    throw(ME);
+                end
 
-            obj.ShortName = mObj.ShortName;
-            obj.LongName = mObj.LongName;
-            obj.S = mObj.S;
-            obj.indxMosaic = mObj.indxMosaic;
-            obj.RefMatrix = mObj.RefMatrix;
-            obj.percentCoverage = mObj.percentCoverage;
-            obj.useForSnowToday = mObj.useForSnowToday;
-            obj.lowIllumination = mObj.lowIllumination;
+                obj.ShortName = mObj.ShortName;
+                obj.LongName = mObj.LongName;
+                obj.S = mObj.S;
+                obj.indxMosaic = mObj.indxMosaic;
+                obj.RefMatrix = mObj.RefMatrix;
+                obj.percentCoverage = mObj.percentCoverage;
+                obj.useForSnowToday = mObj.useForSnowToday;
+                obj.lowIllumination = mObj.lowIllumination;
+            end
 
             % Configuration of region, links with subregions/tiles, and filtering.
             % In the following we modify the tables and column names stored in
@@ -142,6 +150,7 @@ classdef Regions < handle
             obj.myConf = struct();
             obj.myConf.region = regionConf;
             obj.atmosphericProfile = regionConf.atmosphericProfile{1};
+            
             obj.geotiffCrop.xLeft = regionConf.geotiffCropXLeft;
             obj.geotiffCrop.xRight = regionConf.geotiffCropXRight;
             obj.geotiffCrop.yBottom = regionConf.geotiffCropYBottom;
@@ -731,6 +740,8 @@ classdef Regions < handle
             %         Dates for which stats are calculated.
             % geotiffEPSG: int. Code EPSG of the projection or geographic system.
             %   SIER_163.
+            % inputDataLabel: char, optional. DataLabel of the input data, by default
+            %   'modspiresdaily'. Historically 'VariablesMatlab'.
             % parallelWorkersNb: int, optional. Number of parallel workers. 
             %   By default 0, which means that generation is not parallel.
             %   Beware we cannot have 2 parfor loops imbricated. 2024-03-19.
@@ -741,9 +752,11 @@ classdef Regions < handle
                 obj.regionName, geotiffEPSG, year(waterYearDate.thisDatetime));
             
             p = inputParser;
+            addParameter(p, 'inputDataLabel', 'modspiresdaily');
             addParameter(p, 'parallelWorkersNb', 0);
             p.KeepUnmatched = false;
             parse(p, varargin{:});
+            inputDataLabel = p.Results.inputDataLabel;
             parallelWorkersNb = p.Results.parallelWorkersNb;
             
             espEnv = obj.espEnv;
@@ -753,7 +766,6 @@ classdef Regions < handle
             %-------------------------------
             % NB: Need to make dynamic (if no data for variable, don't try to generate
             % the geotiff.                                                       @todo
-            inputDataLabel = 'VariablesMatlab';
             outputDataLabel = 'VariablesGeotiff';
             [availableVariables, ~, ~] = espEnv.getVariable(outputDataLabel, ...
                 inputDataLabel = inputDataLabel);
@@ -846,15 +858,19 @@ classdef Regions < handle
             % So, plan to run this system on alpine with 32 tasks in order
             % to get all the memory on the node, and then limit workers here
             % SIER_163 and SIER_333 should have solve this problem.
-            espEnv.configParallelismPool(4); %length(varIndexes)); % currently 8 variables
-
+            espEnv.configParallelismPool(parallelWorkersNb); %length(varIndexes)); % currently 8 variables
+            objectName = obj.name;
+            varName = '';
+            complementaryLabel = '';
             for dateIdx=1:length(dateRange)
                 logger = Logger('geotiffDate');
                 thisDate = dateRange(dateIdx);
                 fprintf('%s: Starting geotiff generation for date %s.\n', ...
                     mfilename(), string(thisDate, 'yyyy-MM-dd'));
                 % Check if Mosaic file is available.
-                if ~isfile(espEnv.MosaicFile(obj, thisDate))
+                [filePath, fileExists, ~, ~] = espEnv.getFilePathForDateAndVarName( ...
+                    objectName, inputDataLabel, thisDate, varName, complementaryLabel);
+                if ~fileExists
                     warning(['%s: Unavailable mosaic. No Geotiff generation for ', ...
                         '%s\n'], mfilename(), string(thisDate, 'yyyy-MM-dd'));
                     continue;
@@ -863,11 +879,12 @@ classdef Regions < handle
                 % Get the variables necessary to filter/threshold the other variables.
                 % There should be only 1, snow_fraction (or viewable_snow_fraction) and
                 % elevation.
+                % NB: no threshold for spires public mosaic.                    @warning
                 initPublicMosaicData = struct();
                 for varIdx = 1:length(varnamesToPreLoad)
                     varName = varnamesToPreLoad{varIdx};
                     initPublicMosaicData = publicMosaic.getThresholdedData(varName, ...
-                        thisDate, initPublicMosaicData);
+                        thisDate, initPublicMosaicData, dataLabel = inputDataLabel);
                 end
                 fprintf('%s: Got the data for filter.\n', mfilename());
                 % We handle each variable to generate a geotiff.
@@ -889,7 +906,7 @@ classdef Regions < handle
                     % Data load
                     % ---------
                     publicMosaicData = publicMosaic.getThresholdedData(varName, ...
-                        thisDate, initPublicMosaicData);
+                        thisDate, initPublicMosaicData, dataLabel = inputDataLabel);
                     fprintf('%s: Public mosaic for variable %s OK.\n', ...
                         mfilename(), varName);
                     if ~ismember(varName, fieldnames(publicMosaicData))
