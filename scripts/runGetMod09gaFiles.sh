@@ -162,6 +162,7 @@ cloudLpDaacDirectoryUrl="https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-pro
 # theseDates=(${theseDates})
 # thisDate=${theseDates[0]}
 IFS=$'\n'
+alias rm=rm # To remove the lock without confirmation.
 for thisDate in $theseDates; do
   # Directories of pages of url lists and of files.
   histUrlListDirectoryPath="${directoryPath}histUrlList/$(date -d @"$thisDate" +%Y)/"
@@ -197,7 +198,7 @@ for thisDate in $theseDates; do
 
   # NB: To be modified. Sometimes daac doesnt update the page, which leads to errors.
   # To be replaced by looking for a json
-  # wget -c --no-proxy --server-response -O /rc_scratch/sele7124/20230316.json #"https://cmr.earthdata.nasa.gov/search/granules.json?echo_collection_id=C2202497474-LPCLOUD&page_num=1&page_size=500&temporal=2023-03-16T00:00:00.000Z,2023-03-16T23:59:59.999Z&sort_key=producer_granule_id"
+  # wget -c --no-proxy --server-response -O /${scratchPath}/20230316.json #"https://cmr.earthdata.nasa.gov/search/granules.json?echo_collection_id=C2202497474-LPCLOUD&page_num=1&page_size=500&temporal=2023-03-16T00:00:00.000Z,2023-03-16T23:59:59.999Z&sort_key=producer_granule_id"
   # and then the tile path can be filtered by
   # histListContent=$(cat /rc_scratch/sele7124/20230316.json)
   # pattern=[^@]+(https\:\/\/[a-z\/\.\-]+\/MOD09GA\.061\/MOD09GA\.A2023075\.h00v08\.061\.[0-9]+\/MOD09GA\.A2023075\.h00v08\.061\.[0-9]+\.hdf)[^@]+
@@ -206,11 +207,17 @@ for thisDate in $theseDates; do
   #                                                                                @todo
 
   histDirectoryUrl="https://e4ftl01.cr.usgs.gov/MOLT/MOD09GA.061/$(date -d @"$thisDate" +%Y.%m.%d)/"
-  modificationDate=$(date -r /rc_scratch/sele7124/modis/input/mod09ga/v006/histUrlList/2024/index_2024085.html +%s)
+  modificationDate=$(date -r /${scratchPath}/modis/input/mod09ga/v006/histUrlList/2024/index_2024085.html +%s)
 
+  printf "\nChecking .lock file ${histUrlListDirectoryPath}${histUrlListFileName}.lock and waiting unlock...\n"
+  while [[ -f ${histUrlListDirectoryPath}${histUrlListFileName}.lock ]]; do
+    sleep 1
+  done
 
-  if [ ! -s ${histUrlListDirectoryPath}${histUrlListFileName} ] || \
+  if [[ ! -s ${histUrlListDirectoryPath}${histUrlListFileName} ]] || \
 [[ ! -s ${histUrlListDirectoryPath}${histUrlListFileName} && $(( $(date +%s) - $modificationDate )) > 3600 ]]; then
+    printf "\nCreate .lock file ${histUrlListDirectoryPath}${histUrlListFileName}.lock.\n"
+    touch ${histUrlListDirectoryPath}${histUrlListFileName}.lock
     printf "\n\nwget -c --no-proxy --server-response -O ${histUrlListDirectoryPath}${histUrlListFileName} ${histDirectoryUrl}...\n"
     for counterIdx in {1..600}; do
       wgetReturn="A"$(wget -c --no-proxy --server-response -O ${histUrlListDirectoryPath}${histUrlListFileName} ${histDirectoryUrl} 2>&1)
@@ -234,6 +241,8 @@ for thisDate in $theseDates; do
         break
       fi
     done
+    rm ${histUrlListDirectoryPath}${histUrlListFileName}.lock
+    printf "\nDeleted .lock file ${histUrlListDirectoryPath}${histUrlListFileName}.lock.\n"
   fi
 # NB: We could mutualize this way to call wget.                                      @todo
   # From the list of historic urls we get the url of the tile/day.
@@ -242,7 +251,7 @@ for thisDate in $theseDates; do
   # the lines below, which could have kept the files of the previous date.
   if [ -s ${histUrlListDirectoryPath}${histUrlListFileName} ]; then
     histListContent=$(cat ${histUrlListDirectoryPath}${histUrlListFileName})
-    thisTitle=$(echo "$histListContent" | grep "<title>")
+    thisTitle=$(echo "$histListContent" | grep "<title>" | head -1)
     printf "Title: ${thisTitle}.\n"
 
     histFileList=$(echo "$histListContent" | sed -r 's/^<img(.*\="MOD.*)/@@@\1/' | sed -r 's/^[^@][^@][^@][^\r^\n].*//' | sed '/^[[:space:]]*$/d' | sed -r 's/@@@[^>]*>[^>]*>(M[^ ^<]*)<\/a>[ ]*([0-9][0-9\-]* [0-9\:]*)[^<]*$/\1/')
@@ -356,6 +365,11 @@ for thisDate in $theseDates; do
       fi
     done
   done
+  # rsync if tile from westernUS.
+  if  [[ $tilesForBigRegion[5] == *"${objectId}"* ]]; then
+    /bin/rsync -HpvxrltoDu --chmod=ug+rw,o-w,+X,Dg+s ${thisDirectoryPath} ${thisDirectoryPath/${scratchPath}/${archivePath}}
+    printf "\n rsync to archive.\n---------------------------------------------------------------\n\n"
+  fi
 done
 
 source scripts/toolsStop.sh
