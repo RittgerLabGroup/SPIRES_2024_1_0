@@ -76,12 +76,19 @@ tileArrayStringForTileGroup1="255,291,326,327,362,363,398,399,433,434,469,470"
 tileArrayForTileGroup2=(h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v05 h25v06 h26v05 h26v06)
 tileArrayStringForTileGroup2="796,797,832,833,834,868,869,870,905,906,941,942"
 # EURAlps: "h18v04", "h19v04"
-tileArrayForTileGroup3=(h18v04 h19v04)
-tileArrayStringForTileGroup3="652,688"
+tileArrayForTileGroup3=(h17v04 h18v04 h19v04)
+tileArrayStringForTileGroup3="616,652,688"
 # AMAndes: "h10v09", "h10v10", "h11v10", "h11v11", "h11v12", "h12v12", "h12v13",
 #       "h13v13", "h13v14"
 tileArrayForTileGroup4=(h10v09 h10v10 h11v10 h11v11 h11v12 h12v12 h12v13 h13v13 h13v14)
 tileArrayStringForTileGroup4="369,370,406,407,408,444,445,481,482"
+# OCNewZealand: "h29v13", "h30v13"
+tileArrayForTileGroup6=(h29v13 h30v13)
+tileArrayStringForTileGroup6="1057,1093"
+
+# Defined in toolStart.sh.
+# workingDirectory=$(pwd) 
+# defaultIFS=$' \t\n'
 
 # Region names for tiles and big regions.
 declare -A allRegionNames
@@ -91,7 +98,24 @@ eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)"
 # Big regions for tiles.
 declare -A bigRegionForTile
 eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep modisTile | grep -E "v3.1|v3.2" | awk -F, '{ printf sep "bigRegionForTile[" $19 "]=" $20 ";\n" }')
-# $workingDirectory defined in toolsStart.sh
 # Not clean way to do it, since configuration files can change columns. And eval is
 # dirty...
+
+# List of tiles per big regions.
+declare -A tilesForBigRegion
+thisTiles=( ${!bigRegionForTile[@]} )
+thisTiles=($(echo ${thisTiles[@]} | tr ' ' '\n' | sort -n | tr '\n' ' '))
+  # To sort the tiles (keys), which are not sorted when you use ${!bigRegionForTile[@]}
+for thisTile in ${thisTiles[@]}; do
+  thisBigRegion=${bigRegionForTile[${thisTile}]}
+  if [[ ! -n ${thisBigRegion} ]]; then
+    continue
+  fi
+  if [[ -n "${tilesForBigRegion[$thisBigRegion]}" ]]; then
+    tilesForBigRegion[$thisBigRegion]=${tilesForBigRegion[$thisBigRegion]},${thisTile}
+  else
+    tilesForBigRegion[$thisBigRegion]=${thisTile}
+  fi
+done
+# -n string not empty (length <> 0)
 
