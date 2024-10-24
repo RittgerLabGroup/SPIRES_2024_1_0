@@ -149,7 +149,7 @@ try;
   espEnvWOFilter.setAdditionalConf('landsubdivision', ...
       confFieldNames = {'name', 'id', 'code', 'subdivisionType', 'sourceRegionId', ...
       'sourceRegionName', 'used', 'root', 'CRS', 'firstMonthOfWaterYear', ...
-      'versionOfAncillary'});
+      'version', 'versionOfAncillary'});
   espEnvWOFilter.setAdditionalConf('landsubdivisionlink');
   espEnvWOFilter.setAdditionalConf('landsubdivisiontype');
   espEnvWOFilter.setAdditionalConf('webname');
@@ -160,7 +160,7 @@ try;
 
   ancillaryOutput.writeSubdivisionTypes();
   % No ancillaryOutput.writeVariables() because variables are stored in static (github).
-  ancillaryOutput.writeRootSubdivisions();
+  rootSubdivisionTable = ancillaryOutput.writeRootSubdivisions();
   subdivisionTable = ancillaryOutput.writeSubdivisionLinks();
   ancillaryOutput.writeSubdivisionMetadata(subdivisionTable);
 
@@ -177,7 +177,7 @@ try;
   complementaryLabel = '';
   % setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
   % setenv('espWebExportRootDir', getenv('espWebExportRootDirForQA'));
-  setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
+  % setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
   exporter = ExporterToWebsite(espEnvWOFilter, versionOfAncillariesToExport, ...
     toBeUsedFlag = toBeUsedFlag);
   for dataLabelIdx = 1:length(dataLabels);
@@ -185,35 +185,49 @@ try;
     exporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, varName, ...
       complementaryLabel);
   end;
+  
+  for rootIdx = 1:height(rootSubdivisionTable);
+    % Transfer the geotiffs to SnowToday web-app.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Don't forget to generate the geotiffs and stats before.
+    % NB: some root subdivisions share the same geotiffs (USAlaska and Western Canada).
+    % NB: Automatically transfer the last available geotiffs. The root region json file
+    % also has its last date of data set to the data date of the last available
+    % geotiffs.
+    dataLabel = 'VariablesGeotiff';
+    complementaryLabel = ['EPSG_', num2str(Regions.webGeotiffEPSG)];
+    regionName = '';
+    originalEspEnv = exporter.espEnv;
+    version = rootSubdivisionTable.version{rootIdx};
+    versionOfAncillary = rootSubdivisionTable.versionOfAncillary{rootIdx};
+    
+    thisEspEnv = ESPEnv.getESPEnvForRegionNameFromESPEnv(regionName, ...
+        originalEspEnv, version = version, ...
+        versionOfAncillary = versionOfAncillary);
+    thisExporter = ExporterToWebsite(thisEspEnv, versionOfAncillariesToExport, ...
+        toBeUsedFlag = toBeUsedFlag);
+    varNames = unique(thisEspEnv.myConf.variableregion( ...
+      thisEspEnv.myConf.variableregion.writeGeotiffs == 1, :).output_name);
+    
+    for varIdx = 1:length(varNames);
+        varName = varNames{varIdx};
+        thisExporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, ...
+            varName, complementaryLabel);
+    end;
 
-  % Transfer the geotiffs to SnowToday web-app.
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % Don't forget to generate the geotiffs and stats before.
-  % NB: some root subdivisions share the same geotiffs (USAlaska and Western Canada).
-  % NB: Automatically transfer the last available geotiffs. The root region json file
-  % also has its last date of data set to the data date of the last available geotiffs.
-  dataLabel = 'VariablesGeotiff';
-  complementaryLabel = ['EPSG_', num2str(Regions.webGeotiffEPSG)];
-  varNames = unique(espEnvWOFilter.myConf.variableregion( ...
-    espEnvWOFilter.myConf.variableregion.writeGeotiffs == 1, :).output_name);
-  for varIdx = 1:length(varNames);
-      varName = varNames{varIdx};
-      exporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, varName, ...
-          complementaryLabel);
+    % Transfer the .json plots to SnowToday web-app.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    dataLabel = 'SubdivisionStatsWebJson';
+    complementaryLabel = '';
+    varNames = unique(thisEspEnv.myConf.variableregion( ...
+        thisEspEnv.myConf.variableregion.writeStats == 1, :).output_name);
+    for varIdx = 1:length(varNames);
+        varName = varNames{varIdx};
+        thisExporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, ...
+            varName, complementaryLabel);
+    end;
   end;
-
-  % Transfer the .json plots to SnowToday web-app.
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  dataLabel = 'SubdivisionStatsWebJson';
-  complementaryLabel = '';
-  varNames = unique(espEnvWOFilter.myConf.variableregion( ...
-      espEnvWOFilter.myConf.variableregion.writeStats == 1, :).output_name);
-  for varIdx = 1:length(varNames);
-      varName = varNames{varIdx};
-      exporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, varName, ...
-          complementaryLabel);
-  end;
-
+  
   % Trigger web-app ingest.
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   exporter.generateAndExportTrigger(); % Beware this will launch ingestion.

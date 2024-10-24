@@ -54,7 +54,9 @@ usage() {
   echo "  -L LABEL: string with version label for directories" 1>&2
   echo "     e.g. for operational processing, use -L v2023.x" 1>&2
   echo "  -M thisMode: indicates if code is run only partly. By default 0 runs all" 1>&2
-  echo "     1: only runs the historic daily stats" 1>&2
+  echo "     1: only runs the historic daily stats. 2: only runs the aggregates." 1>&2
+  echo "     3: only runs the historic daily stats and aggregates." 1>&2
+  echo "     4: only runs the aggregates and generate json/csv." 1>&2
   echo "  -o: update output data from scratch to archive" 1>&2
   echo "  -O outputLabel: string with version label for output files" 1>&2
   echo "     If -O not precised, LABEL is used for both input and output files" 1>&2
@@ -155,9 +157,13 @@ try;
   parfor (subdivisionIdx = 1:size(subdivisionIds, 1), ${parallelWorkersNb});
     subdivisionId = subdivisionIds(subdivisionIdx);
     subdivision = Subdivision(subdivisionId, region);
+    if ismember(${thisMode}, [0, 1, 3]);
     subdivision.calcDailyStats(waterYearDate);
-    if ${thisMode} == 0;
+    end;
+    if ismember(${thisMode}, [0, 2, 3]);
       subdivision.calcAggregates(waterYearDate);
+    end;
+    if ismember(${thisMode}, [0, 4]);
       subdivision.writeStatCsvAndJson(1);
     end;
   end;

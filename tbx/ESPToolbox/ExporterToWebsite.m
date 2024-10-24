@@ -37,7 +37,7 @@ classdef ExporterToWebsite < handle
     thisDate = '';
     varName = '';
     complementaryLabel = '';
-    scratchPath = '/rc_scratch/sele7124/'; % getenv('espArchiveDir');
+    scratchPath = getenv('espScratchDir');
     setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
     espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
@@ -53,7 +53,7 @@ classdef ExporterToWebsite < handle
     % ----------
     % Export of all expected files daily. CHECK how to switch between 2 subdivision tests and 1+2 all subdivisions in prod IMPORTANT !!!  @todo
     toBeUsedFlag = 1; % By default 1.
-    label = 'v2024.0';
+    label = 'v2024.0d';
     versionOfAncillary = 'v3.1'; % Only for initiating the exporter.
     versionOfAncillariesToExport = {'v3.1', 'v3.2'}; % all these versions are exported.
     dataLabels = {'landsubdivisioninjson', ...
@@ -64,10 +64,10 @@ classdef ExporterToWebsite < handle
     thisDate = '';
     varName = '';
     complementaryLabel = '';
-    scratchPath = '/rc_scratch/sele7124/'; %getenv('espArchiveDir');
-    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
+    scratchPath = getenv('espScratchDir');
+    setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForQA'));
-    setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
+    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
     espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
     exporter = ExporterToWebsite(espEnv, versionOfAncillariesToExport, ...
@@ -86,20 +86,26 @@ classdef ExporterToWebsite < handle
     % Don't forget to generate the geotiffs and stats before.
     % NB: some root subdivisions share the same geotiffs (USAlaska and Western Canada).
     toBeUsedFlag = 1; % By default 1.
-    label = 'v2024.0';
+    label = 'v2024.0d';
     versionOfAncillary = 'v3.1'; % Only for initiating the exporter.
     versionOfAncillariesToExport = {'v3.1', 'v3.2'}; % all these versions are exported.
     dataLabel = 'VariablesGeotiff';
     thisDate = ''; %datetime(2024, 2, 28);
     complementaryLabel = ['EPSG_', num2str(Regions.webGeotiffEPSG)];
-    scratchPath = '/rc_scratch/sele7124/'; %getenv('espArchiveDir');
-    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
+    scratchPath = getenv('espScratchDir');
+    setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForQA'));
-    setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
+    %setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
     espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
     espEnvWOFilter = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
         filterMyConfByVersionOfAncillary = 0);
+    
+    % Temporary for albedo and radiative forcing
+    espEnvWOFilter.myConf.variableregion( ...
+      strcmp(espEnvWOFilter.myConf.variableregion.regionName, ...
+      'westernUS') & ...
+      ismember(espEnvWOFilter.myConf.variableregion.varId, [62, 63]), 'writeStats') = {1};
     varNames = unique(espEnvWOFilter.myConf.variableregion( ...
         espEnvWOFilter.myConf.variableregion.writeGeotiffs == 1, :).output_name);
     %varNames = varNames(1);
@@ -154,6 +160,8 @@ classdef ExporterToWebsite < handle
                             % landsubdivision is used.
     end
     properties(Constant)
+        espWebExportRootDirs = {'espWebExportRootDirForProd', ...
+            'espWebExportRootDirForIntegration', 'espWebExportRootDirForQA'}
     end
     methods(Static)
         % I put here all the methods to communicate with the webapp ingest server,
@@ -209,6 +217,11 @@ classdef ExporterToWebsite < handle
                 thisFieldName = espWebExportFieldNames{fieldIdx};
                 environmentVarName = ['espWebExport', upper(thisFieldName(1)), ...
                     thisFieldName(2:end)];
+                % Different web-app directories if prod, integration or QA.
+                if strcmp(environmentVarName, 'espWebExportRootDir')
+                    environmentVarName = ...
+                        obj.espWebExportRootDirs{espEnv.espWebExportConfId + 1};
+                end
                 if isempty(getenv(environmentVarName))
                     errorStruct.identifier = ...
                         'ExporterToWebsite:UnsetEnvironmentVariables';
@@ -304,7 +317,25 @@ classdef ExporterToWebsite < handle
                     thisEspEnv.getFilePathForDateAndVarName(0, dataLabel, thisDate, ...
                     varName, complementaryLabel, ...
                     patternsToReplaceByJoker = patternsToReplaceByJoker);
-                % If files were not generated previously and do not exist.
+                    % NB: this method automatically rsync from archive if necessary,
+                    % including for joker * filepaths of dataLabel
+                    % landsubdivisionshapeingeojson.
+%{
+                % Obsolete 20241009. Already done in
+                % EspEnv.getFilePathForDateAndVarName().
+                % If files present only on archive, rsync to scratch.
+                % except for filepaths containing a joker *.                    @warning
+                % works for dataLabels landsubdivisioninjson, landsubdivisionlinkinjson,
+                % landsubdivisionrootinjson, landsubdivisiontypeinjson
+                if ~iscell(filePath) && ~fileExists && ~contains(filePath, '*')
+                    archiveFilePath = strrep( ...
+                        filePath, thisEspEnv.scratchPath, thisEspEnv.archivePath);
+                    cmd = [thisEspEnv.rsyncAlias, ' ', archiveFilePath, ' ', filePath];
+                    obj.system(cmd);
+                end
+%}
+                % If files were not generated previously and do not exist,
+                % we show a warning.
                 if ~iscell(filePath) && ~fileExists
                     warning( ...
                         ['%s: No file found for pattern %s, ', ...
@@ -366,11 +397,23 @@ classdef ExporterToWebsite < handle
                         patternsToReplaceByJoker = patternsToReplaceByJoker);
                         % Raises error if dataLabel not in
                         % configuration_of_filenames.csv and in modisData.versionOf.
+                    % If files present only on archive, rsync to scratch.
+                    % NB: we don't rsync when files contain *.                  @warning
+                    if ~iscell(filePath) && ~fileExists && ~contains(filePath, '*')
+                        archiveFilePath = strrep( ...
+                            filePath, thisEspEnv.scratchPath, thisEspEnv.archivePath);
+                        cmd = [ ...
+                            thisEspEnv.rsyncAlias, ' ', archiveFilePath, ' ', filePath];
+                        obj.system(cmd);
+                    end
                     if ~iscell(fileExists) && ~fileExists
                         warning(['%s: Inexistent file %s.\n'], mfilename(), filePath);
                         continue;
                     elseif iscell(filePath)
                         filePath = filePath{1}; % the first is the most recent.
+                        % NB: we don't rsync from archive in that case, that could be
+                        % a problem when the archive is more recent than the scratch
+                        % version... THINK ABOUT IT                             @warning
                     end
 
                     % Get the filepath in the destination distant webapp server.

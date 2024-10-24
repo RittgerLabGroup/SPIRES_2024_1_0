@@ -38,7 +38,7 @@ classdef Subdivision < handle
     % Use cases. Header.
     % ------------------
     scratchPath = ['/rc_scratch/', getenv('USER'), '/']; %'C:\Users\X\Documents\Tmp_data';
-    modisData = MODISData(label = 'v2024.0', versionOfAncillary = 'v3.1');
+    modisData = MODISData(label = 'v2024.0d', versionOfAncillary = 'v3.1');
     espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
         filterMyConfByVersionOfAncillary = 0);
     espEnv.setAdditionalConf('landsubdivision');
@@ -61,7 +61,7 @@ classdef Subdivision < handle
 
     % Use case 1.
     % -----------
-    waterYearDate = WaterYearDate(datetime(2023, 1, 2), ...
+    waterYearDate = WaterYearDate(datetime(2024, 6, 7), ...
         region.getFirstMonthOfWaterYear(), 1);
     subdivision.calcDailyStats(waterYearDate);
     subdivision.writeStatCsvAndJson();
@@ -370,7 +370,11 @@ classdef Subdivision < handle
                 % and we need to access to the correct filePath (espEnv filters the
                 % filePath according to the versionOfAncillary of the modisData
                 % property.
-            inputDataLabel = 'VariablesMatlab';
+            inputDataLabel = SpiresInversor.dataLabels.(espEnv.modisData.inputProduct);
+            % Specific case for former stc and spires westernUS handling 20241001.
+            if isequal(espEnv.modisData.versionOf.ancillary, 'v3.1')
+                inputDataLabel = 'VariablesMatlab';
+            end
             outputDataLabel = 'SubdivisionStatsDailyCsv';
             inputVersionRegions = espEnv.myConf.versionregion( ...
                 strcmp(espEnv.myConf.versionregion.outputDataLabel, ...
@@ -430,55 +434,67 @@ classdef Subdivision < handle
             fprintf('%s: Loaded masks for subdivision %d.\n', ...
                 mfilename(), obj.id);
 
-            % Determination of elevation by tile (tile in 3rd dimension)
-            % NB: depending on memory performance we can do that during the
-            % variable loop each time ...                                       @tocheck
-            % elevation store
-            elevation = 0;
-            for tileIdx = 1:size(subdivisionPerTiles, 1)
-                tmpEspEnv = tileEspEnv(tileIdx);
-                [elevationTileData, ~, ~] = ...
-                    tmpEspEnv.getDataForObjectNameDataLabel( ...
-                        subdivisionPerTiles.regionName{tileIdx}, 'elevation');
-                % Initialize elevation 3D array.
-                if elevation == 0
-                    elevation = zeros([size(elevationTileData), ...
-                        size(subdivisionPerTiles, 1)], class(elevationTileData));
-                end
-                elevation(:, :, tileIdx) = elevationTileData;
-            end
-            clear elevationTileData;
-            fprintf('%s: Loaded elevation data for subdivision %d.\n', ...
-                mfilename(), obj.id);
-
-            % Determination of the elevation and snow_fraction filters.
-            % Filters determined at the big Region level, not at the
-            % tile or the subdivision level.
-            %
-            % The user assumes that big regions do not overlap, which is not the case
-            % for the integration of Canada.
-            % It's too memory costly to have several elevation filters, as it's
-            % possible to parameter in the configuration_of_filters.csv. So this code
-            % will only consider either no elevation, or elevation filter with only 1
-            % minimal value. So if the file indicates elevation filter 800 m for one
-            % variable and 500 m for another variable, this code will filter elevation
-            % on 800 m for both variables. However, if elevation filter is 0 for a
-            % variable, there won't be any filter (0 considered nodata in that case).
-            % To reduce memory too, this filter is in uint8 rather than single.
-            %
-            % NB: these filters are there only to mute the dry lake
-            % spotting difficulty and the difficult handling of low snow
-            % fractions by modscagdrfs stc.
-            % NB: Only filters on elevation and snow_fraction are allowed,
-            % although the configuration_of_filters.csv suggests filters
-            % on other variables are possible.
-
+            % Check if stats must be calculated with an elevation threshold or not,
+            % and if yes, determine the pixels to keep.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             elevationFilterConf = obj.region.filter.statistic( ...
                 strcmp(obj.region.filter.statistic.thresholdedVarName, ...
                 'elevation'), :);
-            elevationIsToTake = cast( ...
-                elevation >= max(elevationFilterConf.minValue), 'uint8');
-            clear elevation;
+            elevationIsToTake = [];
+            if max(elevationFilterConf.minValue) > 0
+              % Determination of elevation by tile (tile in 3rd dimension)
+              % NB: depending on memory performance we can do that during the
+              % variable loop each time ...                                       @tocheck
+              % elevation store
+              elevation = 0;
+              for tileIdx = 1:size(subdivisionPerTiles, 1)
+                  tmpEspEnv = tileEspEnv(tileIdx);
+                  [elevationTileData, ~, ~] = ...
+                      tmpEspEnv.getDataForObjectNameDataLabel( ...
+                          subdivisionPerTiles.regionName{tileIdx}, 'elevation');
+                  % Initialize elevation 3D array.
+                  if elevation == 0
+                      elevation = zeros([size(elevationTileData), ...
+                          size(subdivisionPerTiles, 1)], class(elevationTileData));
+                  end
+                  elevation(:, :, tileIdx) = elevationTileData;
+              end
+              clear elevationTileData;
+              fprintf('%s: Loaded elevation data for subdivision %d.\n', ...
+                  mfilename(), obj.id);
+
+              % Determination of the elevation and snow_fraction filters.
+              % Filters determined at the big Region level, not at the
+              % tile or the subdivision level.
+              %
+              % The user assumes that big regions do not overlap, which is not the case
+              % for the integration of Canada.
+              % It's too memory costly to have several elevation filters, as it's
+              % possible to parameter in the configuration_of_filters.csv. So this code
+              % will only consider either no elevation, or elevation filter with only 1
+              % minimal value. So if the file indicates elevation filter 800 m for one
+              % variable and 500 m for another variable, this code will filter elevation
+              % on 800 m for both variables. However, if elevation filter is 0 for a
+              % variable, there won't be any filter (0 considered nodata in that case).
+              % To reduce memory too, this filter is in uint8 rather than single.
+              %
+              % NB: these filters are there only to mute the dry lake
+              % spotting difficulty and the difficult handling of low snow
+              % fractions by modscagdrfs stc.
+              % NB: Only filters on elevation and snow_fraction are allowed,
+              % although the configuration_of_filters.csv suggests filters
+              % on other variables are possible.
+
+              elevationIsToTake = cast( ...
+                  elevation >= max(elevationFilterConf.minValue), 'uint8');
+              clear elevation;
+            else
+              % elevation min = 0, no threshold applied.
+              elevationIsToTake = ones([ ...
+                espEnv.modisData.sensorProperties.tiling.rowPixelCount, ...
+                espEnv.modisData.sensorProperties.tiling.columnPixelCount, ...
+                height(subdivisionPerTiles)] , 'uint8');
+            end % max(elevationFilterConf.minValue) > 0
 
             snowFractionFilterConf = obj.region.filter.statistic( ...
                 ismember(obj.region.filter.statistic.thresholdedVarName, ...
@@ -540,7 +556,7 @@ classdef Subdivision < handle
                         tmpEspEnv = tileEspEnv(tileIdx);
                         varTileData = tmpEspEnv.getDataForDateAndVarName( ...
                             subdivisionPerTiles.regionName{tileIdx}, ...
-                            'VariablesMatlab', thisDate, varName, complementaryLabel);
+                            inputDataLabel, thisDate, varName, complementaryLabel);
                         if isempty(varTileData)
                             % Should occur only when data were not shuffled to scratch.
                             % Or for spires when Alaska is not deployed.
@@ -548,7 +564,7 @@ classdef Subdivision < handle
                             % intmax(class(varTileData)).
                             [filePath, ~] = tmpEspEnv.getFilePathForDateAndVarName( ...
                             subdivisionPerTiles.regionName{tileIdx}, ...
-                            'VariablesMatlab', thisDate, varName, complementaryLabel);
+                            inputDataLabel, thisDate, varName, complementaryLabel);
                             warning(['%s: Unavailable %s or unavailable file %s ', ...
                                 ' for subdivision %d.\n'], ...
                                 mfilename(), varName, filePath, obj.id);
