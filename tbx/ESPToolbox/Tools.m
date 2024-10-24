@@ -10,6 +10,8 @@ classdef Tools
             % data associated to the variables into a unique mosaic and save the 
             % result into the output file.
             % NB: if a tile lacks, the tileset is not constructed and function ends.
+            % NB: Currently don't aggregate 1200x1200 variables that is for spires
+            %   excludes solar/sensor zenith/azimuth. 20241008.                    @todo
             %
             % Parameters
             % ----------
@@ -93,9 +95,21 @@ classdef Tools
                         end
                     end
                     for varIdx = 1:length(varNames)
+                        % NB: we exclude the 1200x1200 variables in the big mosaic,
+                        % excluding then all solar/sensor zenith and azimuth.
+                        % 20241008.                                             @warning
                         varName = varNames{varIdx};
+                        if ~isequal(size(tileData.(varName)), ...
+                            tileMapCellsReference.RasterSize)
+                            continue;
+                        end
+                        if ismember([varName '_nodata_value'], tileFieldNames)
+                            thisNoDataValue = data.([varName '_nodata_value']);
+                        else
+                            thisNoDataValue = intmax(class(tileData.(varName)));
+                        end
                         data.(varName) = ...
-                            data.([varName '_nodata_value']) * ...
+                            thisNoDataValue * ...
                             ones(mapCellsReference.RasterSize, ...
                                 class(tileData.(varName)));
                     end
@@ -132,7 +146,13 @@ classdef Tools
                         end
                     end
                     for varIdx = 1:length(varNames)
-                        varName = varNames{varIdx};                  
+                        varName = varNames{varIdx}; 
+                        if ~isequal(size(tileData.(varName)), ...
+                            tileMapCellsReference.RasterSize)
+                            continue;
+                            % NB: we could improve that by limiting varNames to the
+                            % vars being on 2400x2400.                             @todo
+                        end               
                         data.(varName)(uint16(yIntrinsic) : ...
                             uint16(yIntrinsic + ...
                                 tileMapCellsReference.RasterSize(2)) - 1, ...
