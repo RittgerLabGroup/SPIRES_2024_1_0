@@ -18,12 +18,12 @@ classdef AlbedoForcingCalculator < handle
       obj.region = region;
     end
     function [dirtyAlbedo, deltavis, radiativeForcing] = getFromLookup(obj, ...
-      grainSize, dustConcentration, solarZenith)
+      grainSize, dustConcentration, cosOfSolarZenith)
       % Parameters
       % ----------
       % grainSize: int(N dim). Grain size in microns.
       % dustConcentration: int(N dim). Dust concentration in ppm.
-      % solarZenith: int(N dim). Solar zenith angle in degrees.
+      % cosOfSolarZenith: double(N dim). Cosinus Solar zenith angle. (mu0 or muZ).
       %
       % Return
       % ------
@@ -43,7 +43,8 @@ classdef AlbedoForcingCalculator < handle
       dustFraction = double(dustConcentration) / 1000; % spires dust is in ppm while
         % AlbedoLookup expects ppt.
       sootFraction = zeros(size(dustConcentration), 'double');
-      cosOfSolarZenith = cosd(double(solarZenith));
+      % cosOfSolarZenith = cosd(double(solarZenith));
+      cosOfSolarZenith = double(cosOfSolarZenith);
       cosOfIllumination = cosOfSolarZenith; % based on Jeff ParBal package.
       dirtyAlbedo = obj.dirtyAlbedoGriddedInterpolant(cosOfSolarZenith, ...
         cosOfIllumination, sqrt(double(grainSize)), dustFraction, sootFraction);
