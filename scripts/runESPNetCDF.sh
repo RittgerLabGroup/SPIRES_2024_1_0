@@ -99,8 +99,13 @@ try;
   theseDates = waterYearDate.getDailyDatetimeRange();
   parfor dateIdx = 1:length(theseDates);
     thisDate = theseDates(dateIdx);
-    matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
+    if ismember(region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'});
+      matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
       'VariablesMatlab', thisDate, '', '');
+    else;
+      matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
+      'modspiresdaily', thisDate, '', '');
+    end;
     dataLabel = 'VariablesNetCDF';
     if strcmp(modisData.versionOf.(dataLabel), 'v2022.0');
       dataLabel = 'daacnetcdfv20220';
