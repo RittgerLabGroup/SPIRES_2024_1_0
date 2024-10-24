@@ -118,22 +118,27 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 6,2,spires,gapCloudMccMinimalSwir,,,2000,,,,,0.2. MccM.pixFeatures() L5. To compute cloud mask using deep learning.
 6,3,spires,gapSnowMinimalNDSI,,,-0.5,,,,,ndsimin
 6,4,spires,spiresGroupingToleranceValue,,,5,,,,,Tolval. 0.05 for reflectance from 0 to 1.6
-6,,spires,spiresSnowFractionDifferenceBackgroundNoBackground,,,0.02,,,,,
-6,5,spires,spatialInterpSnowFractionBelowWhichGrainSizeInterpIsDone,,,30,,,,,grain_thresh
-6,6,spires,spatialInterpSnowFractionBelowWhichDustInterpIsDone,,,90,,,,,dust_thresh
-6,7,spires,snowFractionSetToZeroBelowElevation,,,500,,,,,in meters
-6,8,spires,snowFractionSetToZeroBelowThisValue,,,10,,,,,fsca_thresh
-6,9,spires,gapRareObservationSlidingWindowHalfSize,,,40,,,,,45 2021 IEEEvalue
-6,10,spires,gapRareObservationMinDayWithObservationAboveMinValue,,,20,,,,,13 2021 IEEEvalue
-6,11,spires,smoothingDustSetToZeroBeforeGrainSizeMaxWhenBelowGrainSizeValue,,,300,,,,,dust_rg_thresh
-6,12,spires,smoothingSplineParamForSnowAndDust,,,0.1,,,,,
-6,13,spires,smoothingSplineParamForGrainSize,,,0.8,,,,,
-6,14,spires,smoothingSplineMinimalCountOfPositiveObservation,,,2,,,,,
-6,15,spires,peakFixingHampelToRemoveSpikeHalfWindow,,,2,,,,,
-6,16,spires,peakFixingHampelToRemoveSpikeNSigma,,,2,,,,,
-6,17,spires,peakFixingMaximalDurationInDay,,,40,,,,,maxFixedDays
-6,18,spires,peakFixingDayWithoutCorrection,,,7,,,,,Nd
-6,19,spires,peakFixingStartDay,,,183,,,,,1st Apr for northern hemisphere
+6,5,spires,spiresSnowFractionDifferenceBackgroundNoBackground,,,0.02,,,,,
+6,6,spires,spatialInterpSnowFractionBelowWhichGrainSizeInterpIsDone,,,30,,,,,grain_thresh
+6,7,spires,spatialInterpSnowFractionBelowWhichDustInterpIsDone,,,90,,,,,dust_thresh
+6,8,spires,snowFractionSetToZeroBelowElevation,,,500,,,,,"in meters. 500M for westernUS (id=6), 0 for others (id=106)"
+6,9,spires,snowFractionSetToZeroBelowThisValue,,,10,,,,,fsca_thresh
+6,10,spires,gapRareObservationSlidingWindowHalfSize,,,40,,,,,45 2021 IEEEvalue
+6,11,spires,gapRareObservationMinDayWithObservationAboveMinValue,,,20,,,,,13 2021 IEEEvalue
+6,12,spires,smoothingDustSetToZeroBeforeGrainSizeMaxWhenBelowGrainSizeValue,,,300,,,,,dust_rg_thresh. The actual threshold is * 10 (ppm) because value stored in files with divisor 0.1.
+6,13,spires,smoothingSplineParamForSnowAndDust,,,0.1,,,,,
+6,14,spires,smoothingSplineParamForGrainSize,,,0.8,,,,,
+6,15,spires,smoothingSplineMinimalCountOfPositiveObservation,,,2,,,,,
+6,16,spires,peakFixingHampelToRemoveSpikeHalfWindow,,,2,,,,,
+6,17,spires,peakFixingHampelToRemoveSpikeNSigma,,,2,,,,,
+6,18,spires,peakFixingMaximalDurationInDay,,,40,,,,,maxFixedDays
+6,19,spires,peakFixingDayWithoutCorrection,,,7,,,,,Nd
+6,20,spires,peakFixingStartDay,,,214,,,,,1st Apr for northern hemisphere
+6,21,spires,imresizeInterpolationMethod,,,3,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Ned’s code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
+6,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
+6,23,spires,spiresBackgroundReflectanceSourceForModis,,,1,,,,,"0: default background reflectance calculated for 2019 with Ned’s code, 1: background reflectance supplied by Ned 2023."
+6,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
+6,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
 103,1,snowCoverDay,,,elevation,800,,,40,snow_fraction,Unit test snowCoverDayMins.minElevation
 103,2,snowCoverDay,,40,snow_fraction,10,,,40,snow_fraction,Unit test snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
 103,3,snowCoverDay,,,elevation,800,,,55,snow_fraction_s,snowCoverDayMins.minElevation
@@ -141,6 +146,71 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 101,1,mosaic,,36,viewable_snow_fraction,5,,,44,radiative_forcing,Unit test
 102,1,publish,,36,viewable_snow_fraction,30,,,40,snow_fraction,Unit test
 102,2,publish,,,elevation,800,,,44,radiative_forcing,Unit test
+104,1,statistic,,,elevation,0,,,40,snow_fraction,
+104,2,statistic,,40,snow_fraction,0,,,40,snow_fraction,
+104,3,statistic,,,elevation,0,,,48,albedo_clean_mu0,
+104,4,statistic,,,elevation,0,,,49,albedo_observed_mu0,
+104,5,statistic,,,elevation,0,,,50,albedo_clean_muZ,
+104,6,statistic,,,elevation,0,,,51,albedo_observed_muZ,
+104,7,statistic,,,elevation,0,,,43,deltavis,
+104,8,statistic,,,elevation,0,,,41,grain_size,
+104,9,statistic,,,elevation,0,,,42,drfs_grnsz,
+104,10,statistic,,,elevation,0,,,44,radiative_forcing,
+104,11,statistic,,,elevation,0,,,13,solar_azimuth,
+104,12,statistic,,,elevation,0,,,14,solar_zenith,
+104,13,statistic,,,elevation,0,,,45,snow_cover_days,
+104,14,statistic,,,elevation,0,,,36,viewable_snow_fraction,
+104,15,statistic,,40,snow_fraction,30,,,48,albedo_clean_mu0,
+104,16,statistic,,40,snow_fraction,30,,,49,albedo_observed_mu0,
+104,17,statistic,,40,snow_fraction,30,,,50,albedo_clean_muZ,
+104,18,statistic,,40,snow_fraction,30,,,51,albedo_observed_muZ,
+104,19,statistic,,40,snow_fraction,30,,,43,deltavis,
+104,20,statistic,,40,snow_fraction,30,,,41,grain_size,
+104,21,statistic,,40,snow_fraction,30,,,42,drfs_grnsz,
+104,22,statistic,,40,snow_fraction,30,,,44,radiative_forcing,
+104,23,statistic,,40,snow_fraction,0,,,13,solar_azimuth,
+104,24,statistic,,40,snow_fraction,0,,,14,solar_zenith,
+104,25,statistic,,40,snow_fraction,0,,,45,snow_cover_days,
+104,26,statistic,,40,snow_fraction,0,,,36,viewable_snow_fraction,
+104,1,statistic,,,elevation,0,,,55,snow_fraction_s,
+104,2,statistic,,55,snow_fraction_s,0,,,55,snow_fraction_s,
+104,3,statistic,,,elevation,0,,,62,albedo_s,
+104,7,statistic,,,elevation,0,,,58,dust_concentration_s,
+104,8,statistic,,,elevation,0,,,57,grain_size_s,
+104,10,statistic,,,elevation,0,,,63,radiative_forcing_s,
+104,13,statistic,,,elevation,0,,,61,snow_cover_days_s,
+104,14,statistic,,,elevation,0,,,54,viewable_snow_fraction_s,
+104,15,statistic,,55,snow_fraction_s,30,,,62,albedo_s,
+104,19,statistic,,55,snow_fraction_s,30,,,58,dust_concentration_s,
+104,20,statistic,,55,snow_fraction_s,30,,,57,grain_size_s,
+104,22,statistic,,55,snow_fraction_s,30,,,63,radiative_forcing_s,
+104,25,statistic,,55,snow_fraction_s,0,,,61,snow_cover_days_s,
+104,26,statistic,,55,snow_fraction_s,0,,,54,viewable_snow_fraction_s,
+106,1,spires,snowCanopyMeanVerticalDividedByHorizontalCrownRadius,,,2.7,,,,,b_R = 2.7 avg vertical crown radius divided by average horizontal crown radius. To compute Canopy cover fraction or cc_adj.
+106,2,spires,gapCloudMccMinimalSwir,,,2000,,,,,0.2. MccM.pixFeatures() L5. To compute cloud mask using deep learning.
+106,3,spires,gapSnowMinimalNDSI,,,-0.5,,,,,ndsimin
+106,4,spires,spiresGroupingToleranceValue,,,10,,,,,Tolval. 0.05 for reflectance from 0 to 1.6
+106,5,spires,spiresSnowFractionDifferenceBackgroundNoBackground,,,0.02,,,,,
+106,6,spires,spatialInterpSnowFractionBelowWhichGrainSizeInterpIsDone,,,30,,,,,grain_thresh
+106,7,spires,spatialInterpSnowFractionBelowWhichDustInterpIsDone,,,90,,,,,dust_thresh
+106,8,spires,snowFractionSetToZeroBelowElevation,,,0,,,,,"in meters. 500M for westernUS, 0 for others"
+106,9,spires,snowFractionSetToZeroBelowThisValue,,,10,,,,,fsca_thresh
+106,10,spires,gapRareObservationSlidingWindowHalfSize,,,40,,,,,45 2021 IEEEvalue
+106,11,spires,gapRareObservationMinDayWithObservationAboveMinValue,,,20,,,,,13 2021 IEEEvalue
+106,12,spires,smoothingDustSetToZeroBeforeGrainSizeMaxWhenBelowGrainSizeValue,,,300,,,,,dust_rg_thresh. The actual threshold is * 10 (ppm) because value stored in files with divisor 0.1.
+106,13,spires,smoothingSplineParamForSnowAndDust,,,0.1,,,,,
+106,14,spires,smoothingSplineParamForGrainSize,,,0.8,,,,,
+106,15,spires,smoothingSplineMinimalCountOfPositiveObservation,,,2,,,,,
+106,16,spires,peakFixingHampelToRemoveSpikeHalfWindow,,,2,,,,,
+106,17,spires,peakFixingHampelToRemoveSpikeNSigma,,,2,,,,,
+106,18,spires,peakFixingMaximalDurationInDay,,,40,,,,,maxFixedDays
+106,19,spires,peakFixingDayWithoutCorrection,,,7,,,,,Nd
+106,20,spires,peakFixingStartDay,,,214,,,,,1st May for northern hemisphere
+106,21,spires,imresizeInterpolationMethod,,,1,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Ned’s code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
+106,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
+106,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Ned’s code, 1: background reflectance supplied by Ned 2023."
+106,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
+106,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
 201,1,mosaic,,36,viewable_snow_fraction,5,,,36,viewable_snow_fraction,"Mosaic filtering. This filter set #201 corresponds to v2023.0e, v2023.1b."
 201,2,mosaic,,36,viewable_snow_fraction,5,,,43,deltavis,
 201,3,mosaic,,36,viewable_snow_fraction,5,,,41,grain_size,
