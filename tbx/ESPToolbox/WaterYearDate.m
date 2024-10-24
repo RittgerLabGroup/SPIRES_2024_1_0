@@ -110,6 +110,24 @@ classdef WaterYearDate < handle
             countOfDayInWaterYear = floor(daysact(firstDate, lastDate)) + 1;
                 % Floor because daysact can give decimal numbers if times are different.
         end
+        function thisDate = getDateAdjusted(thisDate)
+          % Parameters
+          % ----------
+          % thisDate: datetime. Date to set to noon.
+          % Return
+          % ------
+          % thisDate: datetime. Date set at noon.
+          thisDate = datetime(year(thisDate), month(thisDate), day(thisDate), ...
+              WaterYearDate.dayStartTime.HH, ...
+              WaterYearDate.dayStartTime.MIN, WaterYearDate.dayStartTime.SS);
+        end
+        function thisDate = getDateForToday()
+          % Return
+          % ------
+          % thisDate: datetime. Today set at noon.
+          thisDate = datetime('today') + duration(WaterYearDate.dayStartTime.HH, ...
+              WaterYearDate.dayStartTime.MIN, WaterYearDate.dayStartTime.SS);
+        end
         function lastWYDateForWaterYear = getLastWYDateForWaterYear(waterYear, ...
             firstMonth, monthWindow, varargin)
             % Parameters
@@ -259,7 +277,11 @@ classdef WaterYearDate < handle
             %   thisDatetime will be handled.
             % dateOfToday: datetime, optional. Force the date of today to a specific
             %   date, mainly for testing purposes (new website, debug).
-            %
+            % 
+            % overlapOtherYear: int, optional. Default 0, no overlap with previous
+            %   waterYear. 1: overlap possible with previous waterYear. That means that 
+            %   if the ongoing waterYear has M months past and we asked N > M months of
+            %   window, we don't cap M to N as we do when no overlap.
             % NB: thisDatetime may be in the future, depending on dateOfToday. In that
             % case, some functions only return the range of dates linked to the
             % WaterYearDate which are restricted to the past.                   @warning
@@ -290,6 +312,7 @@ classdef WaterYearDate < handle
             
             p = inputParser;
             addParameter(p, 'dateOfToday', datetime('today'));
+            addParameter(p, 'overlapOtherYear', 0);
             p.KeepUnmatched = false;
             parse(p, varargin{:});
             
@@ -304,6 +327,7 @@ classdef WaterYearDate < handle
             obj.thisDatetime = datetime(thisYYYY, thisMM, thisDD, ...
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
+            obj.overlapOtherYear = p.Results.overlapOtherYear;
             
             % Cap to Yesterday. No calculations for the future right now.
             % SIER_245 we handle all dates of waterYearDate until the day before today
@@ -313,11 +337,26 @@ classdef WaterYearDate < handle
                 obj.thisDatetime = obj.dateOfToday - caldays(1);
             end
 
-            if exist('firstMonth', 'var') & firstMonth <= 12
+            if exist('firstMonth', 'var') & firstMonth <= obj.yearMonthWindow
                 obj.firstMonth = firstMonth;
             end
-            if exist('monthWindow', 'var') & monthWindow <= 12
-                obj.monthWindow = monthWindow;
+            
+            % monthWindow.
+            [thisYYYY, thisMM, thisDD] = ymd(obj.thisDatetime);
+            
+            if exist('monthWindow', 'var')
+                % Cap the monthWindow to the starting month of the year (oct)
+                % except if overlap on other year is permitted.
+                % NB: should rather be in constructor, impact?            @todo
+                if ~obj.overlapOtherYear
+                    monthCountSinceWaterYearFirstMonth = ...
+                        obj.getMonthWindowFromMonths( ...
+                            obj.firstMonth, thisMM);
+                    obj.monthWindow = min(monthWindow, ...
+                        monthCountSinceWaterYearFirstMonth);
+                else
+                    obj.monthWindow = monthWindow;
+                end
             end
 
             fprintf('%s: WaterYearDate: %s, firstMonth %d, monthWindow: %d.\n', ...
@@ -333,12 +372,15 @@ classdef WaterYearDate < handle
             %
             % NB: only give the dates in the past (and so is based on date of today).
             monthWindow = obj.monthWindow;
+%{
             thisCorrectedDate = obj.thisDatetime;
             if thisCorrectedDate >= obj.dateOfToday
                 thisCorrectedDate = obj.dateOfToday - days(1);
             end
             [thisYYYY, thisMM, thisDD] = ymd(thisCorrectedDate);
-
+%}
+            [thisYYYY, thisMM, thisDD] = ymd(obj.thisDatetime);
+%{
             % 1. Cap the monthWindow to the starting month of the year (oct)
             % except if overlap on other year is permitted.
             % NB: should rather be in constructor, impact?            @todo
@@ -348,22 +390,32 @@ classdef WaterYearDate < handle
                         obj.firstMonth, thisMM);
                 monthWindow = min(monthWindow, monthCountSinceWaterYearFirstMonth);
             end
-
+%}
             % 2. Determining the first date of the range
             firstMonthOfTheRange = thisMM - monthWindow + 1;
             firstYear = thisYYYY;
             if firstMonthOfTheRange <= 0
-                firstMonthOfTheRange = 12 + firstMonthOfTheRange;
-                firstYear = firstYear - 1;
+                thatFactor = floor((obj.yearMonthWindow - firstMonthOfTheRange) / ...
+                    obj.yearMonthWindow);
+                firstMonthOfTheRange = thatFactor * obj.yearMonthWindow + ...
+                    firstMonthOfTheRange;
+                firstYear = firstYear - thatFactor * 1;
             end
             firstDate = datetime(firstYear, firstMonthOfTheRange, obj.monthFirstDay, ...
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, ...
                 obj.dayStartTime.SS);
+%{
             if firstDate > thisCorrectedDate %when monthWindow == 0
                 firstDate = thisCorrectedDate;
             end
 
             dateRange = firstDate:thisCorrectedDate;
+%}
+            if firstDate > obj.thisDatetime %when monthWindow == 0
+                firstDate = obj.thisDatetime;
+            end
+
+            dateRange = firstDate:obj.thisDatetime;
         end
         function dayRange = getDayRange(obj)
             % Return
@@ -371,6 +423,8 @@ classdef WaterYearDate < handle
             % dayRange: array(int)
             %   Get the arrays of days count since start of waterYear for each daily
             %   date of the waterYearDate obj. Used for stat calculations.
+            % 
+            % NB: can give negative days if overlapOtherYear = 1.               @warning
             dayRange = daysdif(obj.getFirstDatetimeOfWaterYear(), ...
                 obj.getDailyDatetimeRange()) + 1;
         end
@@ -379,6 +433,8 @@ classdef WaterYearDate < handle
             % ------
             % firstDateOfWaterYear: datetime.
             %   First date of the wateryear of the current waterYearDate.
+            % NB: doesn't give the first datetime of the waterYearDate, which can
+            % be before the first date of waterYear, if overlapOtherYear = 1.   @warning
 
             % Northern Hemisphere. Adapt for Southern Hemisphere @todo
             yearForFirstDate = obj.getWaterYear() - 1;
