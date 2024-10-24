@@ -146,21 +146,21 @@ printf -v pipeLineTimesString2 '%s ' ${pipeLineTimes2[@]}
 ########################################################################################
 # Pipeline 3, for regions with implementation >= v2024.0f.
 ########################################################################################
-pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daMosBig daGeoBig daStatis webExpSn)
-pipeLineLabels3=(v061 v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f)
-pipeLineRegionTypes3=(0 0 0 0 0 1 1 1 10)
+pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daGeoBig daStatis webExpSn)
+pipeLineLabels3=(v061 v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f)
+pipeLineRegionTypes3=(0 0 0 0 0 1 1 10)
   # 0: tile, 1: big region, 10: all regions.
-pipeLineSequences3=(0 0 001-036 0 0 0 0 001 0)
+pipeLineSequences3=(0 0 001-036 0 0 0 001 0)
   # NB: probably need to adapt the number of sequences for daStatis dynamically as a
   # function of the nb of subdivisions. Chose 001 for New Zealand.                 @todo
-pipeLineSequenceMultiplierToIndices3=(1 1 1 1 1 1 1 3 1)
-pipeLineMonthWindows3=(2 2 12 12 12 12 0 12 12)
-pipeLineParallelWorkersNb3=(0 14 10 10 2 6 0 0 0)
+pipeLineSequenceMultiplierToIndices3=(1 1 1 1 1 1 3 1)
+pipeLineMonthWindows3=(2 2 12 12 12 0 12 12)
+pipeLineParallelWorkersNb3=(0 14 10 10 2 0 0 0)
 
 # sbatch parameters
-pipeLineTasksPerNode3=(1 14 10 10 2 6 1 1 1)
-pipeLineMems3=(1G 44G 30G 40G 5G 30G 8G 8G 3G)
-pipeLineTimes3=(01:30:00 01:45:00 02:30:00 00:30:00 00:30:00 00:40:00 00:20:00 04:00:00 01:30:00)
+pipeLineTasksPerNode3=(1 14 10 10 2 1 1 1)
+pipeLineMems3=(1G 44G 30G 40G 5G 8G 8G 3G)
+pipeLineTimes3=(01:30:00 01:45:00 02:30:00 00:30:00 00:30:00 00:20:00 04:00:00 01:30:00)
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
