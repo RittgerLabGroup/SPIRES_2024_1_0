@@ -34,10 +34,32 @@ classdef TileRegionAncillaryDataSetup
             % of mod09ga tile .hdf file.
         mod44wWaterThreshold = 0.5; % threshold above which mod44w values are considered
             % as water.
-        subdirectories = struct( ...
-            modisNrtMod09ga = fullfile('modis', 'mod09ga', 'NRT', 'v006'), ...
+        % modisNrtMod09ga = fullfile('modis', 'mod09ga', 'NRT', 'v006'), ...
+        inputSubdirectories = struct(v32 = struct( ...
             modisHistMod44w = fullfile('modis_ancillary', 'mod44w', 'historic', ...
-                'v006')); % subdirectories where to find tile data;
+                'v006'), ...
+            modisHistMod44b = fullfile('modis_ancillary', 'mod44b', 'historic', ...
+                'v061')), ...
+            v33 = struct( ...
+            modisHistMod44w = ...
+                fullfile('modis_ancillary', 'MOD44W.061', '2022.01.01'), ...
+            modisHistMod44b = fullfile('modis_ancillary', 'mod44b', 'historic', ...
+                'v061'))); % subdirectories where to find tile data according version
+                % of ancillary data.); % subdirectories where to find tile data according version
+                % of ancillary data.
+                % v3.3 temporarily used for Antarctica
+        fileNamePatterns = struct(v32 = struct( ...
+            modisHistMod44w = ['MOD44W.A2015001.{regionName}.006.*.hdf'], ...
+            modisHistMod44b = ['MOD44B.A2022065.{regionName}.061.*.hdf']), ...
+            v33 = struct( ...
+            modisHistMod44w = ['MOD44W.A2022001.{regionName}.061.*.hdf'], ...
+            modisHistMod44b = ['MOD44B.A2022065.{regionName}.061.*.hdf']));
+        fieldNameInSource = struct(v32 = struct( ...
+            modisHistMod44w = 'water_mask', ...
+            modisHistMod44b = 'Percent_Tree_Cover'), ...
+            v33 = struct( ...
+            modisHistMod44w = 'water_mask', ...
+            modisHistMod44b = 'Percent_Tree_Cover'));
     end
     methods
         function obj = TileRegionAncillaryDataSetup(varargin)
@@ -96,7 +118,7 @@ classdef TileRegionAncillaryDataSetup
             % and then calculate aspect and slopes. the bits of tile for each elevation source.
             % NB: Given live memory limits, it's better no to combine the source data
             % together in 1 matrix only.
-            for elevationSourceIdx = 1:length(elevationSourcePaths)
+            for elevationSourceIdx = 73:96 %1:length(elevationSourcePaths)
                 % We check is there are pixels surrounding this sourceIdx
                 % in the other source files
                 sourceGeographicCellsReference = geotiffinfo( ...
@@ -216,11 +238,76 @@ classdef TileRegionAncillaryDataSetup
                 clear('slope');
             end
         end
-        function generateTileCanopyheightFiles(obj, canopyheightLabel, ...
-            canopyheightPath)
-            % Generation of the canopy height tile files.
+        function generateTileCanopycoverFilesFromMod44b(obj, canopycoverLabel)
+            % Generation of the canopy cover tile files.
+            % From individual MOD44B.A2022065 dated back to 2022.
+            %
+            % NB: Probably need a varying canopy cover for v3.3, since MOD44B should be
+            %   available back to 2000.                                            @todo
+            %
+            % Parameters
+            % ----------
+            % canopycoverLabel: char. Label included in output filename and indicating
+            %   source of canopy height data.
+            % Seb. 2024-03-03.
+            modisData = obj.espEnv.modisData;
+            outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
+                obj.version, 'canopycover');
+            if ~isfolder(outputDirectory)
+                mkdir(outputDirectory);
+            end
+            versionChar = replace(obj.version, '.', ''); % remove the . in v3.2, because
+                % struct cannot accept . in their fieldnames.
+            for tileRegionIdx = 1:length(obj.tileRegionNames)
+                tileRegionName = obj.tileRegionNames{tileRegionIdx};
+                % Georeferencing.
+                mapCellsReference = modisData.getMapCellsReference( ...
+                    modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
+                % Find source file
+                fileSearch = fullfile(obj.parentDirectory, ...
+                    obj.inputSubdirectories.(versionChar). ...
+                    modisHistMod44b, ...
+                    replace(obj.fileNamePatterns.(versionChar). ...
+                        modisHistMod44b, '{regionName}', tileRegionName));
+                fileResults = dir(fileSearch);
+                canopycover = hdfread( ...
+                    fullfile(fileResults(1).folder, fileResults(1).name), ...
+                    obj.fieldNameInSource.(versionChar).modisHistMod44b);
+                    
+                % Here fill value is expected to be 253, water to be 200,
+                % and range 0-100.
+                canopycover(canopycover > 100) = 0;
+                    % NB: in theory, if fill value, we should interpolate. But, it seems
+                    % that there are not that many fill values, and that they are at
+                    % the edge of the world represented in modis projection. However,
+                    % this needs to
+                    % be checked at some point systematically.                     @todo 
+
+                canopycover = imresize(single(canopycover), [2400 2400], 'bilinear');
+                canopycover = cast(canopycover, 'uint8');
+                            
+                land = obj.getLand(tileRegionName);
+                canopycover(land ~= 1) = 0;
+                data = canopycover;
+                outputFilenameWithoutExtension = fullfile(outputDirectory, ...
+                    [tileRegionName, canopycoverLabel]);
+                save([outputFilenameWithoutExtension '.mat'], ...
+                    'data', 'mapCellsReference');
+                geotiffwrite([outputFilenameWithoutExtension '.tif'], ...
+                    data, ...
+                    mapCellsReference, ...
+                    GeoKeyDirectoryTag = ...
+                        modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+                    TiffTags = struct('Compression', 'LZW'));
+            end
+        end
+        function generateTileCanopyFiles(obj, canopyLabel, ...
+            canopyFileLabel, ...
+            canopyPath)
+            % Generation of the canopy height or cover tile files.
             % From global map from Simard 2011
-            % Simard_Pinto_3DGlobalVeg_L3C.tif.
+            % Simard_Pinto_3DGlobalVeg_L3C.tif or
+            % PROBAV_LC100_global_v3.0.1_2019-nrt_Tree-CoverFraction-layer_EPSG-4326.tif
             % NB: I extracted with QGis a limited geotiff from this big geotiff to
             % produce the individual canopy height tiles. Some mismatch problems occur
             % when we work on a big geotiff (unexplained).
@@ -237,34 +324,38 @@ classdef TileRegionAncillaryDataSetup
             %
             % Parameters
             % ----------
-            % canopyheightLabel: char. Label included in output filename and indicating
-            %   source of canopy height data.
-            % canopyheightPath: char. Path of input file.
+            % canopyLabel: char: Label indicating the subfolder of the ancillary
+            %   data, e.g. canopyheight or canopycover.
+            % canopyFileLabel: char. Label included in output filename and
+            % indicating source of canopy height data.
+            % canopyPath: char. Path of input file.
             modisData = obj.espEnv.modisData;
             outputDirectory = fullfile(obj.parentDirectory, 'modis_ancillary', ...
-                obj.version, 'canopyheight');
+                obj.version, canopyLabel);
             if ~isfolder(outputDirectory)
                 mkdir(outputDirectory);
             end
-            [sourceCanopyheight sourceGeographicCellsReference] = ...
-                readgeoraster(canopyheightPath);
+            [sourceCanopy sourceGeographicCellsReference] = ...
+                readgeoraster(canopyPath);
+            sourceCanopy(sourceCanopy > 100) = 0;
             if isempty(sourceGeographicCellsReference)
                 sourceGeographicCellsReference = ...
-                    geotiffinfo(canopyheightPath).SpatialRef;
+                    geotiffinfo(canopyPath).SpatialRef;
             end
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 tileRegionMapCellsReference = modisData.getMapCellsReference( ...
                     modisData.getTilePositionIdsAndColumnRowCount(tileRegionName));
                 land = obj.getLand(tileRegionName);
-                tileRegionCanopyheight = rasterReprojection(sourceCanopyheight, ...
+                tileRegionCanopy = rasterReprojection(sourceCanopy, ...
                     sourceGeographicCellsReference, 'rasterref', ...
                     tileRegionMapCellsReference, 'fillvalue', 0, ...
                     'method', 'linear');
-                tileRegionCanopyheight(land == 0) = 0;
+                tileRegionCanopy(land == 0) = 0;
+                tileRegionCanopy = min(tileRegionCanopy, 100);
                 outputFilenameWithoutExtension = fullfile(outputDirectory, ...
-                    [tileRegionName canopyheightLabel]);
-                data = tileRegionCanopyheight;
+                    [tileRegionName canopyFileLabel]);
+                data = tileRegionCanopy;
                 mapCellsReference = tileRegionMapCellsReference;
                 save([outputFilenameWithoutExtension '.mat'], ...
                     'data', 'mapCellsReference');
@@ -327,7 +418,7 @@ classdef TileRegionAncillaryDataSetup
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 fileSearch = fullfile(obj.parentDirectory, ...
-                    obj.subdirectories.modisNrtMod09ga, tileRegionName, '2022', ...
+                    obj.inputSubdirectories.(versionChar).modisNrtMod09ga, tileRegionName, '2022', ...
                     ['MOD09GA.A2022*.' tileRegionName '.061.NRT.hdf']);
                 fileResults = dir(fileSearch);
                 [mstruct Rmap1km Rmap500m size1km size500m] = makeSinusoidProj( ...
@@ -436,6 +527,12 @@ classdef TileRegionAncillaryDataSetup
             % but this is incorrect, and the
             % webpage is correct:
             % https://lpdaac.usgs.gov/products/modis_overview
+            %
+            % NB: For v3.2, this was carried out on mod44w v6.0 2015 tiles. We need an
+            %   update
+            %   to v6.1 for v3.3, should we include a water/land tile per year?    @todo
+            %
+            % NB: This code put water even in place without data.               @warning
             modisData = obj.espEnv.modisData;
             outputDirectories = {fullfile(obj.parentDirectory, 'modis_ancillary', ...
                 obj.version, 'land'), ...
@@ -446,7 +543,8 @@ classdef TileRegionAncillaryDataSetup
                     mkdir(directory);
                 end
             end
-
+            versionChar = replace(obj.version, '.', ''); % remove the . in v3.2, because
+                % struct cannot accept . in their fieldnames.
             for tileRegionIdx = 1:length(obj.tileRegionNames)
                 tileRegionName = obj.tileRegionNames{tileRegionIdx};
                 % Georeferencing.
@@ -468,7 +566,7 @@ classdef TileRegionAncillaryDataSetup
 %{
 Deprecated implementation
                 fileSearch = fullfile(obj.parentDirectory, ...
-                    obj.subdirectories.modisNrtMod09ga, tileRegionName, '2022', ...
+                    obj.inputSubdirectories.(versionChar).modisNrtMod09ga, tileRegionName, '2022', ...
                     ['MOD09GA.A2022*.' tileRegionName '.061.NRT.hdf']);
                 fileResults = dir(fileSearch);
                 geoInfo = hdfinfo(fullfile(fileResults(1).folder, ...
@@ -499,8 +597,9 @@ The following is useful to check identicity of mapRasterReferences
 %}
                 % Water and Land.
                 fileSearch = fullfile(obj.parentDirectory, ...
-                    obj.subdirectories.modisHistMod44w, ...
-                    ['MOD44W.A2015001.' tileRegionName '.006.*.hdf']);
+                    obj.inputSubdirectories.(versionChar).modisHistMod44w, ...
+                    replace(obj.fileNamePatterns.(versionChar).modisHistMod44w, ...
+                        '{regionName}', tileRegionName));
                 fileResults = dir(fileSearch);
                 water = hdfread( ...
                     fullfile(fileResults(1).folder, fileResults(1).name), ...
