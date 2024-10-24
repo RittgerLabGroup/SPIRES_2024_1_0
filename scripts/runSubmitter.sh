@@ -187,7 +187,10 @@ EOM
         thisCurrentArrayJobIdForTaskId=${currentArrayJobIdForTaskIds[${thisTaskId}]}
         printf "currentArrayJobIdForTaskIds: ${thisCurrentArrayJobIdForTaskId}, thisArrayJobId: ${thisArrayJobId}.\n"
         if [[ $thisStatus == *"end:ERROR"* ]] && [[ ${currentArrayJobIdForTaskIds[${thisTaskId}]} -eq $thisArrayJobId ]]; then
-          if [[ $thisStatus == *"Exit=1"* ]]; then
+          if [[ $thisStatus == *"Exit=1"* ]] && [[ $thisStatus != *"MATLAB:load:couldNotReadFile"* ]] && [[ $thisStatus != *"MATLAB:MatFile:NoFile"* ]]; then
+            # MATLAB:load:couldNotReadFile and MATLAB:MatFile:NoFile can occur when
+            # files were deleted from scratch and didnt have been synchronized from
+            # archive to scratch.
             printf "Error on job ${thisArrayJobId}_${thisTaskId}, inserted into list for resubmission.\n"
             theseTaskIdsToResubmit=${theseTaskIdsToResubmit}${thisTaskId},
 
@@ -323,3 +326,33 @@ EOM
     printf "\nend:ERROR.\n"
   fi
 done
+
+printf "#############################################################################\n"
+printf "Check if submission of similar job day + 1...\n"
+printf "#############################################################################\n"
+beginTime=(19:45:00)
+repeatBeginTime=${beginTime[0]}
+printf "Submit line of the runSubmitter.sh job:\n"
+printf "sacct -j ${submitterSlurmFullJobId} --format SubmitLine%%1000 | awk '/sbatch[^@]+/{ print \$0 }' | sed 's~sh sbatch~sh \"sbatch~' | sed -E 's~$~\"~' | tr -s ' ' | sed -E 's~^ ~~' | sed -E 's~ \"$~\"~' | xargs -d '\n'"
+sacct -j ${submitterSlurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+/{ print $0 }' | sed 's~sh sbatch~sh "sbatch~' | sed -E 's~$~"~' | tr -s ' ' | sed -E 's~^ ~~' | sed -E 's~ "$~"~' | xargs -d '\n'
+# xargs -d '\n' to keep the quotes ".
+sbatchSubmitLine=$(sacct -j ${submitterSlurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+/{ print $0 }' | sed 's~sh sbatch~sh "sbatch~' | sed -E 's~$~"~' | tr -s ' ' | sed -E 's~^ ~~' | sed -E 's~ "$~"~' | xargs -d '\n')
+repeatSubmitLine=$sbatchSubmitLine
+if [[ "${repeatSubmitLine}" =~  .+begin=.+ ]]; then
+  repeatSubmitLine="$(echo "${repeatSubmitLine}" | sed -r s~--begin=[0-9\:]+~--begin=${repeatBeginTime}~)"
+  printf "\n\n\n"
+  printf "#############################################################################\n"
+  printf "Submit schedule for repeated job.\n"
+  printf "Time: ${repeatBeginTime}.\n"
+  printf "SbatchSubmitLine: ${sbatchSubmitLine}\n"
+  printf "Next repeat sbatch: $(echo $repeatSubmitLine  | sed s~%~%%~g)\n"
+  $repeatSubmitLine
+  printf "#############################################################################\n"
+else
+  #repeatSubmitLine="${repeatSubmitLine/sbatch/sbatch --begin=${repeatBeginTime} }"
+  printf "\n\n\n"
+  printf "#############################################################################\n"
+  printf "Absence of begin in submit line. No submit schedule for repeated job.\n"
+  printf "#############################################################################\n"
+fi
+
