@@ -8,14 +8,24 @@ classdef DailyDataVisualizer
   % Use Case for landsat (swiss).
   % output visualization files are in the same directory tree, with folder visualization
   % instead of output.
-
+  regionShortName = '042034'; % '194027';
+  varName = 'snow';
+  years = 2013:2024;
+  inputProductAndVersions = {'lc08.l2sp.02.t1', 'lc09.l2sp.02.t1'};
+  thisYear = 2013;
+  inputProductAndVersion = 'lc08.l2sp.02.t1';
+  filePathPattern = [getenv('espScratchDir'), inputProductAndVersion, ...
+    '/scagdrfs/v2024.0/output/', ...
+    regionShortName, '/', num2str(thisYear), '/*', varName, '.tif'];
   [status, cmdout] = ...
-    system('ls /scratch/alpine/sele7124/*/scagdrfs/v2024.0/output/194027/2024/*snow*');
+    system(['ls ', filePathPattern]);
   filePaths = splitlines(cmdout);
+  dailyDataVisualizer = DailyDataVisualizer();
   for fileIdx = 1:length(filePaths)
     filePathForSnowFractionTif = filePaths{fileIdx};
     if ~isempty(filePathForSnowFractionTif)
-      DailyDataVisualizer.generatePngForDailyLandsatScagTif(filePathForSnowFractionTif);
+      dailyDataVisualizer.generatePngForDailyLandsatScagTif( ...
+        filePathForSnowFractionTif,visible = 1);
     end
     close;
   end
@@ -23,9 +33,28 @@ classdef DailyDataVisualizer
   properties (Constant)
     colormapDir = fullfile(getenv('espProjectDir'), 'tbx', 'colormaps'); % to put ancillary elsewhere @todo
   end
+  properties
+    webColorMaps % struct containing all color maps.
+  end
 
-  methods (Static)
-    function [ S ] = generatePngForDailyLandsatScagTif(filePathForSnowFractionTif, ...
+  methods
+    function obj = DailyDataVisualizer()
+      webColorMaps = struct();
+      filePath = fullfile(getenv('espProjectDir'), 'tbx', 'conf', 'colormaps.json');
+      thoseColorMaps = jsondecode(fileread(filePath));
+      colorIds = fieldnames(thoseColorMaps);
+      for colorIdx = 1:length(colorIds)
+        colorId = colorIds{colorIdx};
+        x = [1:(256 / (height(thoseColorMaps.(colorId).colors) - 1)):256, 256];
+        y = thoseColorMaps.(colorId).colors / 256;
+        targetX = 1:256;
+        webColorMaps.(colorId) = interp1(x, y, targetX);
+        webColorMaps.(colorId)(1, :) = [230, 226, 221] / 255;
+        webColorMaps.(colorId)(end, :) = [0, 0, 0]; 
+      end
+      obj.webColorMaps = webColorMaps;
+    end
+    function [ S ] = generatePngForDailyLandsatScagTif(obj, filePathForSnowFractionTif, ...
       varargin)
       % Former browseTmscag() by Mary Jo and Karl
       %browseTmscag makes browse image of Landsat RGB and TMscag snow/veg/rock
@@ -39,6 +68,8 @@ classdef DailyDataVisualizer
       %         in range [0. 1.], default is 2% saturation, or [0.01 0.99]
       %   xRangeForImageSubset - [int, int]. Default [1, nCols]. 2-element vector with sample begin end range to subset [minColId, maxColId].
       %   yRangeForImageSubset - [int, int]. Default [1, nRows]. 2-element vector with line begin end range to subset [minRowId, maxRowId].
+      %   visible: int. 0, default, figure will not display and is only saved. 1: figure
+      %     will display.
       % Optional Input
       %
       % Output
@@ -59,17 +90,20 @@ classdef DailyDataVisualizer
       doSave = true;
       xRangeForImageSubset = 0;
       yRangeForImageSubset = 0;
+      visible = 0;
       p = inputParser;
       addParameter(p, 'saturationRange', saturationRange);
       addParameter(p, 'doSave', doSave);
       addParameter(p, 'xRangeForImageSubset', xRangeForImageSubset);
       addParameter(p, 'yRangeForImageSubset', yRangeForImageSubset);
+      addParameter(p, 'visible', visible);
       p.StructExpand = false;
       parse(p, varargin{:});
       saturationRange = p.Results.saturationRange;
       doSave = p.Results.doSave;
       xRangeForImageSubset = p.Results.xRangeForImageSubset;
       yRangeForImageSubset = p.Results.yRangeForImageSubset;
+      visible = p.Results.visible;
 
       S.status = 0;
 
@@ -84,35 +118,40 @@ classdef DailyDataVisualizer
         tokenNames.dd);
 
       % Read and partition the fractional colormaps
-      m = DailyDataVisualizer.getColorMap('cmap_fractions');
-      cmap_rock = DailyDataVisualizer.partitionColorMap(m.cmap_rock);
-      cmap_sca = DailyDataVisualizer.partitionColorMap(m.cmap_sca);
-      cmap_veg = DailyDataVisualizer.partitionColorMap(m.cmap_veg);
-      cmap_gs = DailyDataVisualizer.partitionColorMap(m.cmap_gs);
-      cmap_albedo = DailyDataVisualizer.partitionColorMap(m.cmap_albedo);
+      m = obj.getColorMap('cmap_fractions');
+      cmap_rock = obj.partitionColorMap(m.cmap_rock);
+      cmap_sca = obj.partitionColorMap(m.cmap_sca);
+      cmap_veg = obj.partitionColorMap(m.cmap_veg);
+      cmap_gs = obj.partitionColorMap(m.cmap_gs);
+      cmap_albedo = obj.partitionColorMap(m.cmap_albedo);
 
       cmap_gray = flipud(colormap('gray'));
       close
-      cmap_gray = DailyDataVisualizer.partitionColorMap(cmap_gray);
+      cmap_gray = obj.partitionColorMap(cmap_gray);
 
       % Set zero in gray images to yellow
       cmap_gray(1, :) = [1., 1., 0.];
 
       % Read TMscag images for snow, veg, rock
       version = 2024;
-      info.filetype = {'RGB', 'shade', 'fSCA', 'fVEG', 'fROCK', ...
-        'fOther', 'grSize', 'albedo_clean_mu0', 'albedo_observed_mu0'};
+      info.filetype = {'RGB', 'shade_f', 'snow_f', 'veg_f', 'rock_f', ...
+        'other_f', 'grain_size', 'albedo_cle_mu0', 'albedo_obs_mu0'};
       info.picfiletype = {'bip', 'shade.tif', 'snow.tif', 'veg.tif', 'rock.tif', ...
         'other.tif', 'grnsz.tif', 'albedo_clean_mu0.tif', 'albedo_observed_mu0.tif'};
       info.fileFolder = {'intermediary', 'output', 'output', 'output', 'output', ...
         'output', 'output', 'output', 'output'};
       info.cmap = {NaN, cmap_gray, cmap_sca, cmap_veg, cmap_rock, ...
         cmap_sca, cmap_gs, cmap_albedo, cmap_albedo};
-      info.maxValue = {NaN, 100., 100., 100., 100., 100., 1100.0, 100., 100.};
+      info.maxValue = [NaN, 100., 100., 100., 100., 100., 1100.0, 100., 100.];
+      info.colorScaleMinValue = [NaN, 0, 0, 0, 0, 0, 0, 55, 55];
+      info.colorScaleMaxValue = [NaN, 100., 100., 100., 100., 100., 1100.0, ...
+        85., 85.];
+      info.colorMapId = {'', '', 'x6', '', '', '', 'x3', 'x1', 'x1'};
 
       plotRows = 1;
       plotCols = numel(info.filetype);
-      figure(Units = 'pixels', Position = [0, 0, (plotCols * 400), (plotRows * 400)]);
+      figure(Units = 'pixels', ...
+        Position = [0, 0, (plotCols * 400), (plotRows * 400)], visible = visible);
       titleFontSize = 12;
 
       tiledlayout(plotRows, plotCols, Padding = 'none', TileSpacing = 'compact');
@@ -151,7 +190,7 @@ classdef DailyDataVisualizer
 
           fprintf('%s: reading bip=%s for RGB...\n', ...
           mfilename(), thisFilePath);
-          rgb = DailyDataVisualizer.readBandsRGB( ...
+          rgb = obj.readBandsRGB( ...
           thisFilePath, countOfRows, countOfColumns, [6 4 2], ...
                   saturationRange);
           rgb = rgb(yRangeForImageSubset(1):yRangeForImageSubset(2), xRangeForImageSubset(1):xRangeForImageSubset(2), :);
@@ -160,23 +199,39 @@ classdef DailyDataVisualizer
           axis off;
           title([info.filetype{varIdx} ' ' dateStr], ...
           'FontSize', titleFontSize);
-
         else
-%{
-          img = DailyDataVisualizer.readTmscag(thisFilePath, countOfRows, countOfColumns);
-%}
-          img = readgeoraster(thisFilePath);
-
+          data = readgeoraster(thisFilePath);
+          if varIdx == 3
+            data(data <= 5) = 0;
+            snowEqualsZero = data == 0;
+            snowIsNoData = data == 255;
+          end
+          if varIdx == 7
+            data(data == 0) = 1;
+          end
+          if varIdx >= 7
+            data(snowEqualsZero | (~snowEqualsZero & ~snowIsNoData & data == intmax(class(data)))) = 0;
+          end
           fprintf('%s: %s min=%6.2f, max=%6.2f\n', mfilename(), ...
-          info.filetype{varIdx}, min(img(:)), max(img(:)));
+          info.filetype{varIdx}, min(data(:)), max(data(:)));
 
           % scale the image here
-          scImg = DailyDataVisualizer.scaleRawFractionImage(img, info.maxValue{varIdx});
+          maxValue = info.maxValue(varIdx);
+          colorScaleMinValue = info.colorScaleMinValue(varIdx);
+          colorScaleMaxValue = info.colorScaleMaxValue(varIdx);
+          scImg = obj.scaleDataToColorMap(data, ...
+            colorScaleMinValue, colorScaleMaxValue);
 
           % Plot
-          im = imshow(scImg, info.cmap{varIdx});
+          if ~ismember(info.colorMapId{varIdx}, {''})
+            thisCmap = obj.webColorMaps.(info.colorMapId{varIdx});
+          else
+            thisCmap = info.cmap{varIdx};
+          end
+          im = imshow(scImg, thisCmap);
           cb = colorbar('southoutside', Ticks = [2, 250], ...
-            Ticklabels = {'0', string(info.maxValue{varIdx})}, ...
+            Ticklabels = {num2str(colorScaleMinValue), ...
+              num2str(colorScaleMaxValue)}, ...
             FontSize = uint8(0.9 * titleFontSize));
           set(cb, 'ylim', [2 250]);
           thisTitle = replace([info.filetype{varIdx} ' %'], '_', '\_');
@@ -189,25 +244,25 @@ classdef DailyDataVisualizer
       if (doSave)
         [~, name, ~] = fileparts(filePathForSnowFractionTif);
         outFilename = fullfile(outputDirectoryPath, ...
-          sprintf("%s.dailyvisu.v%02d.png", name, version));
+          sprintf("%s.dailyvisu.v%02d.png", replace(name, '.snow', ''), version));
         print(gcf, outFilename, '-dpng', '-r300');
         fprintf("%s: saved visualization to: %s\n", mfilename(), outFilename);
 
         %close all;
       end
     end
-    function m = getColorMap(colormapName)
+    function m = getColorMap(obj, colormapName)
       % colormap reads and returns the color map from the given file
 
-      f = dir(fullfile(DailyDataVisualizer.colormapDir, ...
+      f = dir(fullfile(obj.colormapDir, ...
         sprintf('%s.mat', colormapName)));
       m = load(fullfile(f.folder, f.name));
     end
-    function partCmap = partitionColorMap(cmap)
+    function thisCmap = partitionColorMap(obj, thisCmap)
       %partitionColorMap partitions cmap with gray/black/red/white
       %
       % Input
-      %   cmap = 256x3 colormap
+      %   thisCmap = 256x3 colormap
       %
       % Optional Input: n/a
       %
@@ -238,16 +293,18 @@ classdef DailyDataVisualizer
       p = inputParser;
 
       cmapValidation = @(x) isnumeric(x);
-      addRequired(p, 'cmap', cmapValidation);
+      addRequired(p, 'thisCmap', cmapValidation);
 
       p.KeepUnmatched = true;
-      parse(p, cmap);
+      parse(p, thisCmap);
 
-      if ~all(size(p.Results.cmap) == [256 3])
+      if ~all(size(p.Results.thisCmap) == [256 3])
           error('partitionColorMap:InputError', ...
-                'Unexpected input cmap dimensions');
+                'Unexpected input thisCmap dimensions');
       end
-
+      thisCmap(1, :) = [230, 226, 221] / 255;
+      thisCmap(end, :) = [0, 0, 0];
+%{
       black = [0 0 0];
       white = [1 1 1];
       lightgray = [0.75 0.75 0.75];
@@ -258,15 +315,16 @@ classdef DailyDataVisualizer
 
       partCmap = zeros([256 3]);
       partCmap(1, :) = gray;
-      partCmap(2:250, :) = cmap(1:249, :);
+      partCmap(2:250, :) = thisCmap(1:249, :);
       partCmap(251, :) = white;
       partCmap(252, :) = black;
       partCmap(253, :) = yellow;
       partCmap(254, :) = red;
       partCmap(255, :) = blue;
       partCmap(256, :) = lightgray;
+%}
     end
-    function rgb = readBandsRGB(fileName, countOfRows, countOfColumns, bands, saturationRange)
+    function rgb = readBandsRGB(obj, fileName, countOfRows, countOfColumns, bands, saturationRange)
       % readBandRGB - reads selected set of bands
       %
       % Input
@@ -304,64 +362,18 @@ classdef DailyDataVisualizer
       lowHigh = stretchlim(rgb, saturationRange);
       rgb = imadjust(rgb, lowHigh, []);
     end
-%{
-    function img = readTmscag(fileName, countOfRows, countOfColumns)
-      %readTmscag reads a binary TMscag output .img file
-      %
-      % Input
-      %   fileName - fileName to read, e.g. base.fSCA.img
-      %   countOfRows - number of lines
-      %   countOfColumns - number samples
-      %
-      % Optional Input
-      %
-      % Output
-      %   Matrix with transposed image
-      %
-      % Notes
-      %
-      % Example
-      % TBD
-      %
-      %  Copyright 2021 The Regents of the University of Colorado
-
-      % Determine the element type by the file extension and contents
-      [ ~, base, ext ] = fileparts(fileName);
-      [ ~, ~, filetype ] = fileparts(base);
-      datatype = 'uint8';
-      if strcmp(filetype, '.grnsz')
-        datatype = 'uint16';
-      end
-%{
-      if ( strcmp( ext, '.pic' ) )
-        datatype = 'float';
-      elseif ( strcmp( ext, '.bin' ))
-        datatype = 'uint8';
-        % grain size is 16-bit
-        if ( strcmp ( filetype, '.grnsz' ) )
-        datatype = 'uint16';
-        end
-      end
-%}
-      
-      precision = [datatype '=>' datatype];
-
-      fprintf("%s: reading %s as %s...\n", mfilename(), fileName, datatype);
-
-      % Swap rows/cols on read and then transpose back to expected dims
-      fileID = fopen(fileName, 'r');
-      img = fread(fileID, [countOfColumns countOfRows], precision);
-      fclose(fileID);
-      img = img';
-    end
-%}
-    function [sdata, flagVal] = scaleRawFractionImage(data, maxValue)
-      %scaleRawFractionImage scales raw image to uint8 
+    function data = scaleDataToColorMap(obj, data, ...
+      colorScaleMinValue, colorScaleMaxValue)
+      %scaleRawFractionImage scales raw image to uint8 by correcting unexpected things
+      % observed for albedo and removing all the nodata stuff...
       %
       % Input
       %   data = numeric matrix, with data values 0.0 - maxValue, possible
       %          NaNs and possible negative values
-      %   maxValue = maximum valid value in data
+      % - colorScaleMinValue: double. All values below this value are colored the min
+      %   color of the scale.
+      % - colorScaleMaxValue: double. All values above this value are colored the max
+      %   color of the scale.
       % Optional Input: n/a
       %
       % Output
@@ -380,86 +392,14 @@ classdef DailyDataVisualizer
       % scImage = scaleRawFractionImage(fsca, 1.0)
       % 
 
-      %  Copyright 2019 The Regents of the University of Colorado
+      isNoData = data == intmax(class(data));
+      data(data > colorScaleMaxValue & ~isNoData) = colorScaleMaxValue;
+      data(data < colorScaleMinValue) = colorScaleMinValue;
 
-      % Parse inputs
-      p = inputParser;
-
-      dataValidation = @(x) isnumeric(x) || islogical(x);
-      addRequired(p, 'data', dataValidation);
-
-      maxValueValidation = @(x) isnumeric(x);
-      addRequired(p, 'maxValue', maxValueValidation);
-
-      p.KeepUnmatched = true;
-      parse(p, data, maxValue);
-
-      % Define index flags
-      zeroIndex = 1;
-      maxIndex = 250; % top valid index
-      lowIndex = 255; % data too low
-      highIndex = 254; % data too high
-      missingIndex = 253; % data missing
-
-      % Save locations with special values
-      % Assume missing is NaN for floats, or maxInt for integer types
-      if any( strcmp(class(data), {'single', 'double'}) )
-      fprintf('%s: assuming Nans for missing...\n', mfilename());
-      missingMask = isnan(data);
-      else
-      missingValue = intmax(class(data));
-      fprintf('%s: assuming %d for missing...\n', mfilename(), ...
-      missingValue);
-      missingMask = data == missingValue;
-      end
-
-      lowMask = data < 0.;
-      zeroMask = data == 0;
-      highMask = data > maxValue;
-
-      % Set all special values to zero
-      data(missingMask | lowMask | zeroMask | highMask) = 0;
-
-      % Scale the rest into [2, maxIndex]
-      sdata = uint8((maxIndex - 2) * (double(data)/double(maxValue))) + 2;
-
-      % Order is important, here, since, for integer types the
-      % missing value will be in range and needs to be set last
-      sdata(lowMask) = lowIndex;
-      sdata(zeroMask) = zeroIndex;
-      sdata(highMask) = highIndex;
-      sdata(missingMask) = missingIndex;
-
-      % at this point, the ROV of the scaled image is 1-255
-      % But the index into the cmap array will be 1 above these values,
-      % which will not be the color I intend
-      % so subtract 1
-      sdata = sdata - 1;
-      flagVal.missingIndex = missingIndex;
-      flagVal.zeroIndex = zeroIndex;
-      flagVal.lowIndex = lowIndex;
-      flagVal.highIndex = highIndex;
-
-      numMissing = sum(missingMask(:));
-      numLow = sum(lowMask(:));
-      numZeros = sum(zeroMask(:));
-      numHigh = sum(highMask(:));
-      if numMissing > 0
-        fprintf('%s: %d missing values are mapped to scaled value %d\n', ...
-          mfilename(), numMissing, flagVal.missingIndex - 1);
-      end
-      if numLow > 0
-        fprintf('%s: %d low values are mapped to scaled value %d\n', ...
-        mfilename(), numLow, flagVal.lowIndex - 1);
-      end
-      if numZeros > 0
-        fprintf('%s: %d zero values are mapped to scaled value %d\n', ...
-          mfilename(), numZeros, flagVal.zeroIndex - 1);
-      end
-      if numHigh > 0
-        fprintf('%s: %d values > %d are mapped to scaled value %d\n', ...
-          mfilename(), numHigh, maxValue, flagVal.highIndex - 1);
-      end
+      % Scale
+      data(~isNoData) = uint8(254 * (double(data(~isNoData) - colorScaleMinValue) / ...
+        double(colorScaleMaxValue - colorScaleMinValue)));
+      data(isNoData) = 255;
     end
   end
 end
