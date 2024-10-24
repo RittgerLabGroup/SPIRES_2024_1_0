@@ -10,6 +10,7 @@ scriptIds=(mod09gaI spiFillC spiSmooC moSpires scdInCub daMosaic snoStep3 webExp
 declare -A scriptIdFilePathAssociations
 scriptIdFilePathAssociations[mod09gaI]="./scripts/runGetMod09gaFiles.sh"
 scriptIdFilePathAssociations[spiFillC]="./scripts/runSpiresFill.sh"
+scriptIdFilePathAssociations[spiInver]="./scripts/runSpiresInversor.sh"
 scriptIdFilePathAssociations[spiSmooC]="./scripts/runSpiresSmooth.sh"
 scriptIdFilePathAssociations[moSpires]="./scripts/runUpdateMosaicWithSpiresData.sh"
 scriptIdFilePathAssociations[scdInCub]="./scripts/runUpdateWaterYearSCD.sh"
@@ -24,33 +25,24 @@ scriptIdFilePathAssociations[ftpExpor]="./scripts/runFtpExport.sh"
 # Versions of ancillary data.
 ########################################################################################
 declare -A thoseVersionsOfAncillary
+# For all regions.
 defaultVersionOfAncillary=v3.2
-# v3.1 regions: h08v04 h08v05 h09v04 h09v05 h10v04 westernUS.
+# but specific case for regions: h08v04 h08v05 h09v04 h09v05 h10v04 westernUS.
 thoseVersionsOfAncillary[292]=v3.1
 thoseVersionsOfAncillary[293]=v3.1
 thoseVersionsOfAncillary[328]=v3.1
 thoseVersionsOfAncillary[329]=v3.1
 thoseVersionsOfAncillary[364]=v3.1
 thoseVersionsOfAncillary[5]=v3.1
-# v3.2 regions: 255,291,326,327,362,363,398,399,433,434,469,470 USAlaska
-thoseVersionsOfAncillary[255]=v3.2
-thoseVersionsOfAncillary[291]=v3.2
-thoseVersionsOfAncillary[326]=v3.2
-thoseVersionsOfAncillary[327]=v3.2
-thoseVersionsOfAncillary[362]=v3.2
-thoseVersionsOfAncillary[363]=v3.2
-thoseVersionsOfAncillary[398]=v3.2
-thoseVersionsOfAncillary[399]=v3.2
-thoseVersionsOfAncillary[433]=v3.2
-thoseVersionsOfAncillary[434]=v3.2
-thoseVersionsOfAncillary[469]=v3.2
-thoseVersionsOfAncillary[470]=v3.2
-thoseVersionsOfAncillary[1]=v3.2
 
 ########################################################################################
 # Configuration of pipelines with succession of scripts and versions of file data.
 ########################################################################################
-# Implemented like this because not possible to put arrays in values of a dictionnary.
+# Implemented like this because not possible to put arrays in values of a dictionary.
+
+########################################################################################
+# Pipeline 1, for regions with implementation < v2024.0f, i.e. v2024.0d westernUS.
+########################################################################################
 
 pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daGeoBig daStatis webExpSn)
 pipeLineLabels1=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
@@ -63,8 +55,8 @@ pipeLineParallelWorkersNb1=(0 18 10 10 0 2 6 0 0 0)
 
 # sbatch parameters
 pipeLineTasksPerNode1=(1 18 10 10 5 2 6 1 1 1)
-pipeLineMems1=(1G 120G 30G 40G 30G 5G 30G 8G 8G 3G)
-pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:20:00 00:20:00 00:30:00 00:40:00 00:20:00 03:00:00 01:30:00)
+pipeLineMems1=(1G 140G 30G 40G 30G 5G 30G 8G 8G 3G)
+pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:30:00 00:20:00 00:30:00 00:40:00 00:20:00 04:00:00 01:30:00)
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
@@ -132,8 +124,8 @@ pipeLineParallelWorkersNb2=(0 18 10 10 0 2 6 0 0 0)
 
 # sbatch parameters
 pipeLineTasksPerNode2=(1 18 10 10 5 2 6 1 1 1)
-pipeLineMems2=(1G 140G 30G 40G 30G 5G 30G 8G 8G 3G)
-pipeLineTimes2=(01:30:00 23:45:00 03:30:00 00:20:00 00:20:00 00:30:00 00:30:00 00:20:00 03:00:00 01:30:00)
+pipeLineMems2=(1G 140G 30G 40G 30G 5G 30G 24G 8G 3G)
+pipeLineTimes2=(01:30:00 23:45:00 03:30:00 00:30:00 00:20:00 00:30:00 00:30:00 00:20:00 03:30:00 01:30:00)
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
@@ -150,3 +142,38 @@ printf -v pipeLineParallelWorkersNbString2 '%s ' ${pipeLineParallelWorkersNb2[@]
 printf -v pipeLineTasksPerNodeString2 '%s ' ${pipeLineTasksPerNode2[@]}
 printf -v pipeLineMemsString2 '%s ' ${pipeLineMems2[@]}
 printf -v pipeLineTimesString2 '%s ' ${pipeLineTimes2[@]}
+
+########################################################################################
+# Pipeline 3, for regions with implementation >= v2024.0f.
+########################################################################################
+pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daMosBig daGeoBig daStatis webExpSn)
+pipeLineLabels3=(v061 v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f)
+pipeLineRegionTypes3=(0 0 0 0 0 1 1 1 10)
+  # 0: tile, 1: big region, 10: all regions.
+pipeLineSequences3=(0 0 001-036 0 0 0 0 001 0)
+  # NB: probably need to adapt the number of sequences for daStatis dynamically as a
+  # function of the nb of subdivisions. Chose 001 for New Zealand.                 @todo
+pipeLineSequenceMultiplierToIndices3=(1 1 1 1 1 1 1 3 1)
+pipeLineMonthWindows3=(2 2 12 12 12 12 0 12 12)
+pipeLineParallelWorkersNb3=(0 14 10 10 2 6 0 0 0)
+
+# sbatch parameters
+pipeLineTasksPerNode3=(1 14 10 10 2 6 1 1 1)
+pipeLineMems3=(1G 44G 30G 40G 5G 30G 8G 8G 3G)
+pipeLineTimes3=(01:30:00 01:45:00 02:30:00 00:30:00 00:30:00 00:40:00 00:20:00 04:00:00 01:30:00)
+# NB: daGeoBig: time for generation of the last day only.
+# NB: daStatis: time for 3 subdivisions only.
+
+# Bypassing the unavailability of declare -n in bash 4.2.
+# declare -n could have been used in toolsStart.sh to reference these arrays, but
+# it's only available in bash 4.4, while blanca/login/alpine nodes are in bash 4.2
+printf -v pipeLineScriptIdsString3 '%s ' ${pipeLineScriptIds3[@]}
+printf -v pipeLineLabelsString3 '%s ' ${pipeLineLabels3[@]}
+printf -v pipeLineRegionTypesString3 '%s ' ${pipeLineRegionTypes3[@]}
+printf -v pipeLineSequencesString3 '%s ' ${pipeLineSequences3[@]}
+printf -v pipeLineSequenceMultiplierToIndicesString3 '%s ' ${pipeLineSequenceMultiplierToIndices3[@]}
+printf -v pipeLineMonthWindowsString3 '%s ' ${pipeLineMonthWindows3[@]}
+printf -v pipeLineParallelWorkersNbString3 '%s ' ${pipeLineParallelWorkersNb3[@]}
+printf -v pipeLineTasksPerNodeString3 '%s ' ${pipeLineTasksPerNode3[@]}
+printf -v pipeLineMemsString3 '%s ' ${pipeLineMems3[@]}
+printf -v pipeLineTimesString3 '%s ' ${pipeLineTimes3[@]}
