@@ -7,6 +7,7 @@
 # 0. Initialize and include general configuration.sh and calculation functions
 ########################################################################################
 fileSeparator='/'
+defaultIFS=$' \t\n'
 
 sleep 5
 # Might help to make work sacct (sacct not fully informed at the beginning of a job).
@@ -174,6 +175,8 @@ if [ -v SLURM_JOB_ID ] && [ ! -v USER ]; then
   printf "#############################################################################\n"
   sacct -j ${SLURM_JOB_ID} -l --json
   
+  
+  
   # Quick get of objectId/cellId (also done above when node logged in).
   if [ -v SLURM_ARRAY_TASK_ID ]; then
     objectId=${SLURM_ARRAY_TASK_ID}
@@ -193,6 +196,11 @@ if [ -v SLURM_JOB_ID ] && [ ! -v USER ]; then
   error_exit "Exit=1, matlab=no, Defective node, impossible to login."
 fi
 
+if [[ $SLURM_ARRAY_TASK_ID -ne $SLURM_ARRAY_TASK_MIN ]]; then
+  printf "Not first task of the job. Waiting 10 sec...\n"
+  # Additional security against file locks.
+  sleep 10
+fi
 ########################################################################################
 # 2. Get the slurm variables.
 ########################################################################################
@@ -224,6 +232,7 @@ if [ -v SLURM_JOB_ID ]; then
   #slurmStartTime=$(echo "$thisSControl" | grep StartTime | cut -d = -f 2)
   #slurmEndTime=$(echo "$thisSControl" | grep EndTime | cut -d = -f 2)
   slurmWorkingDir=$(echo "$thisSControl" | grep WorkDir | cut -d = -f 2)
+  slurmEndDate=$(echo "$thisSControl" | grep EndTime | cut -d '=' -f 2)
   
   #slurmDurationSec=$(($(date -d $slurmEndTime +%s) - $(date -d $slurmStartTime +%s)))
   
@@ -259,7 +268,8 @@ slurmMailType=${slurmMailType}; slurmMailUser=${slurmMailUser};
 slurmPartition=${slurmPartition}; slurmQos=${slurmQos};
 slurmStdOut=${slurmStdOut};
 slurmLogDir=${slurmLogDir};
-slurmTime=${slurmTime}; slurmWorkingDir=${slurmWorkingDir};
+slurmTime=${slurmTime}; slurmEndDate=${slurmEndDate};
+slurmWorkingDir=${slurmWorkingDir};
 programName=${programName}; slurmMem=${slurmMem}; slurmNodeList=${slurmNodeList};
 slurmNTasksPerNode=${slurmNTasksPerNode}; slurmConstraints=${slurmConstraints};
 slurmExport=${slurmExport};
@@ -289,7 +299,7 @@ if [[ ${mainBashSource} == *"slurm_script"* ]]; then
   # based on $BASH_SOURCE.
   printf "Running as a slurm sbatch job...\n"
   printf "Submit line of the job:\n"
-  printf "sacct -j ${slurmFullJobId} --format SubmitLine%%1000 | awk '/sbatch[^@]+/{ print $0 }' | xargs\n"
+  printf "sacct -j ${slurmFullJobId} --format SubmitLine%%1000 | awk '/sbatch[^@]+/{ print \$0 }' | xargs\n"
   sacct -j ${slurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+/{ print $0 }' | xargs
   sbatchSubmitLine=$(sacct -j ${slurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+/{ print $0 }' | xargs)
 
@@ -374,7 +384,11 @@ EOM
 # These parameters can still be overriden by the options sent to the script.    @warning
 # First parsing of options to get the pipeline.
 OPTIND=1
-while getopts "A:b:c:d:D:hiI:L:M:noO:q:Q:Rx:y:w:Z:" opt; do
+thisGepOptsString="A:b:c:d:D:hiI:L:M:noO:p:q:Q:rRx:y:vw:W:Z:"
+# NB: add a : in string above when option expects a value.
+while getopts ${thisGepOptsString} opt; do
+# NB: all these options whould correspond to the options caught further in the code.
+#                                                                               @warning
   case $opt in
     Z) pipeLineId="$OPTARG"
     printf "\npipeLineId=${pipeLineId}\n\n";;
@@ -515,6 +529,8 @@ outputToArchive=
 if [ ! -v outputLabel ]; then
   outputLabel=$inputLabel
 fi
+# Option -p, input product and version, mod09ga.061 or vnp09ga.002
+inputProductAndVersion="mod09ga.061"
 # Option -r, if present, indicates resubmission allowed if error (except specific errors
 # such as cancel by user or out of memory).
 isToResubmitIfError=
@@ -535,6 +551,12 @@ if [ ! -v parallelWorkersNb ]; then
     #fi
     parallelWorkersNb=$slurmNTasksPerNode
   fi
+fi
+
+# Option -W, configuration id of the target of web export server. 0: Prod,
+# 1: Integration, 2: QA.
+if [ ! -v espWebExportConfId ]; then
+  espWebExportConfId=0
 fi
 
 # Option -x, location of the scratch Path. By default environment variable.
@@ -563,18 +585,22 @@ firstToLastIndex=${firstToLastIndex};
 versionOfAncillary=${versionOfAncillary}; filterConfId=${filterConfId};
 dateOfToday=${dateOfToday}; waterYearDateString=${waterYearDateString};
 inputFromArchive=${inputFromArchive}; inputLabel=${inputLabel};
+inputProductAndVersion=${inputProductAndVersion};
 outputToArchive=${outputToArchive}; outputLabel=${outputLabel}; thisMode=${thisMode};
 isToBeRepeated=${isToBeRepeated}; isToResubmitIfError=${isToResubmitIfError};
 verbosityLevel=${isToBeRepeated};
-parallelWorkersNb=${parallelWorkersNb}; scratchPath=${scratchPath};
-archivePath=${archivePath}; pipeLineId=${pipeLineId};
+parallelWorkersNb=${parallelWorkersNb}; espWebExportConfId=${espWebExportConfId};
+scratchPath=${scratchPath}; archivePath=${archivePath};
+pipeLineId=${pipeLineId};
 EOM
 printf "\n${defaultOption}\n\n"
 
 # Second parsing of options.
 OPTIND=1
-while getopts "A:b:c:d:D:hiI:L:M:noO:q:Q:Rrx:y:w:Z:" opt
-# NB: add a : in string above when option expects a value.
+while getopts ${thisGepOptsString} opt
+# NB: all these options whould correspond to the options caught above in the code to
+# catch -Z option.
+#                                                                               @warning
 do
   case $opt in
     A) versionOfAncillary="$OPTARG";;
@@ -594,6 +620,7 @@ do
     n) noPipeline=1;;
     o) outputToArchive=1;;
     O) outputLabel="$OPTARG";;
+    p) inputProductAndVersion="$OPTARG";;
     q) cellIdx="$OPTARG";;
     Q) countOfCells="$OPTARG";;
     r) if [ ! -v isToResubmitIfError ]; then
@@ -608,6 +635,7 @@ do
     y) archivePath="$OPTARG";;
     v) verbosity="$OPTARG";;
     w) parallelWorkersNb="$OPTARG";;
+    W) espWebExportConfId="$OPTARG";;
     Z) pipeLineId="$OPTARG";;
     ?) printf "Unknown option %s\n" $opt
       usage
@@ -623,17 +651,35 @@ firstToLastIndex=${firstToLastIndex};
 versionOfAncillary=${versionOfAncillary}; filterConfId=${filterConfId}; 
 dateOfToday=${dateOfToday}; waterYearDateString=${waterYearDateString};
 inputFromArchive=${inputFromArchive}; inputLabel=${inputLabel};
+inputProductAndVersion=${inputProductAndVersion};
 outputToArchive=${outputToArchive}; outputLabel=${outputLabel}; thisMode=${thisMode};
 isToBeRepeated=${isToBeRepeated};  isToResubmitIfError=${isToResubmitIfError};
 verbosityLevel=${isToBeRepeated};
-parallelWorkersNb=${parallelWorkersNb}; scratchPath=${scratchPath};
-archivePath=${archivePath}; pipeLineId=${pipeLineId};
+parallelWorkersNb=${parallelWorkersNb}; espWebExportConfId=${espWebExportConfId};
+scratchPath=${scratchPath}; archivePath=${archivePath};
+pipeLineId=${pipeLineId};
 EOM
 printf "\n${actualOption}\n\n"
+
+# Defective node cannot access scratchPath or archive.
+########################################################################################
+if [[ $(timeout 5 ls ${scratchPath} 2>&1) == *"cannot access"* ]]; then
+  printf "\n\n\n\n"
+  error_exit "Exit=1, matlab=no, Defective node, scratchPath inaccessible."
+fi
+if [[ $(timeout 5 ls ${archivePath} 2>&1) == *"cannot access"* ]]; then
+  printf "\n\n\n\n"
+  error_exit "Exit=1, matlab=no, Defective node, archivePath inaccessible."
+fi
 
 ########################################################################################
 # 7. Arguments and parameters of the matlab script.
 ########################################################################################
+
+# Input product and version, e.g. mod09ga and 061.
+inputProduct=${inputProductAndVersion%.*}
+inputProductVersion=${inputProductAndVersion##*.}
+
 # Determination of region names, indices, start and end dates,
 # Construction of the instantiation strings for Matlab.
 firstToLastIndexArray=(${firstToLastIndex//-/ })
@@ -677,13 +723,14 @@ dateOfTodayString="${dateOfTodayArray[0]}, "\
 "${dateOfTodayArray[1]}, ${dateOfTodayArray[2]}, WaterYearDate.dayStartTime.HH, "\
 "WaterYearDate.dayStartTime.MIN, WaterYearDate.dayStartTime.SS"
 inputForWaterYearDate="datetime(${thisYear}, ${thisMonth}, ${thisDay}), "\
-"modisData.getFirstMonthOfWaterYear('"${regionName}"'), ${monthWindow}, "\
+"region.myConf.region.firstMonthOfWaterYear, ${monthWindow}, "\
 "dateOfToday = datetime(${dateOfTodayString})"
 # NB: month and day can be input as 09 and 01 apparently with Matlab 2021b.
 
 read -r -d '' objectTimeVariable << EOM
 Object and time variable values:
 #############################################################################
+inputProduct=${inputProduct}; inputProductVersion=${inputProductVersion}
 firstIndex=${firstIndex}; lastIndex=${lastIndex}; objectId=${objectId};
 regionName=${regionName}; thisYear=${thisYear}; thisMonth=${thisMonth};
 thisDay=${thisDay}; monthWindow=${monthWindow};
@@ -711,7 +758,8 @@ version_of_ancillary_option=""
 # this implies that the ancillary data will NEVER be modified by the scripts called
 # by this bash script (i.e. no call of scratchShuffleAncillary.sh to destination of
 # pl/archive).
-inputForModisData="label = '${inputLabel}', versionOfAncillary = '${versionOfAncillary}'"
+inputForModisData="label = '${inputLabel}', versionOfAncillary = '${versionOfAncillary}', "\
+"inputProduct = '${inputProduct}', inputProductVersion = '${inputProductVersion}'"
 printf "inputForModisData: ${inputForModisData}\n"
 modisDataInstantiation="modisData = MODISData(${inputForModisData}); "
 if [[ ${inputLabel} != ${outputLabel} ]] & [ outputDataLabels ]; then
@@ -722,15 +770,34 @@ if [[ ${inputLabel} != ${outputLabel} ]] & [ outputDataLabels ]; then
   printf "modisDataInstantiation: ${modisDataInstantiation}.\n"
 fi
 
-inputForESPEnv="modisData = modisData, scratchPath = '${scratchPath}'"
-espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); "
+inputForESPEnv="modisData = modisData, archivePath = '${archivePath}', scratchPath = '${scratchPath}'"
+# Only used in last step of pipeline. 
+if [[ ${scriptId} == "webExpSn" ]]; then
+  inputForESPEnv=${inputForESPEnv}", espWebExportConfId = ${espWebExportConfId}"
+fi
+# Specific case when run westernUS with v3.2 of ancillary.
+westernUSRegionNames=(h08v04 h08v05 h09v04 h09v05 h10v04);
+if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]] \
+&& [[ $versionOfAncillary != "v3.1" ]]; then
+  inputForESPEnv=${inputForESPEnv}", filterMyConfByVersionOfAncillary = 0"
+fi
+
+espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); esp.slurmFullJobId = '${slurmFullJobId}';"
+if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]] \
+&& [[ $versionOfAncillary != "v3.1" ]]; then
+  espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region(strcmp(espEnv.myConf.region.name, '"${regionName}"'), :).versionOfAncillary = {'"$versionOfAncillary}"'};"
+fi
+
 if [[ ${filterConfId} -ne 0 ]]; then
   espEnvInstantiation=${espEnvInstantiation}" "\
 "espEnv.myConf.region.${filterConfLabel}ConfId(:)=${filterConfId}; ";
-  printf "espEnvInstantiation: ${espEnvInstantiation}.\n"
 fi
+printf "espEnvInstantiation: ${espEnvInstantiation}.\n"
 espEnvWOFilterInstantiation="espEnvWOFilter = ESPEnv(${inputForESPEnv}, filterMyConfByVersionOfAncillary = 0); "
 printf "espEnvWOFilterInstantiation: ${espEnvWOFilterInstantiation}.\n"
+
+optimInstantiation="optim = struct(force = ${thisMode}); "
+printf "optimInstantiation: ${optimInstantiation}.\n"
 
 read -r -d '' catchExceptionAndExit << EOM
 catch thisException;
@@ -775,7 +842,6 @@ if [[ -v isBatch ]] && [[ -v isToBeRepeated ]] && [[ $isToBeRepeated -eq 1 ]] &&
   repeatSubmitLine=$sbatchSubmitLine
   if [[ "${repeatSubmitLine}" =~  .+begin=.+ ]]; then
     repeatSubmitLine="$(echo "${repeatSubmitLine}" | sed -r s~--begin=[0-9\:]+~--begin=${repeatBeginTime}~)"
-
   else
     repeatSubmitLine="${repeatSubmitLine/sbatch/sbatch --begin=${repeatBeginTime} }"
   fi
@@ -880,10 +946,15 @@ EOM
     nextSubmitLine=$(echo ${nextSubmitLine} | sed -E 's~--begin=[0-9\:]+ ~~' | sed -E "s~/[a-zA-Z0-9\_\%]+\.out( --job-name)~/${nextSlurmStdOutFileName}\1~" | sed -E "s~( --job-name=)[a-zA-Z0-9\-]+ ~\1${nextJobName} ~" | sed -E "s~( --ntasks-per-node=)[0-9]+ ~\1${nextTasksPerNode} ~" | sed -E "s~( --mem=)[0-9]+G ~\1${nextMem} ~" | sed -E "s~( --time=)[0-9:]+ ~\1${nextTime} ~" | sed -E "s~( --array=)[0-9\,\-]+ ~\1${nextArray} ~" | sed -E "s~ \.\/scripts\/[a-zA-Z0-9]+\.sh ~ ${nextScript} ~" | sed -E "s~( -A )[a-zA-Z0-9\.]+ ~\1${nextVersionOfAncillary} ~" | sed -E "s~( -L )[a-zA-Z0-9\.\_\-]+ ~\1${nextInputLabel} ~" | sed -E "s~( -O )[a-zA-Z0-9\.\_\-]+ ~\1${nextOutputLabel} ~" | sed -E "s~( -w )[0-9]+ ~\1${nextParallelWorkersNb} ~" | sed "s~ -R ~ ~")
 
     if [[ "${nextSubmitLine}" == *" -D "* ]]; then
-      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( -D [0-9]+-[0-9]+-[0-9]+-)[0-9]+ ~\1${nextMonthWindow} ~")
+      # Precaution, we force the waterYearDate to what the script decided, and not only
+      # reports the input waterYearDate.
+      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( -D )[0-9]+-[0-9]+-[0-9]+-[0-9]+ ~\1${nextWaterYearDate} ~")
+    else
+      # We force the waterYearDate for the rest of the pipeline. Important when the
+      # pipeline pass through midnight, from a past month to a new month, or more
+      # dangerous from a past WaterYear to a new WaterYear.
+      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( -L )~ -D ${nextWaterYearDate}\1~")
     fi
-    # nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( -L )~ -D ${nextWaterYearDate}\1~")
-
     if [[ "${nextSubmitLine}" != *" --dependency="* ]]; then
       nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~(sbatch )~\1--dependency=afterok:${SLURM_ARRAY_JOB_ID} ~")
     else
