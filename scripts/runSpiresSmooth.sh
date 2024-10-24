@@ -49,7 +49,7 @@ usage() {
   echo "" 1>&2
   echo "Usage: ${PROGNAME} [-A LABEL_ANCILLARY] [-c filterConfId]  " 1>&2
   echo "  [-d dateOfToday] [-h] [-L LABEL] " 1>&2
-  echo "  [-O outputLabel] [-x scratchPath]" 1>&2
+  echo "  [-M thisMode] [-O outputLabel] [-x scratchPath]" 1>&2
   echo "  Job array to update REGIONNAME (tile) Gap and STC month cubes for a set of years" 1>&2
   echo "Options: "  1>&2
   echo "  -A LABEL_ANCILLARY: string with version of ancillary data" 1>&2
@@ -64,6 +64,8 @@ usage() {
   echo "  -h: display help message and exit" 1>&2
   echo "  -L LABEL: string with version label for directories" 1>&2
   echo "     e.g. for operational processing, use -L v2023.x" 1>&2
+  echo "  -M thisMode: int. 0 or absent option: classic behavior. 1: calculations " 1>&2
+  echo "     of albedo_muZ only." 1>&2
   echo "  -O outputLabel: string with version label for output files" 1>&2
   echo "     If -O not precised, LABEL is used for both input and output files" 1>&2
   echo "  -x scratchPath: string indicating where is the scratch, where are " 1>&2
@@ -132,17 +134,25 @@ clear;
 try;
   ${modisDataInstantiation}
   ${espEnvInstantiation}
+  rng(${SLURM_ARRAY_TASK_ID});
+  pauseTime = mtimes(rand(1), 120);
+  fprintf('\nParallel pool launched in %.0f secs...\n', pauseTime);
+  pause(pauseTime);
   espEnv.configParallelismPool(${parallelWorkersNb});
   region = Regions(${inputForRegion});
   waterYearDate = WaterYearDate(${inputForWaterYearDate});
   addpath(genpath('${codePath}')); addpath(genpath('${codePath2}'));
   addpath(genpath('${codePath3}')); addpath(genpath('${codePath4}'));
-  theseDates = waterYearDate.getDailyDatetimeRange();
-  matdates = arrayfun(@(x) datenum(x), theseDates);
-  smoothSPIREScube20240204(region, ${cellIdx}, matdates, 0);
+  smoothSPIREScube20240204(region, ${cellIdx}, waterYearDate, 0, ${thisMode});
 ${catchExceptionAndExit}
 
 EOM
+
+# pause(mtimes(rand(1), 60)); Allows to prevent all smooth jobs starting parallel pools
+# in the
+# same time in blanca, that creates strain on /home/ and /projects/, which can make the
+# pool not start.
+# NB: didn't figure out how to escape * character.
 
 # Launch Matlab and terminate bash script.
 source scripts/toolsStop.sh
