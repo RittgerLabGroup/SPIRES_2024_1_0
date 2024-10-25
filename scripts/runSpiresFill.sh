@@ -104,6 +104,10 @@ thisSequence=
 thisSequenceMultiplierToIndices=
 thisMonthWindow=2
 
+# Matlab package paths added.
+matlabPackages=(inpaintNans spiresCore spiresGeneral spiresMappping spiresMccm \
+spiresModisHdf spiresRasterReprojection)
+
 source scripts/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
@@ -114,55 +118,19 @@ fi
 
 source scripts/toolsMatlab.sh
 
-# Variables for Matlab code.
-########################################################################################
-
-#machine specific parameters
-#file an directories, note closing /
-codePath="/projects/${USER}/MATLAB/SPIRES/core";
-codePath2="/projects/${USER}/MATLAB/SPIRES/MODIS_HDF";
-codePath3="/projects/${USER}/MATLAB/SPIRES/RasterReprojection";
-codePath4="/projects/${USER}/MATLAB/SPIRES/MccM";
-codePath5="/projects/${USER}/MATLAB/SPIRES/Mappping";
-codePath6="/projects/${USER}/MATLAB/SPIRES/General";
-codePath7="/projects/${USER}/MATLAB/SPIRES/MATLABFileExchange/Inpaint_nans";
-
 # Matlab.
 ########################################################################################
-matlabString="clear; "\
-"try; "\
-"${modisDataInstantiation}"\
-"${espEnvInstantiation}"\
-"espEnv.configParallelismPool(${parallelWorkersNb});"\
-"region = Regions(${inputForRegion}); "\
-"waterYearDate = WaterYearDate(${inputForWaterYearDate}); "\
-"addpath(genpath('${codePath}')); addpath(genpath('${codePath2}')); "\
-"addpath(genpath('${codePath3}')); addpath(genpath('${codePath4}')); "\
-"addpath(genpath('${codePath5}')); addpath(genpath('${codePath6}')); "\
-"addpath(genpath('${codePath7}')); "\
-"theseDates = waterYearDate.getDailyDatetimeRange(); "\
-"matdates = arrayfun(@(x) datenum(x), theseDates); "\
-"fill_and_run_modis20240204(region, matdates); "\
-"catch e; "\
-"fprintf('%s: %s\n', e.identifier, e.message); "\
-"exit(-1); "\
-"end; "\
-"exit(0);"
-
 
 read -r -d '' matlabString << EOM
 
 clear;
 try;
+  ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvInstantiation}
   espEnv.configParallelismPool(${parallelWorkersNb});
   region = Regions(${inputForRegion});
   waterYearDate = WaterYearDate(${inputForWaterYearDate});
-  addpath(genpath('${codePath}')); addpath(genpath('${codePath2}'));
-  addpath(genpath('${codePath3}')); addpath(genpath('${codePath4}'));
-  addpath(genpath('${codePath5}')); addpath(genpath('${codePath6}'));
-  addpath(genpath('${codePath7}'));
   theseDates = waterYearDate.getDailyDatetimeRange();
   matdates = arrayfun(@(x) datenum(x), theseDates);
   fill_and_run_modis20240204(region, matdates);

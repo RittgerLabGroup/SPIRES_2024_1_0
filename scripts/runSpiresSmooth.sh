@@ -106,6 +106,9 @@ thisSequence=001-036
 thisSequenceMultiplierToIndices=1
 thisMonthWindow=12
 
+# Matlab package paths added.
+matlabPackages=(parBal spiresCore spiresGeneral spiresModisHdf spiresTimeSpace)
+
 source scripts/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
@@ -116,22 +119,13 @@ fi
 
 source scripts/toolsMatlab.sh
 
-# Variables for Matlab code.
-########################################################################################
-
-#machine specific parameters
-#file an directories, note closing /
-codePath="/projects/${USER}/MATLAB/SPIRES/core";
-codePath2="/projects/${USER}/MATLAB/SPIRES/MODIS_HDF";
-codePath3="/projects/${USER}/MATLAB/SPIRES/TimeSpace";
-codePath4="/projects/${USER}/MATLAB/SPIRES/General";
-
 # Matlab.
 ########################################################################################
 read -r -d '' matlabString << EOM
 
 clear;
 try;
+  ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvInstantiation}
   rng(${SLURM_ARRAY_TASK_ID});
@@ -141,8 +135,6 @@ try;
   espEnv.configParallelismPool(${parallelWorkersNb});
   region = Regions(${inputForRegion});
   waterYearDate = WaterYearDate(${inputForWaterYearDate});
-  addpath(genpath('${codePath}')); addpath(genpath('${codePath2}'));
-  addpath(genpath('${codePath3}')); addpath(genpath('${codePath4}'));
   smoothSPIREScube20240204(region, ${cellIdx}, waterYearDate, 0, ${thisMode});
 ${catchExceptionAndExit}
 

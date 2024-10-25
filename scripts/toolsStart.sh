@@ -6,6 +6,7 @@
 ########################################################################################
 # 0. Initialize and include general configuration.sh and calculation functions
 ########################################################################################
+source ~/.matlabEnvironmentVariables
 fileSeparator='/'
 defaultIFS=$' \t\n'
 
@@ -752,6 +753,13 @@ fi
 [[ "$#" -eq $expectedCountOfArguments ]] || \
   error_exit "Line ${LINENO}: Unexpected number of arguments: $# vs "\
 "${expectedCountOfArguments} expected."
+
+packagePathInstantiation="addpath(genpath('${matlabPathForESPToolbox}')); "
+for matlabPackage in ${matlabPackages[@]}; do
+  parameterName=matlabPathFor${matlabPackage^}
+  packagePathInstantiation=${packagePathInstantiation}"addpath(genpath('$(echo ${!parameterName})')); ";  
+done
+printf "packagePathInstantiation: ${packagePathInstantiation}.\n"
 
 version_of_ancillary_option=""
 # by default we set the version of ancillary data to the one of production.

@@ -84,6 +84,9 @@ thisSequence=
 thisSequenceMultiplierToIndices=
 thisMonthWindow=0
 
+# Matlab package paths added.
+matlabPackages=(rasterReprojection)
+
 source scripts/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1

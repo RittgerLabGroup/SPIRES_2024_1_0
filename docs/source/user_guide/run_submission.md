@@ -31,6 +31,10 @@ For the first step, the tasks are split among the sensor (modis) tiles. But the 
 - we cut the big region into land subdivisions, which can correspond to states/provinces or watersheds.
 The ids of tiles and big regions are stored in `tbx/conf/configuration_of_regions.csv` (field: id) and the ids of all land subdivisions are stored in `tbx/conf/configuration_of_landsubdivisions.csv` (field: id). All ids are unique, and a tile id cannot be the same as a land subdivision id. These ids are given as task ids in the argument --array of the sbatch command.
 
+## Environmental variables
+
+All scripts need to have some environmental variables set, using ~.bashrc (on linux) for general variables and login/passwords/tokens and ~.matlabEnvironmentVariables for variables specific to matlab, including the paths of external matlab packages.
+
 ## Cases/Fails/Errors not handled in runSubmitter.sh
 
 **Dual cancel error**
