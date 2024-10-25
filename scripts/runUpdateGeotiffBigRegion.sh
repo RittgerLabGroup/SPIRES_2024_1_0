@@ -104,6 +104,7 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
 
 clear;
 try;
+  ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvInstantiation}
   region = Regions(${inputForRegion});

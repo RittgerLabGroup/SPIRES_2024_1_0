@@ -99,6 +99,7 @@ read -r -d '' matlabString << EOM
 
 clear;
 try;
+  ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvInstantiation}
   espEnv.configParallelismPool(${parallelWorkersNb}); feature('numcores');

@@ -130,6 +130,7 @@ read -r -d '' matlabString << EOM
 
 clear;
 try;
+  ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvWOFilterInstantiation}
   espEnvWOFilter.setAdditionalConf('landsubdivision');

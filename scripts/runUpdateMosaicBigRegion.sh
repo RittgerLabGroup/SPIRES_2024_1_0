@@ -100,6 +100,7 @@ read -r -d '' matlabString << EOM
 
 clear;
 try;
+  ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvInstantiation}
   region = Regions(${inputForRegion});

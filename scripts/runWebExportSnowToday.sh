@@ -141,6 +141,7 @@ try;
     % espEnv.myConf.landsubdivisionlink.
   uncondensedJson = 1;
   includeSubdivisionTypeInJson = 0;
+  ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvWOFilterInstantiation}
 
