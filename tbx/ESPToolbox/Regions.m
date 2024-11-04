@@ -894,6 +894,10 @@ classdef Regions < handle
                     % get the output name and units
                     varNameInfos = availableVariables(varIndexes(varIdx), :);
                     varName = varNameInfos.('name'){1};
+                    if strcmp(varName, 'reflectance_rgb')
+                        % by default reflectance RGB is not generated.
+                        continue;
+                    end
                     fprintf('%s: Handling variable %s...\n', mfilename(), varName);
 
                     % We only handle notprocessed variable in association to snow_fraction.

@@ -15,7 +15,10 @@ function out = loadVariableForSpiresSmooth20240204(j, firstDateOfMonthForSmoothi
     columnEndId = uint32(columnStartId + countOfPixels / sqrt(countOfCells) - 1);
     
     % Switch to spiresdaily for regions outside of westernUS. 20240916.
-    if ismember(regionName, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'})
+    versionBeforeV20240d = ...
+        ismember(regionName, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) && ...
+        ismember(espEnv.modisData.versionOf.modisspiressmoothbycell, {'v2024.0d'});
+    if versionBeforeV20240d
       % 2023-07-10. change dv into firstDateOfMonthForSmoothing and simplify use of date functions.
       for i=1:length(firstDateOfMonthForSmoothing)
           fprintf('Handling wateryear month %d...\n', i);

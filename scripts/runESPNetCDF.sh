@@ -100,7 +100,7 @@ try;
   theseDates = waterYearDate.getDailyDatetimeRange();
   parfor dateIdx = 1:length(theseDates);
     thisDate = theseDates(dateIdx);
-    if ismember(region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'});
+    if ismember(region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) && ismember(modisData.versionOf.VariablesNetCDF, {'v2024.0', 'v2024.0d')};
       matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
       'VariablesMatlab', thisDate, '', '');
     else;
