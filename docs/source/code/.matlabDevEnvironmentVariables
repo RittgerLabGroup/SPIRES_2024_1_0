@@ -1,8 +1,8 @@
 # ESP external matlab package paths
-export matlabPathForESPDoc=${espProjectDir}tbx/doc
-export matlabPathForESPToolbox=${espProjectDir}tbx/ESPToolbox
-export matlabPathForESPTests=${espProjectDir}tests
-export matlabPathForESPUpdates=${espProjectDir}updates
+export matlabPathForESPDoc=${espDevProjectDir}tbx/doc
+export matlabPathForESPToolbox=${espDevProjectDir}tbx/ESPToolbox
+export matlabPathForESPTests=${espDevProjectDir}tests
+export matlabPathForESPUpdates=${espDevProjectDir}updates
 export matlabPathForInpaintNans=${espProjectDir}external/Inpaint_nans
 export matlabPathForParBal=${projectDir}MATLAB/ParBal
 export matlabPathForRasterReprojection=${projectDir}MATLAB/RasterReprojection
@@ -13,4 +13,4 @@ export matlabPathForSpiresMccm=${projectDir}MATLAB/SPIRES/MccM
 export matlabPathForSpiresMappping=${projectDir}MATLAB/SPIRES/Mappping
 export matlabPathForSpiresGeneral=${projectDir}MATLAB/SPIRES/General
 export matlabPathForSpiresTimeSpace=${projectDir}MATLAB/SPIRES/TimeSpace
-export webColorMapFilePathInJson=${espProjectDir}tbx/conf/colormaps.json
+export webColorMapFilePathInJson=${espDevProjectDir}tbx/conf/colormaps.json
