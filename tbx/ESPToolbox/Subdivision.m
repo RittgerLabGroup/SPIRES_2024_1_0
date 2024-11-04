@@ -788,8 +788,8 @@ classdef Subdivision < handle
             % although JPL data are only available after 2017. The code will consider
             % years full of zeros and exclude them from yearly aggregates.
             % Check if remark still valid???                                    @tocheck
-            if ~fileExists | waterYearDate.monthWindow == 12
-                if fileExists && waterYearDate.monthWindow == 12
+            if 1 == 1 % ~fileExists | waterYearDate.monthWindow == 12. Mod 20241104 after monthwindow of waterYearDate was automatically reduced to the actual period for the ongoing water year.
+                if fileExists % && waterYearDate.monthWindow == 12. Mod 20241104.
                     delete(dailyStatFilePath);
                     warning( ...
                       ['%s: Deleted former daily stat filr for subdivision %d ', ...
