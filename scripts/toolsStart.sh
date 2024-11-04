@@ -6,7 +6,6 @@
 ########################################################################################
 # 0. Initialize and include general configuration.sh and calculation functions
 ########################################################################################
-source ~/.matlabEnvironmentVariables
 fileSeparator='/'
 defaultIFS=$' \t\n'
 
@@ -385,7 +384,7 @@ EOM
 # These parameters can still be overriden by the options sent to the script.    @warning
 # First parsing of options to get the pipeline.
 OPTIND=1
-thisGepOptsString="A:b:c:d:D:hiI:L:M:noO:p:q:Q:rRx:y:vw:W:Z:"
+thisGepOptsString="A:b:c:d:D:hiI:L:M:noO:p:q:Q:rRx:y:vw:W:z:Z:"
 # NB: add a : in string above when option expects a value.
 while getopts ${thisGepOptsString} opt; do
 # NB: all these options whould correspond to the options caught further in the code.
@@ -555,9 +554,19 @@ if [ ! -v parallelWorkersNb ]; then
 fi
 
 # Option -W, configuration id of the target of web export server. 0: Prod,
-# 1: Integration, 2: QA.
+# 1: Integration, 2: QA. 
 if [ ! -v espWebExportConfId ]; then
   espWebExportConfId=0
+fi
+
+# Option -z, configuration id of the code platform and environment variables. 0: Prod,
+# 1: Dev. 
+if [ ! -v codePlatform ]; then
+  if [[ $workingDirectory == *"/dev/"* ]]; then 
+    codePlatform=1
+  else
+    codePlatform=0
+  fi
 fi
 
 # Option -x, location of the scratch Path. By default environment variable.
@@ -592,7 +601,7 @@ isToBeRepeated=${isToBeRepeated}; isToResubmitIfError=${isToResubmitIfError};
 verbosityLevel=${isToBeRepeated};
 parallelWorkersNb=${parallelWorkersNb}; espWebExportConfId=${espWebExportConfId};
 scratchPath=${scratchPath}; archivePath=${archivePath};
-pipeLineId=${pipeLineId};
+codePlatform=${codePlatform}; pipeLineId=${pipeLineId};
 EOM
 printf "\n${defaultOption}\n\n"
 
@@ -637,6 +646,7 @@ do
     v) verbosity="$OPTARG";;
     w) parallelWorkersNb="$OPTARG";;
     W) espWebExportConfId="$OPTARG";;
+    z) codePlatform="$OPTARG";;
     Z) pipeLineId="$OPTARG";;
     ?) printf "Unknown option %s\n" $opt
       usage
@@ -658,7 +668,7 @@ isToBeRepeated=${isToBeRepeated};  isToResubmitIfError=${isToResubmitIfError};
 verbosityLevel=${isToBeRepeated};
 parallelWorkersNb=${parallelWorkersNb}; espWebExportConfId=${espWebExportConfId};
 scratchPath=${scratchPath}; archivePath=${archivePath};
-pipeLineId=${pipeLineId};
+codePlatform=${codePlatform}; pipeLineId=${pipeLineId};
 EOM
 printf "\n${actualOption}\n\n"
 
@@ -676,6 +686,14 @@ fi
 ########################################################################################
 # 7. Arguments and parameters of the matlab script.
 ########################################################################################
+# Platform environment variables/parameters.
+if [[ codePlatform -eq 0 ]]; then
+  printf "source ~/.matlabEnvironmentVariables\n"
+  source ~/.matlabEnvironmentVariables
+else
+  printf "source ~/.matlabDevEnvironmentVariables\n"
+  source ~/.matlabDevEnvironmentVariables
+fi
 
 # Input product and version, e.g. mod09ga and 061.
 inputProduct=${inputProductAndVersion%.*}
@@ -790,7 +808,7 @@ if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionNam
   inputForESPEnv=${inputForESPEnv}", filterMyConfByVersionOfAncillary = 0"
 fi
 
-espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); esp.slurmFullJobId = '${slurmFullJobId}';"
+espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); espEnv.slurmFullJobId = '${slurmFullJobId}';"
 if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
   espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region(strcmp(espEnv.myConf.region.name, '"${regionName}"'), :).versionOfAncillary = {'"$versionOfAncillary}"'};"
