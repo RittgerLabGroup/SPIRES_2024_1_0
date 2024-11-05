@@ -138,6 +138,9 @@ create --name myqgis.3.36.0 --clone qgis.3.36.0
 conda activate myqgis.3.36.0
 conda install gdal
 '
+  printf "ml mambaforge; ml gcc/11.2.0; ml gdal/3.5.0; conda env list; conda activate myqgis.3.36.0"
+  ml mambaforge; ml gcc/11.2.0; ml gdal/3.5.0; conda env list; conda activate myqgis.3.36.0
+  
   # Gdal library Path
   osgeoUtilsPath=/projects/${USER}/software/anaconda/envs/myqgis.3.36.0/lib/python3.12/site-packages/osgeo_utils/
   
@@ -225,7 +228,7 @@ conda install gdal
       if [[ $varName == snow_fraction_s ]]; then
         outputFilePath=${tileTifFilePath//${varName}/notprocessed_s}
         printf "${tile}-${regionName}: Generating $varName ${outputFilePath}...\n"
-        python ${osgeoUtilsPath}gdal_calc.py --calc="A=="${nodataValue} --outfile=${outputFilePath} -A ${tileTifFilePath} --A_band=1 --NoDataValue=0 --type=Byte -co COMPRESS=LZW
+        python ${osgeoUtilsPath}gdal_calc.py --calc="A==${nodataValue}" --outfile=${outputFilePath} -A ${tileTifFilePath} --A_band=1 --NoDataValue=0 --type=Byte --co="COMPRESS=LZW"
       fi
     done # end varIdx
   done # end tileIdx
@@ -266,8 +269,6 @@ conda install gdal
     printf "${objectId}-${regionName}: Generating $varName ${outputFilePath} from ${inputFilePaths}...\n"
     inputListFilePath=${outputFilePath//\.tif/\.txt}
     echo ${inputFilePaths} | tr ' ' '\n' >> ${inputListFilePath}
-     
-    ${thisInputFilePath} "${inputFilePaths}" 
     
     vrtFilePath=${outputFilePath//\.tif/\.vrt}
     gdalbuildvrt -overwrite -resolution average -r nearest -input_file_list ${inputListFilePath} ${vrtFilePath}
