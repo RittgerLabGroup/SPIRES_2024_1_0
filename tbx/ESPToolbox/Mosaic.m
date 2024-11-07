@@ -717,13 +717,13 @@ classdef Mosaic
                 appendFlag = 'append';
                 if ~fileExists
                     if ismember(outputDataLabel, {'modspiresdaily', 'vnpspiresdaily'})
-                        if dateIdx ~= length(theseDates) 
+                        if dateIdx < length(theseDates) - 6
                             error('Mosaic:NoSpiresDailyFile', ...
                                 sprintf(['%s: No %s file %s. ', ...
                                 'Generate or sync them to scratch and rerun.\n'], ...
                                 mfilename(), outputDataLabel, outFilePath));
                         else
-                            warning('%s: Absent last file %s.',  mfilename(), ...
+                            warning('%s: Absent last files %s.',  mfilename(), ...
                                 outFilePath);
                             continue;
                         end
@@ -852,6 +852,7 @@ classdef Mosaic
                     end
                     
                 else
+                    dayIsNotToBeSaved = 0;
                     for varIdx = 1:size(outputVariable, 1)
                         varName = outputVariable.name{varIdx};
                         varData2.(varName) = espEnv.getDataForDateAndVarName( ...
@@ -859,9 +860,11 @@ classdef Mosaic
                             complementaryLabel, ...
                             patternsToReplaceByJoker = patternsToReplaceByJoker);
                         if isempty(varData2.(varName))
-                            warning('%s: No data for %s, variable %s.\n', mfilename(), ...
+                            warning(['%s: No data for %s, variable %s, day not ', ...
+                                'saved.\n'], mfilename(), ...
                                 char(thisDate, 'yyyy-MM-dd'), varName);
-                            continue;
+                            dayIsNotToBeSaved = 1;
+                            break;
                         end
                         
                         % Metadata from the configuration file for this variable...
@@ -884,16 +887,19 @@ classdef Mosaic
                         datetime('now') + seconds(espEnv.slurmSafetySecondsBeforeKill)
                         error('ESPEnv:TimeLimit', 'Error, Job has reached its time limit.');
                     end
-                    Tools.parforSaveFieldsOfStructInFile(outFilePath, ...
-                        varData2, appendFlag);
-                    appendFlag = 'append';
+                    if ~dayIsNotToBeSaved
+                        Tools.parforSaveFieldsOfStructInFile(outFilePath, ...
+                            varData2, appendFlag);
+                        appendFlag = 'append';
+                        fprintf(['%s: Saved spires variables and metadata in %s.\n'], ...
+                            mfilename(), outFilePath);
+                        varData2.snow_fraction_s = [];
+                        varData2.viewable_snow_fraction_s = [];
+                        varData2.shade_fraction_s = [];
+                    end
                 end
 
-                fprintf(['%s: Saved spires variables and metadata in %s.\n'], ...
-                    mfilename(), outFilePath);
-                varData2.snow_fraction_s = [];
-                varData2.viewable_snow_fraction_s = [];
-                varData2.shade_fraction_s = [];
+                
 %{                
                 % Conversion of variables into double
                 % (necessary for albedo calculation)...
