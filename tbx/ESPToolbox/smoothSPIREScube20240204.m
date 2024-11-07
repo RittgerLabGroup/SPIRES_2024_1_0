@@ -323,6 +323,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         if ismember(regionName, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'})
           out = loadVariableForSpiresSmooth20240204(8, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240204 Loading fsca in spiresfill (which is fsca_raw).
           out.fsca_raw = out.fsca;
+          indicesToSave = intersect(indicesToSave, 1:size(out.fsca_raw, 3));
           %store raw values before any adjustments
           % out.fsca_raw=out.fsca; moved down Seb 20240318.
           saveVariableForSpiresSmooth20240204(10, outvars, outnames, outdtype, outdivisors, out, h5name, '-new', indicesToSave); % Seb 20240204-0624 save raw_viewable_snow_fraction_s (formerly gap_fsca). dont take out, for which fsca_raw has been deleted.
