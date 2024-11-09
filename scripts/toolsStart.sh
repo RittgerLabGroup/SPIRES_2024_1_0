@@ -811,7 +811,7 @@ fi
 espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); espEnv.slurmFullJobId = '${slurmFullJobId}';"
 if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
-  espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region(strcmp(espEnv.myConf.region.name, '"${regionName}"'), :).versionOfAncillary = {'"$versionOfAncillary}"'};"
+  espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region(strcmp(espEnv.myConf.region.name, '"${regionName}"'), :).versionOfAncillary = {'"${versionOfAncillary}"'};"
 fi
 
 if [[ ${filterConfId} -ne 0 ]]; then
