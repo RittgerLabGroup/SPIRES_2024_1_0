@@ -2466,6 +2466,19 @@ classdef ESPEnv < handle
             if isempty(patternsToReplaceByJoker) && ~isfolder(directoryPath)
                 mkdir(directoryPath);
             end
+            
+            if ~isempty(patternsToReplaceByJoker)
+              % If patterns to replace, we sync everything from archive.
+              % Remove the part with jokers *.
+              % NB: this can induce a lot of delay due to rsync full folders. @warning
+              thatFilePath = regexprep(filePath, '/[^/]*\*[^@]*$', '/');
+              % Copy the file from the archive if present in archive ...
+              archiveFilePath = strrep( ...
+                  thatFilePath, obj.scratchPath, obj.archivePath);
+              cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+              fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+              [status, cmdout] = system(cmd);
+            end
 
             % 2. Generation of the filename, check existence of filenames and determine
             % last edit date.
@@ -2507,16 +2520,18 @@ classdef ESPEnv < handle
                 % Here I think we need to get the varName and objectName if they were
                 % in jokers.                                                       @todo
             else
-                % Remove the part with jokers *.
-                % NB: this can induce a lot of delay due to rsync full folders. @warning
-                thatFilePath = regexprep(filePath, '/[^/]*\*[^@]*$', '/');
-                % Copy the file from the archive if present in archive ...
-                archiveFilePath = strrep( ...
-                    thatFilePath, obj.scratchPath, obj.archivePath);
-                cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
-                fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
-                [status, cmdout] = system(cmd);
-                tmpFiles = struct2table(dir(filePath));
+                if isempty(patternsToReplaceByJoker)
+                    % We handled the case not empty above.
+                    thatFilePath = filePath;
+                    % Copy the file from the archive if present in archive ...
+                    archiveFilePath = strrep( ...
+                        thatFilePath, obj.scratchPath, obj.archivePath);
+                    cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+                    fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+                    [status, cmdout] = system(cmd);
+                    tmpFiles = struct2table(dir(filePath));
+                end
+                
                 % if files present in archive and copied we recall the method.
                 if ~isempty(tmpFiles)
                     [filePath, fileExists, fileLastEditDate, metaData] = ...
