@@ -17,7 +17,8 @@ function writeh5stcubes20240227(filename,dStruct,hdr,matdate,member,Value)
 persistent already
 
 if exist(filename,'file')==0
-    X.(member)=[];
+    % X.(member)=[];
+    data = [];
     already=[];
 end
 
@@ -25,17 +26,17 @@ end
 D = dStruct;
 
 if ismember(class(Value), {'single', 'double'})
-    X.(member) = float2integer(Value,D.(member).divisor,0,...
+    data = float2integer(Value,D.(member).divisor,0,...
         D.(member).dataType,0,D.(member).maxVal);
     if isfield(D.(member),'FillValue')
         if D.(member).FillValue~=0
-            X.(member)(isnan(Value)) = D.(member).FillValue;
+            data(isnan(Value)) = D.(member).FillValue;
         end
     end
 elseif strcmp(class(Value), 'logical')
-    X.(member) = uint8(Value);
+    data = uint8(Value);
 else
-    X.(member) = Value;
+    data = Value;
 end
 
 % .h5 file
@@ -66,7 +67,7 @@ catch
             'DataType',D.(member).dataType)
     end
 end
-h5write(filename,[group '/' member],X.(member))
+h5write(filename,[group '/' member], data)
 h5writeatt(filename,[group '/' member],'divisor',D.(member).divisor)
 if isfield(D.(member),'units')
     h5writeatt(filename,[group '/' member],'units',D.(member).units)
