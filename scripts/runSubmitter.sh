@@ -77,6 +77,8 @@ if [ ! -v SLURM_JOB_ID ]; then
   exit 1
 fi
 
+source scripts/toolsJobs.sh
+
 # Get info on the runSubmitter job.
 submitterSlurmFullJobId=${SLURM_JOB_ID}
 printf "Job ${SLURM_JOB_ID}.\n"
@@ -106,10 +108,11 @@ printf "thatArrayJobId: $thatArrayJobId\n"
 # there's only 1 synthesis file.
 jobSynthesisFilePath=
 isFatalError=
+
 while [ ! -z $thatArrayJobId ]; do
   jobName=$(echo $submitLine | sed -E 's~[^@]+ --job-name=([/_%\.0-9a-zA-Z]+) [^@]+~\1~')
   printf "Track logs of ${jobName} ${thatArrayJobId}, for submitLine:\n"
-  echo "${submitLine}"
+  echo $(date '+%H:%M:%S')": ${submitLine}"
   logFilePathPattern=$(echo $submitLine | sed -E 's~[^@]+ -o ([/_%\.0-9a-zA-Z\-]+) [^@]+~\1~')
     # Nb: \- should always be at the end of a regexp pattern.
   echo "$logFilePathPattern"
@@ -137,6 +140,8 @@ while [ ! -z $thatArrayJobId ]; do
   arrayJobIds=($(printf "%1.0s${thatArrayJobId}" $(seq 1 "${countOfTaskId}")))
   tasksForArrayJobIds=("${taskIds[@]}")
     # Copy array.
+  arrayJobIdsStatus=($(printf "0 %.0s" $(seq 1 "${countOfTaskId}")))
+    # 0 if job non ended, 1 if ended and stats updated in log.
 
   currentArrayJobIdForTaskIds=()
   for ((idx = 0 ; idx < ${countOfTaskId} ; idx++ )); do
@@ -175,8 +180,22 @@ EOM
       echo ${thisLogFilePath}
       thisStatus=""
       if [ -f ${thisLogFilePath} ]; then
+        echo "existing log file"
+        # Check job state and potentially update log with efficiency stats.
+        if [[ ${arrayJobIdsStatus[$idx]} -eq 0 ]]; then
+        # obsolete. [[ ! " ${arrayJobIdsWithEndedStatus[*]} " =~ [[:space:]]"${thisArrayJobId}_${thisTaskId}"[[:space:]] ]]; then
+          endStatus=$(validate_end_status "${thisArrayJobId}_${thisTaskId}" ${thisLogFilePath})
+          echo "endStatus: "$endStatus
+          if [[ "$endStatus" == "0" ]]; then
+            # obsolete. arrayJobIdsWithEndedStatus+=("${thisArrayJobId}_${thisTaskId}")
+            ${arrayJobIdsStatus[$idx]}=1
+          fi
+        fi
+        
         thisStatus=$(cat $thisLogFilePath | grep "dura.; script  ;" -A 2 | tail -1 | sed 's~%~%%~g')
         # If in error with exit 1, add the task in the resubmission list.
+        echo "Status: "$thisStatus
+        echo "Line: "$(cat $thisLogFilePath | grep "dura.; script  ;" -A 2)
 : '
         # For testing purpose:
         if [[ $thisTaskId -eq 364001 || $thisTaskId -eq 364002 ]] && [[ ! -v isErrorDone ]]; then
@@ -195,11 +214,13 @@ EOM
             theseTaskIdsToResubmit=${theseTaskIdsToResubmit}${thisTaskId},
 
             thisNode=$(echo $thisStatus | cut -d ';' -f 9 | xargs)
-            if [[ $thisStatus == *"Defective node, impossible to login"* ]] && [[ $nodesToExclude != *"${thisNode}"* ]]; then
+            echo "Node: "$thisNode
+            if ( [[ $thisStatus == *"Defective node, impossible to login"* ]] || [[ $thisStatus == *"Defective node, scratchPath inaccessible"* ]] ) && [[ $nodesToExclude != *"${thisNode}"* ]]; then
             # NB: if nodesToExclude is array, we would have used this: [[ -z $(printf '%s\0' "${nodesToExclude[@]}" | grep -F -x -z -- "${thisNode}") ]]
                 printf "Exclusion of defective node ${thisNode}.\n"
                 nodesToExclude=${nodesToExclude}${thisNode},
             fi
+            echo "Nodes to exclude: "$nodesToExclude
           else
             printf "Fatal error on job ${thisArrayJobId}_${thisTaskId}, no resubmission.\n"
             isFatal=1
@@ -246,6 +267,7 @@ EOM
 
           arrayJobIds+=(${resubmitArrayJobId})
           tasksForArrayJobIds+=(${thisTaskId})
+          arrayJobIdsStatus+=0
 
           # Update the $currentArrayJobIdForTaskIds
           currentArrayJobIdForTaskIds[${thisTaskId}]=${resubmitArrayJobId}
@@ -255,11 +277,12 @@ EOM
 
     printf "Synthesis:\n$updatedSynthesis\n"
 
-    countOfTaskIdDone=$(printf "$updatedSynthesis" | grep "end:DONE" | wc -l)
+    countOfTaskIdDone=$(printf "$updatedSynthesis" | grep "end:DONE" | grep "%; " | wc -l)
+      # A task is considered done when done in the log + stats in log updated by runSubmitter.sh, validate_end_status() above.
     printf "Jobs done: ${countOfTaskIdDone}/${countOfTaskId}.\n\n"
   done
 
-  if [[ firstTaskInError -ne 1 ]]; then
+  if [[ $firstTaskInError -ne 1 ]]; then
     # We save the synthesis only if first task done.
     printf "$updatedSynthesis" >> $jobSynthesisFilePath
     printf "Synthesis for ${jobName} saved in ${jobSynthesisFilePath}\n"
@@ -273,7 +296,7 @@ EOM
   # Reset of dependency (necessary if some of tasks went on error exit=1).
   if [ -z $isFatal ]; then
 
-    if [[ firstTaskInError -eq 1 ]]; then
+    if [[ $firstTaskInError -eq 1 ]]; then
       # If first task in error we relaunch the full job, the first task in error may
       # have not submitted the next job in pipeline. We also exclude the nodes which
       # failed
@@ -302,9 +325,17 @@ EOM
     else
       # Otherwise, catch arrayJobId of next job in the pipeline, submitted in first task
       # job.
-      idx=0
-      thisTaskId=${tasksForArrayJobIds[$idx]}
-      thisArrayJobId=${arrayJobIds[$idx]}
+      
+      minTaskId=${tasksForArrayJobIds[0]}
+      idxForMinTaskId=0
+      for (( i=1; i<${#tasksForArrayJobIds[@]}; i++ )); do
+        if [ "${tasksForArrayJobIds[$i]}" -lt "$minTaskId" ]; then
+          minTaskId="${tasksForArrayJobIds[$i]}"
+          idxForMinTaskId="$i"
+        fi
+      done
+      thisTaskId=${tasksForArrayJobIds[$idxForMinTaskId]}
+      thisArrayJobId=${arrayJobIds[$idxForMinTaskId]}
       thisLogFilePath=$(echo $logFilePathPattern | sed -E "s~/%[a-zA-Z_]+%a_([0-9_\-]*)%A~/*${thisTaskId}_\1${thisArrayJobId}~")
       echo $thisLogFilePath
       submitLine=$(cat $thisLogFilePath | grep "Next pipeline sbatch: " -A 1 | tail -2 | sed 's~%~%%~g')
