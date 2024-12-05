@@ -180,7 +180,6 @@ EOM
       echo ${thisLogFilePath}
       thisStatus=""
       if [ -f ${thisLogFilePath} ]; then
-        echo "existing log file"
         # Check job state and potentially update log with efficiency stats.
         if [[ ${arrayJobIdsStatus[$idx]} -eq 0 ]]; then
         # obsolete. [[ ! " ${arrayJobIdsWithEndedStatus[*]} " =~ [[:space:]]"${thisArrayJobId}_${thisTaskId}"[[:space:]] ]]; then
@@ -188,14 +187,13 @@ EOM
           echo "endStatus: "$endStatus
           if [[ "$endStatus" == "0" ]]; then
             # obsolete. arrayJobIdsWithEndedStatus+=("${thisArrayJobId}_${thisTaskId}")
-            ${arrayJobIdsStatus[$idx]}=1
+            arrayJobIdsStatus[$idx]=1
           fi
         fi
         
         thisStatus=$(cat $thisLogFilePath | grep "dura.; script  ;" -A 2 | tail -1 | sed 's~%~%%~g')
         # If in error with exit 1, add the task in the resubmission list.
         echo "Status: "$thisStatus
-        echo "Line: "$(cat $thisLogFilePath | grep "dura.; script  ;" -A 2)
 : '
         # For testing purpose:
         if [[ $thisTaskId -eq 364001 || $thisTaskId -eq 364002 ]] && [[ ! -v isErrorDone ]]; then
@@ -215,7 +213,7 @@ EOM
 
             thisNode=$(echo $thisStatus | cut -d ';' -f 9 | xargs)
             echo "Node: "$thisNode
-            if ( [[ $thisStatus == *"Defective node, impossible to login"* ]] || [[ $thisStatus == *"Defective node, scratchPath inaccessible"* ]] ) && [[ $nodesToExclude != *"${thisNode}"* ]]; then
+            if ( [[ $thisStatus == *"Defective node, impossible to login"* ]] || [[ $thisStatus == *"Defective node, scratchPath inaccessible"* ]] || [[ $thisStatus == *"matlab=ESPEnv:InvalidScratchPath"* ]]) && [[ $nodesToExclude != *"${thisNode}"* ]]; then
             # NB: if nodesToExclude is array, we would have used this: [[ -z $(printf '%s\0' "${nodesToExclude[@]}" | grep -F -x -z -- "${thisNode}") ]]
                 printf "Exclusion of defective node ${thisNode}.\n"
                 nodesToExclude=${nodesToExclude}${thisNode},
