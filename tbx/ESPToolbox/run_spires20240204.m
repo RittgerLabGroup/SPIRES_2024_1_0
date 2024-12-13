@@ -136,6 +136,13 @@ for i=1:sz(4) %for each day
     XC=XM(im1); %X coordinates for c
     YC=YM(im1); %Y coordinates for c
    
+    % Copy the files from the archive if present in archive ...
+    archiveFilePath = strrep( ...
+        Ffile, obj.scratchPath, obj.archivePath);
+    
+    cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', Ffile];
+    fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+    [status, cmdout] = system(cmd);
     
     %first pass, solve for all
     temp=NaN(size(c,1),length(outvars));

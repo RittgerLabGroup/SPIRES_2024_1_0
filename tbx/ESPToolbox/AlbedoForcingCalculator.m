@@ -16,6 +16,29 @@ classdef AlbedoForcingCalculator < handle
   methods
     function obj = AlbedoForcingCalculator(region)
       obj.region = region;
+      espEnv = obj.region.espEnv;
+      fprintf('Loading albedo interpolant...\n');
+      if isempty(obj.dirtyAlbedoGriddedInterpolant)
+        thisFilePath = espEnv.getFilePathForObjectNameDataLabel('', 'albedolookup');
+        
+        rsyncDirectoryPath = regexprep(thisFilePath, '/[^/]*\*[^@]*$', '/');
+        % Copy the files from the archive if present in archive ...
+        archiveDirectoryPath = strrep( ...
+            rsyncDirectoryPath, obj.scratchPath, obj.archivePath);
+        if isdir(archiveFilePath)
+          cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', rsyncDirectoryPath];
+          fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+          [status, cmdout] = system(cmd);
+        end
+        obj.dirtyAlbedoGriddedInterpolant = load(thisFilePath, 'Fdirty').Fdirty;
+      end
+      fprintf('Loading radiative forcing and deltavis interpolant...\n');
+      if isempty(obj.radiativeForcingGriddedInterpolant)
+        thisFilePath = espEnv.getFilePathForObjectNameDataLabel('', 'radiativelookup');
+        obj.deltavisGriddedInterpolant = load(thisFilePath, 'Fdarken').Fdarken;
+        obj.radiativeForcingGriddedInterpolant = load(thisFilePath, 'Fforce').Fforce;
+      end
+      fprintf('AlbedoForcingCalculator initialization done.\n');
     end
     function [dirtyAlbedo, deltavis, radiativeForcing] = getFromLookup(obj, ...
       grainSize, dustConcentration, cosOfSolarZenith)
@@ -30,16 +53,6 @@ classdef AlbedoForcingCalculator < handle
       % dirtyAlbedo: uint8(N dim). Dirty albedo in percent.
       % deltavis: uint8(N dim). Deltavis or snow darkening, without units.
       % radiativeForcing: uin16(N dim). Radiative forcing in W/m2.
-      espEnv = obj.region.espEnv;
-      if isempty(obj.dirtyAlbedoGriddedInterpolant)
-        thisFilePath = espEnv.getFilePathForObjectNameDataLabel('', 'albedolookup');
-        obj.dirtyAlbedoGriddedInterpolant = load(thisFilePath, 'Fdirty').Fdirty;
-      end
-      if isempty(obj.radiativeForcingGriddedInterpolant)
-        thisFilePath = espEnv.getFilePathForObjectNameDataLabel('', 'radiativelookup');
-        obj.deltavisGriddedInterpolant = load(thisFilePath, 'Fdarken').Fdarken;
-        obj.radiativeForcingGriddedInterpolant = load(thisFilePath, 'Fforce').Fforce;
-      end
       dustFraction = double(dustConcentration) / 1000; % spires dust is in ppm while
         % AlbedoLookup expects ppt.
       sootFraction = zeros(size(dustConcentration), 'double');
