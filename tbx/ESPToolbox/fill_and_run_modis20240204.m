@@ -57,6 +57,15 @@ function [out,fname,vars,divisor,dtype]=fill_and_run_modis20240204(region, matda
     hdfbasedir = [scratchPath, 'modis/input/mod09ga/v006/'];
     % topofile = [baseDir, 'Z/', regionName, 'Topography.h5']; Seb 2024-03-12
     if ismember(regionName, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'})
+        rsyncDirectoryPath = basedir;
+        % Copy the files from the archive if present in archive ...
+        archiveDirectoryPath = strrep( ...
+            rsyncDirectoryPath, region.espEnv.scratchPath, region.espEnv.archivePath);
+        if isdir(archiveDirectoryPath)
+          cmd = [region.espEnv.rsyncAlias, ' ', archiveDirectoryPath, ' ', rsyncDirectoryPath];
+          fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+          [status, cmdout] = system(cmd);
+        end
         R0file = [baseDir, 'R0/', regionName, 'R0.mat'];
         R0 = matfile(R0file).R0;
         maskfile = [baseDir, 'watermask/', regionName, 'watermask.mat'];

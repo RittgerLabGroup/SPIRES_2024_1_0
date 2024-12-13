@@ -21,12 +21,12 @@ classdef AlbedoForcingCalculator < handle
       if isempty(obj.dirtyAlbedoGriddedInterpolant)
         thisFilePath = espEnv.getFilePathForObjectNameDataLabel('', 'albedolookup');
         
-        rsyncDirectoryPath = regexprep(thisFilePath, '/[^/]*\*[^@]*$', '/');
+        rsyncDirectoryPath = regexprep(thisFilePath, '/[^/]*$', '/');
         % Copy the files from the archive if present in archive ...
         archiveDirectoryPath = strrep( ...
             rsyncDirectoryPath, region.espEnv.scratchPath, region.espEnv.archivePath);
-        if isdir(archiveFilePath)
-          cmd = [region.espEnv.rsyncAlias, ' ', archiveFilePath, ' ', rsyncDirectoryPath];
+        if isdir(archiveDirectoryPath)
+          cmd = [region.espEnv.rsyncAlias, ' ', archiveDirectoryPath, ' ', rsyncDirectoryPath];
           fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
           [status, cmdout] = system(cmd);
         end

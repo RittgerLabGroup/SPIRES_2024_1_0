@@ -95,6 +95,15 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
     scratchPath = espEnv.scratchPath;
     if versionBeforeV20240d % Sen 2024-03-02 Special handling of westernUs with Ned's ancillaries.
         baseDir = [scratchPath, 'modis/input_spires_from_Ned_202311/Inputs/MODIS/'];
+        rsyncDirectoryPath = basedir;
+        % Copy the files from the archive if present in archive ...
+        archiveDirectoryPath = strrep( ...
+            rsyncDirectoryPath, region.espEnv.scratchPath, region.espEnv.archivePath);
+        if isdir(archiveDirectoryPath)
+          cmd = [region.espEnv.rsyncAlias, ' ', archiveDirectoryPath, ' ', rsyncDirectoryPath];
+          fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+          [status, cmdout] = system(cmd);
+        end
         maskfile = [baseDir, 'watermask/', regionName, 'watermask.mat'];
         water = matfile(maskfile).mask;
         topofile = [baseDir, 'Z/', regionName, 'Topography.h5'];
@@ -105,6 +114,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         cc(isnan(cc))=0; % Seb 20240917. Moved here.
         ficefile = [baseDir, 'fice/', regionName, '.mat'];
         fice = matfile(ficefile).fice;
+        fice(isnan(fice))=0;
     else
         water = logical(region.espEnv.getDataForObjectNameDataLabel( ...
                     regionName, 'water'));
@@ -112,8 +122,8 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         %            regionName, 'canopycover') / 100);
         elevation = region.espEnv.getDataForObjectNameDataLabel( ...
                     regionName, 'elevation');
-        fice = single(region.espEnv.getDataForObjectNameDataLabel( ...
-                    regionName, 'ice') / 100);
+        fice = region.espEnv.getDataForObjectNameDataLabel( ...
+                    regionName, 'ice'); % from 0 to 100.
     end    
     switch modisData.inputProduct
         case 'mod09ga'
@@ -485,8 +495,8 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
           
           
           snowIsNoData = dailyNoDataFilter | isCloudRgb | thisCloud | ...
-            (out.fsca_raw > 0 & out.fsca_raw <= fsca_thresh) | ...
-            (out.fsca_raw > fsca_thresh & out.grainradius <= mingrainradius);
+            (out.fsca_raw > 0 & out.fsca_raw <= (fsca_thresh * 100)) | ...
+            (out.fsca_raw > (fsca_thresh * 100) & out.grainradius <= mingrainradius);
             % No data: no input data, clouds (neural network and STC filter),
             % extended areas around clouds, pixels having snow lower than 10, which
             % could be clouds too, pixels having snow > 10 but grain size lower than 40
@@ -503,7 +513,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
           dailyZeroFilter = [];
           
           
-          out.fsca_raw(snowIsNoData) = NaN;
+          out.fsca_raw(snowIsNoData) = intmax('uint8');
           out.fsca_raw(snowIsZero & ~snowIsNoData) = 0;
           
           % Removal of saltpans and occasional clouds at low elevation or bright buildings.
@@ -525,7 +535,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
           for elevationStepIdx = 1:length(elevationSteps) - 1
               isElevation = elevationOverTime >= elevationSteps(elevationStepIdx) & ...
                   elevationOverTime < elevationSteps(elevationStepIdx + 1);
-              thatCountOfPixels = squeeze(sum(isElevation & canopyCoverOverTime < 30 & ~isnan(out.fsca_raw), [1, 2]))';
+              thatCountOfPixels = squeeze(sum(isElevation & canopyCoverOverTime < 30 & out.fsca_raw ~= intmax('uint8'), [1, 2]))';
               thatCountOfPixels(thatCountOfPixels < 25) = NaN; 
                   % we assume that below 25 pixels it's too risky to make an assumption.
               percentOfPixelsWithSnow(elevationStepIdx, :) = ...
@@ -560,8 +570,8 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
               isToSetToNoData(snowCouldBeSaltPan & isElevation & repmat(setToNoData, ...
                   [size(out.fsca_raw, 1), size(out.fsca_raw, 2), 1])) = logical(1);
           end
-          out.fsca_raw(isToSetToNoData) = NaN;
-          snowIsNoData = isnan(out.fsca_raw);
+          out.fsca_raw(isToSetToNoData) = intmax('uint8');
+          snowIsNoData = out.fsca_raw == intmax('uint8');
           snowIsZero = out.fsca_raw == 0;
           
           % Temporal sliding window to determine if we have enough pixels for smoothing
@@ -693,10 +703,10 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
           % No application of moving Window as a test but let appear a lot of snow which
           % are actually clouds. Seb 20241026.
           out.fsca_raw(out.days_with_snow_observed_s < 3 & ...
-              out.days_with_snow_observed_s > 0) = NaN;
+              out.days_with_snow_observed_s > 0) = intmax('uint8');
             % all periods when there are less than 5 days of observed snow are set to no data.
           out.fsca_raw(out.days_with_absent_snow_observed_s < 3 & ...
-              out.days_with_absent_snow_observed_s > 0) = NaN;
+              out.days_with_absent_snow_observed_s > 0) = intmax('uint8');
             % all periods when there are less than 3 days of observed absent snow are set to no data.
             % NB: There's a problem here with false absent snow linked to the application of ndsi, which doesnt work well with reflectance values below 10.
             
@@ -705,10 +715,10 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
           out = saveVariableForSpiresSmooth20240204(45, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save days_with_snow_observed_s.
           out = saveVariableForSpiresSmooth20240204(46, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save days_with_absent_snow_observed_s.
           
-          snowIsNoData = isnan(out.fsca_raw);
+          snowIsNoData = out.fsca_raw == intmax('uint8');
           snowIsZero = out.fsca_raw == 0;
 
-        end
+        end % if versionBeforeV20240d cloud calculations.
         % 3. - Load sensor_zenith,
         % - Calculate canopy correction factor with canopy cover, sensor_zenith, using GOvgf
         %   function (same function as for STC).
@@ -733,7 +743,6 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         t=out.fsca_raw==0;
         
         fprintf('Loading fice...\n');
-        fice(isnan(fice))=0;
         fice=repmat(fice,[1 1 size(out.fsca_raw,3)]); % Moved above. 20240917.
 
         if versionBeforeV20240d
@@ -766,7 +775,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         else
             out = loadVariableForSpiresSmooth20240204(8, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240917 Loading fsca, calculated in spiresInversor.
             out.fsca(snowIsZero) = 0;
-            out.fsca(snowIsNoData) = NaN;
+            out.fsca(snowIsNoData) = intmax('uint8');
         end
         
         
@@ -792,36 +801,44 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
     
         out = loadVariableForSpiresSmooth20240204(5, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240204 Loading weights.
         newweights=out.weights;
-        newweights(isnan(out.fsca))=0; % Assume here fsca_raw is 0 at locations where fsca is 0.
-
+        if versionBeforeV20240d
+            newweights(isnan(out.fsca))=0; % Assume here fsca_raw is 0 at locations where fsca is 0.
+        else
+            newweights(out.fsca == intmax('uint8'))=1;
+        end
         %fill in and smooth NaNs
 
         fprintf('smoothing fsca,fsca_raw,fshade %s...%s\n',datestr(matdates(1)),...
             datestr(matdates(end)));
-        tic;
+        
         %smooth fully adj fsca
         if versionBeforeV20240d
+            tic;
             out.fsca=smoothDataCube(out.fsca,newweights,'mask',~water,...
                 'method','smoothingspline','SmoothingParam',0.1);
-        else
-            % Call a method that doesn't use truncateLimits, which artificially cap
-            % the lowest values for small 36th subtile of the big modis tile.
-            out.fsca = smoothDataCube20241105(out.fsca, newweights, ~water, 0.1);
+            fprintf('Temp. interpolated fsca in %f sec.\n', toc);
         end
-        fprintf('Temp. interpolated fsca in %f sec.\n', toc);
-      
+
         %smooth fsca_raw
         tic;
+        isToInterpolate = ~water;
         if versionBeforeV20240d
             out.fsca_raw=smoothDataCube(out.fsca_raw,newweights,'mask',~water,...
                 'method','smoothingspline','SmoothingParam',0.1);
+            fprintf('Temp. interpolated fsca_raw in %f sec.\n', toc);
         else
             % Call a method that doesn't use truncateLimits, which artificially cap
             % the lowest values for small 36th subtile of the big modis tile.
-            out.fsca_raw = smoothDataCube20241105(out.fsca_raw, newweights, ~water, 0.1);
+            % this method also save 1 parfor loop.
+            smoothingParams = [0.1, 0.1];
+            output_cubes = smoothDataCube20241105( ...
+                {out.fsca_raw, out.fsca}, newweights, isToInterpolate, smoothingParams);
+            out.fsca_raw = output_cubes{1};
+            out.fsca = output_cubes{2};
+            output_cubes = [];
+            fprintf('Temp. interpolated fsca_raw and fsca in %f sec.\n', toc);
         end
-        fprintf('Temp. interpolated fsca_raw in %f sec.\n', toc);
-      
+
         %smooth fshade
         if fshadeIsInterpolated
             tic;
@@ -836,24 +853,28 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         tic;
         if versionBeforeV20240d
             out.fsca(out.fsca<fsca_thresh)=0;
+            out.fsca_raw(out.fsca_raw<fsca_thresh)=0;
             % truncateLimits called in smoothDataCube cap the min/max values.
-        else
-            out.fsca(out.fsca_raw < fsca_thresh)=0;
-            out.fsca_raw(out.fsca_raw < fsca_thresh)=0;
+            
+            out.fsca(bigwater) = NaN;
+            out.fsca_raw(bigwater)=NaN;
+            
             out.fsca(out.fsca > 1) = 1;
             out.fsca_raw(out.fsca_raw > 1) = 1;
+
+        else
+            out.fsca(out.fsca_raw < fsca_thresh * 100) = 0;
+            out.fsca_raw(out.fsca_raw < fsca_thresh * 100) = 0;
+            out.fsca(out.fsca > 100) = 100;
+            out.fsca_raw(out.fsca_raw > 100) = 100;
+            
+            out.fsca(bigwater) = intmax('uint8');
+            out.fsca_raw(bigwater) = intmax('uint8');
         end
-        
-        out.fsca(bigwater)=NaN;
-        fprintf('Filtered fsca in %d secs.\n', toc);
 
-        %same for fsca_raw
-        tic;
-        out.fsca_raw(out.fsca_raw<fsca_thresh)=0;
-        out.fsca_raw(bigwater)=NaN;
-        fprintf('Filtered fsca_raw in %d secs.\n', toc);
+        fprintf('Filtered fsca and fsca_raw in %d secs.\n', toc);
 
-        %same for fshade
+        %same for fshade. NB: shouldn't be used in v2024.0f and above.
         if fshadeIsInterpolated
             tic;
             out.fshade(out.fsca_raw<fsca_thresh)=0;
@@ -866,19 +887,19 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         % Calculation of snowCoverDays for regions outside westernUS 20240917.
         % NB: no elevation threshold, but fsca_thresh applied before.
         if ~versionBeforeV20240d
-          out.snow_cover_days_s = cumsum(out.fsca_raw > 0, 3);
+          out.snow_cover_days_s = cumsum(uint16(out.fsca_raw > 0 & out.fsca_raw ~= intmax('uint8')), 3);
           out = saveVariableForSpiresSmooth20240204(43, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save snow_cover_days_s and remove it from out.
         end
 
         %fix values below thresh to ice values
         tic;
-        t=out.fsca<fice;
-        out.fsca(t)=fice(t);
+        t = out.fsca < fice; % for v2024.0d, from 0 to 1, for v2024.0f from 0 to 100.
+        out.fsca(t) = fice(t);
         clear fice; % Seb 20240204.
         if versionBeforeV20240d
             out.fsca(out.fsca<fsca_thresh)=0;
         else
-            out.fsca(out.fsca_raw<fsca_thresh)=0;
+            out.fsca(out.fsca_raw < fsca_thresh * 100) = 0;
         end
         out = saveVariableForSpiresSmooth20240204(1, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save and remove viewable_snow_fraction_s (formerly fsca_raw). Updated varId 20240917.
         
@@ -891,7 +912,11 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
 
         %create mask of any fsca for interpolation
         
-        anyfsca=any(out.fsca,3);
+        if versionBeforeV20240d
+          anyfsca=any(out.fsca,3);
+        else
+          isToInterpolate = sum(uint16(out.fsca > 0 & out.fsca ~= intmax('uint8')) > 0, 3) > 0;
+        end
         
         if versionBeforeV20240d
           out = loadVariableForSpiresSmooth20240204(4, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240624 Loading initial dust.
@@ -909,16 +934,27 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         
         fprintf('Filtering on grainradius/dust...\n');
         tic;
-        badg=out.grainradius<mingrainradius | out.grainradius>maxgrainradius | ...
-            out.dust > maxdust ;
+        if versionBeforeV20240d
+            badg = out.grainradius < mingrainradius | out.grainradius > maxgrainradius | ...
+                out.dust > maxdust ;
 
-        %grain sizes too small or large to be trusted
-        out.grainradius(badg)=NaN;
-        out.dust(badg)=NaN;
+            %grain sizes too small or large to be trusted
+            out.grainradius(badg)=NaN;
+            out.dust(badg)=NaN;
+            
+            %grain sizes after melt out
+            out.dust(out.fsca==0) = NaN;
+        else
+            badg = out.grainradius < mingrainradius | out.grainradius > maxgrainradius | ...
+                out.dust > maxdust * 10;
+
+            %grain sizes too small or large to be trusted
+            out.grainradius(badg) = intmax(class(out.grainradius));
+            out.dust(badg | out.fsca == 0 | out.fsca == intmax('uint8')) = intmax(class(out.dust)); % and grain sizes after melt out
+        end
         clear badg;
 
-        %grain sizes after melt out
-        out.dust(out.fsca==0)=NaN;
+        
         fprintf('Done filtering on grainradius/dust in %f sec.\n', toc);
         %don't set out.grainradius to nan where fsca==0 until later
         %this helps maintain high grain size values
@@ -927,11 +963,14 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         saveVariableForSpiresSmooth20240204(42, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save gap_dust_concentration_s (presmoothed dust) and not remove it from out.
 
         % create new weights for grain size and dust
-        newweights=out.weights;
+        newweights = out.weights;
         if versionBeforeV20240d
             out = saveVariableForSpiresSmooth20240204(5, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save and remove time_interp_weight_s (formerly weights).
+            newweights(isnan(out.grainradius) | out.fsca==0)=0;
+        else
+            newweights(out.grainradius == intmax(class(out.grainradius)) | ...
+                out.fsca == 0 | out.fsca == intmax('uint8')) = 1; % for v2024.0f weights are from 1 to 100.
         end
-        newweights(isnan(out.grainradius) | out.fsca==0)=0;
         
         if size(out.grainradius, 3) < 365
           if ~ismember(datestr(matdates(end),'mm'), {'05', '06', '07', '08', '09'})
@@ -943,36 +982,47 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
         end
         
         if fixpeak % set values after peak grain radius to peak
-            N=size(out.grainradius);
+            N = size(out.grainradius);
             %reshape to days x pixels
             grainradius=reshape(out.grainradius,N(1)*N(2),N(3))';
             dust=reshape(out.dust,N(1)*N(2),N(3))';
-            fsca=reshape(out.fsca,N(1)*N(2),N(3))';
+            out.fsca = reshape(out.fsca,N(1)*N(2),N(3))';
             weights=reshape(newweights,N(1)*N(2),N(3))';
             clear newweights; % Seb 20240204.
+            out.grainradius = [];
+            out.dust = [];
+            
             tic;
             fprintf('Peak Fixing and smoothing grainradius and dust...\n');
             parfor i=1:size(grainradius,2)
-                fscavec=squeeze(fsca(:,i));
+                fscavec = squeeze(out.fsca(:,i));
+                if sum(fscavec(fscavec ~= 0 & fscavec ~= intmax('uint8')), 'all') == 0 %skip pixels w/ no snow
+                    continue;
+                end
+                t = fscavec > 0 & fscavec ~= intmax('uint8');
+                
                 rgvec=squeeze(grainradius(:,i));
                 weightsvec=squeeze(weights(:,i));
 
-                %get rid of spikes & drops
-                rgvec=hampel(rgvec,2,2);
-                if max(fscavec)==0 %skip pixels w/ no snow
-                    continue;
+                if ~versionBeforeV20240d
+                    rgVecIsNoData = rgvec == intmax(class(rgvec));
+                    rgvec = double(rgvec);
+                    rgvec(rgVecIsNoData) = NaN;
                 end
-                t=fscavec>0;
+                %get rid of spikes & drops
+                rgvec=hampel(rgvec, 2, 2);
+
+                
                 %last day with snow, or end of cube
                 meltOutday=min(find(t,1,'last'),length(rgvec));
                 
                 %peak fixing cannot last more than N days from final peak
                 %make a temp copy of rgvec
-                rgvec_t=rgvec;
-                maxFixedDays=40;%days
+                rgvec_t = rgvec;
+                maxFixedDays = 40;%days
                 %set all days prior to meltOutday-maxFixedDays to nan
-                rgvec_t(1:(meltOutday-maxFixedDays))=nan;
-                [~,maxDay]=max(rgvec_t,[],'omitnan');
+                rgvec_t(1:(meltOutday-maxFixedDays)) = nan;
+                [~,maxDay] = max(rgvec_t,[],'omitnan');
                 
                 % Seb 2024-05-23: peak for NRT. Cannot work as for historic because when
                 % there is still snow on the last day of NRT record, we don't know if it's
@@ -987,34 +1037,38 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
                     meltOutday = min(find(Y >= fsca_thresh, 1, 'last'), 365);
                 end 
 %}            
-                endDay=length(rgvec)-Nd;
+                endDay = length(rgvec) - Nd;
 
                 %set those days to (near) max grain size
-                ind=maxDay:endDay;
+                ind = maxDay:endDay;
 
-                maxrg=rgvec(maxDay);
-                rgvec(ind)=maxrg;
+                maxrg = rgvec(maxDay);
+                rgvec(ind) = maxrg;
 
                 %smooth up to maxDay
-                ids=1:maxDay-1;
+                ids = 1:maxDay-1;
                 
                 %set 1st day to min, may be set to nan later, but helps w/
                 %keeping spline in check
-                rgvec(1)=mingrainradius;
-                weightsvec(1)=1;
+                rgvec(1) = mingrainradius;
+                weightsvec(1) = 1;
 
-                rgvec(ids)=smoothVector(ids',rgvec(ids),weightsvec(ids),0.8);
+                rgvec(ids) = smoothVector(ids', rgvec(ids), double(weightsvec(ids)), 0.8);
                 %taper vector to min value only for full waterYear Seb 20240523.
                 if Nd ~= 0
-                  grainradius(:,i)=taperVector(rgvec,Nd,mingrainradius);
-                else
-                  grainradius(:,i)=rgvec;
+                  rgvec = taperVector(rgvec, Nd, mingrainradius);
                 end
                 %dust: set dust for all days prior to 0 if below grain thresh
-                dustvec=squeeze(dust(:,i));
+                dustvec = squeeze(dust(:,i));
+                
+                if ~versionBeforeV20240d
+                    dustvecIsNoData = dustvec == intmax(class(dustvec));
+                    dustvec = double(dustvec);
+                    dustvec(dustvecIsNoData) = NaN;
+                end
 
                 %all days with small grain sizes
-                tt=rgvec<=dust_rg_thresh;
+                tt= rgvec <= dust_rg_thresh;
 
                 %all days prior to max grain size
                 ttstart=false(size(tt));
@@ -1033,17 +1087,23 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
                 dustvec(ind)=dval;
      
                 %set dust to zero on day 1
-                dustvec(1)=0;
-                weightsvec(1)=1;
+                dustvec(1) = 0;
+                weightsvec(1) = 1;
                 %smooth up until maxday
-                dustvec(ids)=smoothVector(ids',dustvec(ids),...
-                    weightsvec(ids),0.1);
+                dustvec(ids)=smoothVector(ids', dustvec(ids),...
+                    double(weightsvec(ids)), 0.1);
                 % taper only for full waterYear Seb 20240523.
                 if Nd ~= 0
-                  dust(:,i)=taperVector(dustvec,Nd,mindust);
-                else
-                  dust(:,i)=dustvec;
+                  dustvec = taperVector(dustvec,Nd,mindust);
                 end
+                weightsvec=squeeze(weights(:,i));
+                
+                if ~versionBeforeV20240d
+                  rgvec = cast(rgvec, 'uint16'); % class(grainradius) doesnt work with parfor here.
+                  dustvec = cast(dustvec, 'uint16');
+                end
+                grainradius(:,i) = rgvec;
+                dust(:, i) = dustvec;
             end
             fprintf('Done smoothing grainradius and dust in %f secs.\n', toc);
             clear weights; % Seb 20240204.
@@ -1051,22 +1111,34 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
             % out.fsca = reshape(fsca',N(1),N(2),N(3)); % Seb 20240204 useless.
             out.grainradius = reshape(grainradius',N(1),N(2),N(3));
             out.dust = reshape(dust',N(1),N(2),N(3));
+            grainradius = [];
+            dust = [];
+            
+            out.fsca = reshape(out.fsca', N(1),N(2),N(3));  
             
         else %don't fix values after peak grain size
             if versionBeforeV20240d
+                tic;
                 out.grainradius=smoothDataCube(out.grainradius,newweights,'mask',anyfsca,...
                     'method','smoothingspline','SmoothingParam',0.8);
+                fprintf('Done smoothing grainradius without peak handling in %f secs.\n', toc);
                 %assume zero dust for small grains
                 out.dust(out.grainradius<dust_rg_thresh)=0;
+                tic;
                 out.dust=smoothDataCube(out.dust,newweights,'mask',anyfsca,...
                     'method','smoothingspline','SmoothingParam',0.1);
+                fprintf('Done smoothing dust without peak handling in %f secs.\n', toc);
             else
-                out.grainradius = smoothDataCube20241105( ...
-                    out.grainradius, newweights, anyfsca, 0.8);
-                %assume zero dust for small grains
-                out.dust(out.grainradius<dust_rg_thresh) = 0;
-                out.dust = smoothDataCube20241105( ...
-                    out.dust, newweights, anyfsca, 0.1);
+                tic;
+                thresholdOfFirstVariableToSetSecondToZero = dust_rg_thresh;
+                smoothingParams = [0.8, 0.1];
+                output_cubes = smoothDataCube20241105( ...
+                    {out.grainradius, out.dust}, newweights, isToInterpolate, [0.8, 0.1], thresholdOfFirstVariableToSetSecondToZero);
+                    % %assume zero dust for small grains: done now in smoothDataCube20241105().
+                out.grainradius = output_cubes{1};
+                out.dust = output_cubes{2};
+                output_cubes = [];
+                fprintf('Done smoothing grainradius and dust without peak handling in %f secs.\n', toc);
             end
         end % end if fixpeak.
 
@@ -1074,18 +1146,30 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
             datestr(matdates(end)));
         fprintf('Filtering on grainradius...\n');
         tic;
-        out.grainradius(out.grainradius<mingrainradius)=mingrainradius;
-        out.grainradius(out.grainradius>maxgrainradius)=maxgrainradius;
-        out.grainradius(out.fsca==0)=NaN;
+        out.grainradius(out.grainradius < mingrainradius) = mingrainradius;
+        out.grainradius(out.grainradius > maxgrainradius & ...
+            out.grainradius ~= intmax(class(out.grainradius))) = maxgrainradius;
+        if versionBeforeV20240d
+            out.grainradius(out.fsca == 0) = NaN;
+        else
+            out.grainradius(out.fsca == 0) = intmax(class(out.grainradius));
+        end
         fprintf('Done filtering on grainradius in %f secs.\n', toc);
         saveVariableForSpiresSmooth20240204(3, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save smoothed grainradius but not remove.
 
         %clean up out of bounds splines
         fprintf('Filtering on dust...\n');
         tic;
-        out.dust(out.dust>maxdust)=maxdust;
-        out.dust(out.dust<mindust)=mindust;
-        out.dust(out.fsca==0)=NaN;
+        if versionBeforeV20240d
+            out.dust(out.dust > maxdust) = maxdust;
+            out.dust(out.dust < mindust) = mindust;
+            out.dust(out.fsca == 0) = NaN;
+        else
+            out.dust(out.dust > maxdust * 10 & out.dust ~= intmax(class(out.dust))) = maxdust * 10;
+            out.dust(out.dust < mindust * 10) = mindust * 10;
+            out.dust(out.fsca == 0) = intmax(class(out.dust));
+        end
+          
         fprintf('Done filtering on dust in %f secs.\n', toc);
         saveVariableForSpiresSmooth20240204(4, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save dust but not remove.
 
@@ -1100,70 +1184,87 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
 %}
         fprintf('writing cubes %s...%s\n',datestr(matdates(1)),...
             datestr(matdates(end)));
+
         out = saveVariableForSpiresSmooth20240204(8, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); % Seb 20240204 save and remove snow_fraction_s (formerly fsca). 20240917. Updated varId.
         
-        out = loadVariableForSpiresSmooth20240204(7, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240204 Loading solarZ.
-        % Seb 20240222 Interpolating temporally solarZ.
-        out.(vars{7})(out.(vars{7}) > 90) = NaN;
+        if versionBeforeV20240d
+            out = loadVariableForSpiresSmooth20240204(7, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240204 Loading solarZ.
+            % for v2024.0f, int, capped to 0-90 and already fillmissed in the previous script.
+            
+        
+            % Seb 20240222 Interpolating temporally solarZ.
+            out.(vars{7})(out.(vars{7}) > 90) = NaN;
 
-        %% If the matrix contains any NaNs, do linear interpolation
-        %% along dimension 3 (across missing slices), also fills
-        %% missing end values with nearest non-NaN.
-        % fillmissing() doesn't need double precision and we use only single precision.
-        if any(isnan(out.(vars{7})), 'all')
-            out.(vars{7}) = fillmissing(out.(vars{7}), 'linear', 3, EndValues = 'nearest'); % Seb 2024-03-19, in replacement of FillCubeDateLinear().
-        end
-        %out.(vars{7}) = FillCubeDateLinear(matdates, matdates, out.(vars{7}), 90); % Seb 20240222
-        saveVariableForSpiresSmooth20240204(7, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); 
-        % Seb 20240204 save and not remove solar_zenith (formerly solarZ). Not very performant since we convert back and forth to single, with a division...
+            %% If the matrix contains any NaNs, do linear interpolation
+            %% along dimension 3 (across missing slices), also fills
+            %% missing end values with nearest non-NaN.
+            % fillmissing() doesn't need double precision and we use only single precision.
+            if any(isnan(out.(vars{7})), 'all')
+                out.(vars{7}) = fillmissing(out.(vars{7}), 'linear', 3, EndValues = 'nearest'); % Seb 2024-03-19, in replacement of FillCubeDateLinear().
+            end
+            %out.(vars{7}) = FillCubeDateLinear(matdates, matdates, out.(vars{7}), 90); % Seb 20240222
+            saveVariableForSpiresSmooth20240204(7, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); 
+            % Seb 20240204 save and not remove solar_zenith (formerly solarZ). Not very performant since we convert back and forth to single, with a division...
         
-        out = loadVariableForSpiresSmooth20240204(28, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240204 Loading SolarAzimuth.
-        % Seb 20240222 Interpolating temporally SolarAzimuth.
-        out.(vars{28})(out.(vars{28}) > 180) = NaN;
-        if any(isnan(out.(vars{28})), 'all')
-            out.(vars{28}) = fillmissing(out.(vars{28}), 'linear', 3, EndValues = 'nearest'); % Seb 2024-03-19, in replacement of FillCubeDateLinear().
-        end
-        % out.(vars{28}) = FillCubeDateLinear(matdates, matdates, out.(vars{28}), 180); % Seb 20240222
-        saveVariableForSpiresSmooth20240204(28, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); 
-        % Seb 20240204 save and remove solar_azimuth (formerly SolarAzimuth). Not very performant since we convert back and forth to single, with a division...
+            out = loadVariableForSpiresSmooth20240204(28, firstDateOfMonthForSmoothing, region, vars, divisor, dtype, matdates, out, cellIdx, extendedWaterYearDate, varInSpiresDaily); % Seb 20240204 Loading SolarAzimuth.
+            % for v2024.0f, int, capped to -180-180 and already fillmissed in the previous script.
+
+            % Seb 20240222 Interpolating temporally SolarAzimuth.
+            out.(vars{28})(out.(vars{28}) > 180) = NaN;
+            if any(isnan(out.(vars{28})), 'all')
+                out.(vars{28}) = fillmissing(out.(vars{28}), 'linear', 3, EndValues = 'nearest'); % Seb 2024-03-19, in replacement of FillCubeDateLinear().
+            end
+            % out.(vars{28}) = FillCubeDateLinear(matdates, matdates, out.(vars{28}), 180); % Seb 20240222
+            saveVariableForSpiresSmooth20240204(28, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); 
+            % Seb 20240204 save and remove solar_azimuth (formerly SolarAzimuth). Not very performant since we convert back and forth to single, with a division...
+
+            tic;
+            % Albedo calculation. Seb 20240227:
+            fprintf('%s: Calculating albedo...\n', mfilename()); 
+            varName = 'albedo_s';
+            out.(varName) = NaN(size(out.grainradius), 'double');
+            % elevation = repmat(elevation, [1 1 size(out.grainradius, 3)]); % Seb 20240228. Not sure performance.
         
-        % Albedo calculation. Seb 20240227:
-        fprintf('%s: Calculating albedo...\n', mfilename()); 
-        varName = 'albedo_s';
-        out.(varName) = NaN(size(out.grainradius), 'double');
-        elevation = repmat(elevation, [1 1 size(out.grainradius, 3)]); % Seb 20240228. Not sure performance.
-        indicesForNotNaN = find(~isnan(out.grainradius) & ...
-            ~isnan(out.dust) & ...
-            ~isnan(out.solarZ));
-        
-        varName = 'deltavis_s';
-        out.(varName) = NaN(size(out.grainradius), 'double');
-        
-        varName = 'radiative_forcing_s';
-        out.(varName) = NaN(size(out.grainradius), 'double');
-        varName = 'albedo_s';
-        if numel(indicesForNotNaN) ~= 0
-%{
-            out.(varName)(indicesForNotNaN) = ...
-                AlbedoLookup(out.grainradius(indicesForNotNaN), ...
-                    cosd(out.solarZ(indicesForNotNaN)), ...
-                [], elevation(indicesForNotNaN), LAPname = 'dust', ...
-                LAPconc = out.dust(indicesForNotNaN) / 1000); % Seb 20240228. dust is in ppm while AlbedoLookup expects ppt (why??????) to check with Karl @warning.
-                % AlbedoLookup in ParBal package.
-%}
-            % Dirty albedo and radiative forcing from Jeff lookup tables. 2024-05-10.
-            albedoForcingCalculator = AlbedoForcingCalculator(region);
-            [albedo, deltavis, radiativeForcing] = albedoForcingCalculator.getFromLookup(out.grainradius(indicesForNotNaN), ...
-                out.dust(indicesForNotNaN), cosd(out.solarZ(indicesForNotNaN)));
-             out.(varName)(indicesForNotNaN) = albedo;
-             varName = 'deltavis_s';
-             out.(varName)(indicesForNotNaN) = deltavis;
-             varName = 'radiative_forcing_s';
-             out.(varName)(indicesForNotNaN) = radiativeForcing;
-        end
-        out = saveVariableForSpiresSmooth20240204(9, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave);
-        out = saveVariableForSpiresSmooth20240204(33, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave);
-        out = saveVariableForSpiresSmooth20240204(34, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave); 
+            indicesForNotNaN = find(~isnan(out.grainradius) & ...
+                ~isnan(out.dust) & ...
+                ~isnan(out.solarZ));
+       
+            varName = 'deltavis_s';
+            out.(varName) = NaN(size(out.grainradius), 'double');
+            
+            varName = 'radiative_forcing_s';
+            out.(varName) = NaN(size(out.grainradius), 'double');
+            varName = 'albedo_s';
+            if numel(indicesForNotNaN) ~= 0
+    %{
+                out.(varName)(indicesForNotNaN) = ...
+                    AlbedoLookup(out.grainradius(indicesForNotNaN), ...
+                        cosd(out.solarZ(indicesForNotNaN)), ...
+                    [], elevation(indicesForNotNaN), LAPname = 'dust', ...
+                    LAPconc = out.dust(indicesForNotNaN) / 1000); % Seb 20240228. dust is in ppm while AlbedoLookup expects ppt (why??????) to check with Karl @warning.
+                    % AlbedoLookup in ParBal package.
+    %}
+                if ~versionBeforeV20240d
+                    out.grainradius = double(out.grainradius);
+                    out.dust = double(out.dust) / 10;
+                    out.solarZ = double(out.solarZ);
+                end
+                % Dirty albedo and radiative forcing from Jeff lookup tables. 2024-05-10.
+                albedoForcingCalculator = AlbedoForcingCalculator(region);
+                [albedo, deltavis, radiativeForcing] = albedoForcingCalculator.getFromLookup(out.grainradius(indicesForNotNaN), ...
+                    out.dust(indicesForNotNaN), cosd(out.solarZ(indicesForNotNaN)));
+                 out.(varName)(indicesForNotNaN) = albedo;
+                 varName = 'deltavis_s';
+                 out.(varName)(indicesForNotNaN) = deltavis;
+                 varName = 'radiative_forcing_s';
+                 out.(varName)(indicesForNotNaN) = radiativeForcing;
+            end
+            fprintf('%s: Calculated albedo in %f sec.\n', mfilename(), toc);
+            
+            out = saveVariableForSpiresSmooth20240204(9, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave);
+            out = saveVariableForSpiresSmooth20240204(33, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave);
+            out = saveVariableForSpiresSmooth20240204(34, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave);
+        end % if versionBeforeV20240d, calculations for albedos.
     end % if thisMode == 0
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1208,44 +1309,49 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
     end % if thisMode == 1
     
     % NB: A bit silly to require the 3rd dim here...
-    varName = 'albedo_muZ_s';
-    out.(varName) = NaN(size(out.grainradius), 'double');
-    if numel(indicesForNotNaN) ~= 0  
-         
-         
-          mu0 = cosd(out.solarZ);
-          mu0(isnan(out.solarZ)) = NaN;
-          out.solarZ = [];
+    if versionBeforeV20240d
+        tic
+        fprintf('%s: Calculating albedo_muZ...\n', mfilename()); 
+        varName = 'albedo_muZ_s';
+        out.(varName) = NaN(size(out.grainradius), 'double');
+        if numel(indicesForNotNaN) ~= 0  
+             
+              % out.grainradius, dust, solarZ converted to double above, for v2024.0f.
+              mu0 = cosd(out.solarZ);
+              mu0(isnan(out.solarZ)) = NaN;
+              out.solarZ = [];
 
-          % phi0: Normalize stored azimuths to expected azimuths
-          % stored data is assumed to be -180 to 180 with 0 at North
-          % expected data is assumed to be +ccw from South, -180 to 180
-          phi0 = 180. - out.SolarAzimuth;
-          out.SolarAzimuth = [];
-          phi0(phi0 > 180) = phi0(phi0 > 180) - 360;
+              % phi0: Normalize stored azimuths to expected azimuths
+              % stored data is assumed to be -180 to 180 with 0 at North
+              % expected data is assumed to be +ccw from South, -180 to 180
+              phi0 = 180. - out.SolarAzimuth;
+              out.SolarAzimuth = [];
+              phi0(phi0 > 180) = phi0(phi0 > 180) - 360;
 
-          [slope, ~, ~] = ...
-                espEnv.getDataForObjectNameDataLabel(regionName, 'slope');
-          slope = repmat(cast(slope(rowStartId:rowEndId, columnStartId:columnEndId), 'double'), [1, 1, size(phi0, 3)]);
-          [aspect, ~, ~] = ...
-              espEnv.getDataForObjectNameDataLabel(regionName, 'aspect');
-          aspect = repmat(cast(aspect(rowStartId:rowEndId, columnStartId:columnEndId), 'double'), [1, 1, size(phi0, 3)]); % Slope and aspect are input of cosd within ParBal.sunslope, which only accept double.
-            % Aspect for westernUS tiles is stored 
-            
-          % Based on conversation with Dozier, Aug 2023:
-          % N.B.: phi0 and aspect must be referenced to the same
-        % angular convention for this function to work properly
-          muZ = sunslope(mu0, phi0, slope, aspect);
-          muZ(muZ > 1.0) = 1.0; % 2024-01-05, occasionally ParBal.sunslope()
-              % returns a few 10-16 higher than 1 (h24v05, 2011/01/08)
-              % Patch should be inserted in ParBal.sunslope().
-          [albedo, ~, ~] = albedoForcingCalculator.getFromLookup(out.grainradius(indicesForNotNaN), ...
-            out.dust(indicesForNotNaN), muZ(indicesForNotNaN));
-          out.(varName)(indicesForNotNaN) = albedo;
-    end
-    out = saveVariableForSpiresSmooth20240204(37, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave);
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % End albedo calculation.
+              [slope, ~, ~] = ...
+                    espEnv.getDataForObjectNameDataLabel(regionName, 'slope');
+              slope = repmat(cast(slope(rowStartId:rowEndId, columnStartId:columnEndId), 'double'), [1, 1, size(phi0, 3)]);
+              [aspect, ~, ~] = ...
+                  espEnv.getDataForObjectNameDataLabel(regionName, 'aspect');
+              aspect = repmat(cast(aspect(rowStartId:rowEndId, columnStartId:columnEndId), 'double'), [1, 1, size(phi0, 3)]); % Slope and aspect are input of cosd within ParBal.sunslope, which only accept double.
+                % Aspect for westernUS tiles is stored 
+                
+              % Based on conversation with Dozier, Aug 2023:
+              % N.B.: phi0 and aspect must be referenced to the same
+            % angular convention for this function to work properly
+              muZ = sunslope(mu0, phi0, slope, aspect);
+              muZ(muZ > 1.0) = 1.0; % 2024-01-05, occasionally ParBal.sunslope()
+                  % returns a few 10-16 higher than 1 (h24v05, 2011/01/08)
+                  % Patch should be inserted in ParBal.sunslope().
+              [albedo, ~, ~] = albedoForcingCalculator.getFromLookup(out.grainradius(indicesForNotNaN), ...
+                out.dust(indicesForNotNaN), muZ(indicesForNotNaN));
+              out.(varName)(indicesForNotNaN) = albedo;
+        end
+        fprintf('%s: Calculated albedo_muZ in %f sec.\n', mfilename(), toc);
+        out = saveVariableForSpiresSmooth20240204(37, outvars, outnames, outdtype, outdivisors, out, h5name, appendFlag, indicesToSave);
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % End albedo calculation.
+    end % if versionBeforeV20240d.
 %{
     % Seb 20240304 Add and save additional variables to understand why there's no snow in north
     % western US for ongoing 2024 water year.
