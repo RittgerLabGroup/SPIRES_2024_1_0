@@ -138,9 +138,9 @@ for i=1:sz(4) %for each day
    
     % Copy the files from the archive if present in archive ...
     archiveFilePath = strrep( ...
-        Ffile, obj.scratchPath, obj.archivePath);
+        Ffile, region.espEnv.scratchPath, region.espEnv.archivePath);
     
-    cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', Ffile];
+    cmd = [region.espEnv.rsyncAlias, ' ', archiveFilePath, ' ', Ffile];
     fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
     [status, cmdout] = system(cmd);
     

@@ -24,9 +24,9 @@ classdef AlbedoForcingCalculator < handle
         rsyncDirectoryPath = regexprep(thisFilePath, '/[^/]*\*[^@]*$', '/');
         % Copy the files from the archive if present in archive ...
         archiveDirectoryPath = strrep( ...
-            rsyncDirectoryPath, obj.scratchPath, obj.archivePath);
+            rsyncDirectoryPath, region.espEnv.scratchPath, region.espEnv.archivePath);
         if isdir(archiveFilePath)
-          cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', rsyncDirectoryPath];
+          cmd = [region.espEnv.rsyncAlias, ' ', archiveFilePath, ' ', rsyncDirectoryPath];
           fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
           [status, cmdout] = system(cmd);
         end
