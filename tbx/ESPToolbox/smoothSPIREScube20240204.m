@@ -95,7 +95,7 @@ function out=smoothSPIREScube20240204(region, cellIdx, waterYearDate, fshadeIsIn
     scratchPath = espEnv.scratchPath;
     if versionBeforeV20240d % Sen 2024-03-02 Special handling of westernUs with Ned's ancillaries.
         baseDir = [scratchPath, 'modis/input_spires_from_Ned_202311/Inputs/MODIS/'];
-        rsyncDirectoryPath = basedir;
+        rsyncDirectoryPath = baseDir;
         % Copy the files from the archive if present in archive ...
         archiveDirectoryPath = strrep( ...
             rsyncDirectoryPath, region.espEnv.scratchPath, region.espEnv.archivePath);
