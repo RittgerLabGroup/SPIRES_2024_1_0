@@ -51,6 +51,7 @@ function [out,fname,vars,divisor,dtype]=fill_and_run_modis20240204(region, matda
     % tiles.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     regionName = region.name;
+    espEnv = region.espEnv;
     scratchPath = region.espEnv.scratchPath;
     baseDir = [scratchPath, 'modis/input_spires_from_Ned_202311/Inputs/MODIS/'];
     
@@ -67,12 +68,45 @@ function [out,fname,vars,divisor,dtype]=fill_and_run_modis20240204(region, matda
           [status, cmdout] = system(cmd);
         end
         R0file = [baseDir, 'R0/', regionName, 'R0.mat'];
+        if ~isfile(R0file)
+          thatFilePath = regexprep(R0file, '/[^/]*\*[^@]*$', '/');
+          % Copy the file from the archive if present in archive ...
+          archiveFilePath = strrep( ...
+              thatFilePath, espEnv.scratchPath, espEnv.archivePath);
+          if isdir(archiveFilePath)
+            cmd = [espEnv.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+            fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+            [status, cmdout] = system(cmd);
+          end
+        end
         R0 = matfile(R0file).R0;
         maskfile = [baseDir, 'watermask/', regionName, 'watermask.mat'];
+        if ~isfile(maskfile)
+          thatFilePath = regexprep(maskfile, '/[^/]*\*[^@]*$', '/');
+          % Copy the file from the archive if present in archive ...
+          archiveFilePath = strrep( ...
+              thatFilePath, espEnv.scratchPath, espEnv.archivePath);
+          if isdir(archiveFilePath)
+            cmd = [espEnv.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+            fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+            [status, cmdout] = system(cmd);
+          end
+        end
         mask = matfile(maskfile).mask;
     else
         R0FilePath = region.espEnv.getFilePathForObjectNameDataLabel( ...
             regionName, 'backgroundreflectance');
+        if ~isfile(R0FilePath)
+          thatFilePath = regexprep(R0FilePath, '/[^/]*\*[^@]*$', '/');
+          % Copy the file from the archive if present in archive ...
+          archiveFilePath = strrep( ...
+              thatFilePath, espEnv.scratchPath, espEnv.archivePath);
+          if isdir(archiveFilePath)
+            cmd = [espEnv.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+            fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+            [status, cmdout] = system(cmd);
+          end
+        end
         R0 = load(R0FilePath).R0;
         mask = region.espEnv.getDataForObjectNameDataLabel( ...
             regionName, 'water');
@@ -88,7 +122,7 @@ function [out,fname,vars,divisor,dtype]=fill_and_run_modis20240204(region, matda
     if exist(outloc, 'dir') == 0
         mkdir(outloc);
     end
-    codePath = '/projects/sele7124/MATLAB/SPIRES/';
+    codePath = [getenv('projectDir'), '/MATLAB/SPIRES/'];
     mccmfile = [codePath, 'MccM/net.mat'];
     net = matfile(mccmfile).net;
     tiles = {regionName};

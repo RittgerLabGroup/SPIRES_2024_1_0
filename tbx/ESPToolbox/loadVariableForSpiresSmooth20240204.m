@@ -28,6 +28,18 @@ function out = loadVariableForSpiresSmooth20240204(j, firstDateOfMonthForSmoothi
               % Seb 20240204 location of input distinct from output.
           fname=fullfile(inloc,[regionName, '_', char(firstDateOfMonthForSmoothing(i), 'yyyyMM'), ...
               '_', num2str(rowStartId), '_', num2str(rowEndId), '_', num2str(columnStartId), '_', num2str(columnEndId), '.mat']);
+          
+          % Rsync if necessary.
+          thatFilePath = regexprep(fname, '/[^/]*\*[^@]*$', '/');
+          % Copy the file from the archive if present in archive ...
+          archiveFilePath = strrep( ...
+              thatFilePath, espEnv.scratchPath, espEnv.archivePath);
+          if isdir(archiveFilePath)
+            cmd = [espEnv.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+            fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+            [status, cmdout] = system(cmd);
+          end
+
           m=matfile(fname);
 
           if i==1
@@ -51,7 +63,7 @@ function out = loadVariableForSpiresSmooth20240204(j, firstDateOfMonthForSmoothi
     else
       % For any other region, we use modisspiresdaily and
       % espEnv.getDataForWaterYearDateAndVarName(). 20240916.
-      force = struct(type = 'single');
+      force = struct(); % struct(type = 'single');
       optim = struct();
       optim.countOfCellPerDimension = [sqrt(countOfCells), sqrt(countOfCells)];
       optim.cellIdx(1) = cellIdx - floor((cellIdx - 1) / optim.countOfCellPerDimension(1)) ...
@@ -79,9 +91,9 @@ function out = loadVariableForSpiresSmooth20240204(j, firstDateOfMonthForSmoothi
       varData = espEnv.getDataForWaterYearDateAndVarName( ...
         objectName, inputDataLabel, waterYearDate, varName, force = force, ...
         optim = optim);
-      varData = varData / divisor(j);
+      % varData = varData / divisor(j);
       out.(vars{j}) = varData; % vars{j} varName expected by smoothSPIREScube script. 20240916.
-
+          % Beware for v2024.0f and above, varData is of the class in the file, including with no data values of intmax @warning!!!!!!!
     end
     fprintf('Loaded variable %d in %f secs.\n', j, toc);
 end
