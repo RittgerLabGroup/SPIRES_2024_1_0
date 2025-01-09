@@ -9,6 +9,7 @@
 # HIDDEN
 
 # Supercomputer environment parameters.
+export level3User= # HIDDEN
 export archiveDir= # HIDDEN
 export archiveDir1= # HIDDEN
 export archiveDir2= # HIDDEN
@@ -18,6 +19,7 @@ export slurmName1= # HIDDEN
 export slurmName2= # HIDDEN
 export slurmAccount1= # HIDDEN
 export slurmAccount2= # HIDDEN
+export slurmAccount3= # HIDDEN
 export slurmPartition1= # HIDDEN
 export slurmPartition2=
 export slurmQos1= # HIDDEN
@@ -25,7 +27,8 @@ export slurmQos2= # HIDDEN
 export slurmAlternativeQos2= # HIDDEN
 export slurmScratchDir1= # HIDDEN
 export slurmAlternativeScratchDir1= # HIDDEN
-export slurmScratchDir2= # HIDDEN
+# @obsolete. export slurmScratchDir2= # HIDDEN
+export slurmScratchDirForLevel3= # HIDDEN
 export loginNodeDomain= # HIDDEN
 
 # ESP earthData NRT token wget Modis tiles

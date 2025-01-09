@@ -1,3 +1,4 @@
+thisEspProjectDir=${espProjectDir}
 # ESP external matlab package paths
 export matlabPathForESPDoc=${espProjectDir}tbx/doc
 export matlabPathForESPToolbox=${espProjectDir}tbx/ESPToolbox
