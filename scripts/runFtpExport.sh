@@ -146,14 +146,14 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
   years=( {2025..2024..-1} );
   regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04);
   slurmAccount=${SLURM_JOB_ACCOUNT};
-  scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/; slurmQos=${SLURM_JOB_QOS};
+  scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/;
   slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
   exclude="";
   scriptPath=./scripts/runRsync.sh
 
   sourceBasePath=${scratchPath}modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
   targetBasePath=${archivePath}output/mod09ga.061/spires/v2024.1.0/netcdf/
-    # $archivePath and $scratchPath defined in toolsStart.sh.
+    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
 
   for year in ${years[@]}; do
     scriptId=sync${year};
