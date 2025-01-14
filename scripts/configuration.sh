@@ -6,11 +6,12 @@
 ########################################################################################
 # Configuration of scriptIds associated to script relative filePaths.
 ########################################################################################
-scriptIds=(mod09gaI spiFillC spiSmooC moSpires scdInCub daMosaic snoStep3 webExpSn)
+# scriptIds=(mod09gaI spiFillC spiSmooC moSpires scdInCub daMosaic snoStep3 webExpSn)
 declare -A scriptIdFilePathAssociations
 scriptIdFilePathAssociations[mod09gaI]="./scripts/runGetMod09gaFiles.sh"
 scriptIdFilePathAssociations[spiFillC]="./scripts/runSpiresFill.sh"
 scriptIdFilePathAssociations[spiInver]="./scripts/runSpiresInversor.sh"
+scriptIdFilePathAssociations[spiTimeI]="./scripts/runSpiresTimeInterpolator.sh"
 scriptIdFilePathAssociations[spiSmooC]="./scripts/runSpiresSmooth.sh"
 scriptIdFilePathAssociations[moSpires]="./scripts/runUpdateMosaicWithSpiresData.sh"
 scriptIdFilePathAssociations[scdInCub]="./scripts/runUpdateWaterYearSCD.sh"
@@ -44,19 +45,19 @@ thoseVersionsOfAncillary[5]=v3.1
 # Pipeline 1, for regions with implementation < v2024.0f, i.e. v2024.0d westernUS.
 ########################################################################################
 
-pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daGeoBig daStatis webExpSn)
-pipeLineLabels1=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
-pipeLineRegionTypes1=(0 0 0 0 0 0 1 1 1 10)
+pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daGeoBig daStatis webExpSn ftpExpor)
+pipeLineLabels1=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
+pipeLineRegionTypes1=(0 0 0 0 0 0 1 1 1 10 10)
   # 0: tile, 1: big region, 10: all regions.
-pipeLineSequences1=(0 0 001-036 0 0 0 0 0 001-033 0)
-pipeLineSequenceMultiplierToIndices1=(1 1 1 1 1 1 1 1 3 1)
-pipeLineMonthWindows1=(2 2 12 12 12 12 12 0 12 12)
-pipeLineParallelWorkersNb1=(0 18 10 10 0 2 6 0 0 0)
+pipeLineSequences1=(0 0 001-036 0 0 0 0 0 001-033 0 0)
+pipeLineSequenceMultiplierToIndices1=(1 1 1 1 1 1 1 1 3 1 1)
+pipeLineMonthWindows1=(2 2 12 12 12 12 12 0 12 12 12)
+pipeLineParallelWorkersNb1=(0 18 10 10 0 2 6 0 0 0 0)
 
 # sbatch parameters
-pipeLineTasksPerNode1=(1 18 10 10 5 2 6 1 1 1)
-pipeLineMems1=(1G 140G 30G 40G 30G 5G 30G 8G 8G 3G)
-pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:30:00 00:20:00 00:30:00 00:40:00 00:20:00 04:00:00 01:30:00)
+pipeLineTasksPerNode1=(1 18 10 10 5 2 6 1 1 1 1)
+pipeLineMems1=(1G 140G 30G 40G 30G 5G 30G 8G 8G 3G 1G)
+pipeLineTimes1=(01:30:00 01:45:00 02:30:00 00:30:00 00:20:00 00:30:00 00:40:00 00:20:00 04:00:00 01:30:00 01:30:00)
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
@@ -146,21 +147,25 @@ printf -v pipeLineTimesString2 '%s ' ${pipeLineTimes2[@]}
 ########################################################################################
 # Pipeline 3, for regions with implementation >= v2024.0f.
 ########################################################################################
-pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daGeoBig daStatis webExpSn)
-pipeLineLabels3=(v061 v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f v2024.0f)
+# pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daGeoBig daStatis webExpSn)
+thatLabel=v2025.nrt; # v2024.0f
+pipeLineScriptIds3=(mod09gaI spiInver spiTimeI moSpires daNetCDF daGeoBig daStatis webExpSn)
+pipeLineLabels3=(v061 ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel})
 pipeLineRegionTypes3=(0 0 0 0 0 1 1 10)
   # 0: tile, 1: big region, 10: all regions.
-pipeLineSequences3=(0 0 001-036 0 0 0 001 0)
+pipeLineSequences3=(0 0 001-036 0 0 0 999 0)
   # NB: probably need to adapt the number of sequences for daStatis dynamically as a
   # function of the nb of subdivisions. Chose 001 for New Zealand.                 @todo
+  # 999 indicates that the sequence will be updated during the run by toolStart.sh as
+  # a function of landsubdivisions available per bigRegion.
 pipeLineSequenceMultiplierToIndices3=(1 1 1 1 1 1 3 1)
 pipeLineMonthWindows3=(2 2 12 12 12 0 12 12)
-pipeLineParallelWorkersNb3=(0 14 10 10 2 0 0 0)
+pipeLineParallelWorkersNb3=(0 14 10 14 2 0 0 0) # moSpires temporarily to 14 rather than 10 
 
 # sbatch parameters
-pipeLineTasksPerNode3=(1 14 10 10 2 1 1 1)
-pipeLineMems3=(1G 44G 30G 40G 5G 8G 8G 3G)
-pipeLineTimes3=(01:30:00 01:45:00 02:30:00 00:30:00 00:30:00 00:20:00 04:00:00 01:30:00)
+pipeLineTasksPerNode3=(1 14 10 18 2 1 1 1) # moSpires temporarily to 18 rather than 10 
+pipeLineMems3=(1G 44G 60G 60G 5G 8G 8G 3G) # spiTimeI: set temporarily 60G rather than 30G. to confirm!! spiMo: set temporarily to 60G rather than 40G.
+pipeLineTimes3=(01:30:00 01:45:00 02:30:00 08:30:00 00:30:00 00:20:00 04:00:00 01:30:00) # mosaic temporarily to 4:30 rather than 0:30
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
