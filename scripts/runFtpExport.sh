@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Transfer output snowtoday daily files to public ftp
+# Transfer output snowtoday daily files to archive and public ftp
 
 #SBATCH --constraint=spsc
 #SBATCH --export=NONE
@@ -137,8 +137,41 @@ fi
 # Argument setting.
 # None.
 
-log_level_1 "start"
+if [[ $inputLabel == 'v2024.0d' ]]; then
 
+  # RSync of westernUS Netcdf to archive [hard-coded].
+  ######################################################################################
+  # No check that the rsync jobs are correctly achieved!
+  printf "Submission of jobs to rsync netcdfs back to archive...\n"
+  years=( {2025..2024..-1} );
+  regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04);
+  slurmAccount=${SLURM_JOB_ACCOUNT};
+  scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/; slurmQos=${SLURM_JOB_QOS};
+  slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
+  exclude="";
+  scriptPath=./scripts/runRsync.sh
+
+  sourceBasePath=${scratchPath}modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
+  targetBasePath=${archivePath}output/mod09ga.061/spires/v2024.1.0/netcdf/
+    # $archivePath and $scratchPath defined in toolsStart.sh.
+
+  for year in ${years[@]}; do
+    scriptId=sync${year};
+    for regionName in ${regionNames[@]}; do
+      jobName=$scriptId-${regionName};
+      targetPath=${targetBasePath}${regionName}/
+      sourcePath=${sourceBasePath}${regionName}/${year}
+      mkdir -p ${targetPath}
+      submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+      printf "${submitLine}\n"
+      ${submitLine}
+    done
+  done
+  sleep $(( 60 * 10 ))
+    # Suppose rsync sbatch jobs will last less than 10 mins, not really necessary...
+fi
+
+: '
 # Launch the export to the ftp. SPECIFIC TO WESTERN US!
 ########################################################################################
 
@@ -149,7 +182,7 @@ ftpDir=/pl/active/rittger_public/
 datePatterns=($(( $waterYear - 1 ))1 ${waterYear}0)
 
 regionNamesForGeotiff=(westernUS)
-regionNamesForMat=('h08v04' 'h08v05' 'h09v04' 'h09v05' 'h10v04' 'westernUS')
+regionNamesForMat=(''h08v04' 'h08v05' 'h09v04' 'h09v05' 'h10v04' 'westernUS'')
 
 bigRegionName=westernUS
 #set -o noglob
@@ -185,5 +218,5 @@ for datePattern in ${datePatterns[@]}; do
 done
 #set +o noglob
 echo "Done sync to ftp."
-
+'
 source scripts/toolsStop.sh
