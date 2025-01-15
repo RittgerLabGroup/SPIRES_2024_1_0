@@ -848,6 +848,10 @@ EOM
 ########################################################################################
 # Limited to the first task id, = first object of the group which are tackled by
 # SLURM_ARRAY_JOB_ID.
+
+# Repetition of job doesnt work correctly, I set to 0 until I have time to solve issue.
+isToBeRepeated=0
+# 
 if [[ -v isBatch ]] && [[ -v isToBeRepeated ]] && [[ $isToBeRepeated -eq 1 ]] && \
 [[ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ]]; then
 
