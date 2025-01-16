@@ -167,6 +167,33 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
       ${submitLine}
     done
   done
+  
+   # RSync of westernUS proj tif to archive [hard-coded].
+  ######################################################################################
+  # No check that the rsync jobs are correctly achieved!
+  printf "Submission of jobs to rsync projected geotiff back to archive...\n"
+  years=( {2025..2024..-1} );
+  regionNames=(westernUS);
+  scriptPath=./scripts/runRsync.sh
+
+  sourceBasePath=${scratchPath}modis/variables/scagdrfs_geotiff_${inputLabel}/v006/;
+  endSourceBasePath=EPSG_3857/LZW/
+  targetBasePath=${archivePath}output/mod09ga.061/spires/v2024.1.0/tif_EPSG3857/
+    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
+
+  for year in ${years[@]}; do
+    scriptId=sync${year};
+    for regionName in ${regionNames[@]}; do
+      jobName=$scriptId-${regionName};
+      targetPath=${targetBasePath}${regionName}/
+      sourcePath=${sourceBasePath}${regionName}/${endSourceBasePath}${year}
+      mkdir -p ${targetPath}
+      submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+      printf "${submitLine}\n"
+      ${submitLine}
+    done
+  done
+  
   sleep $(( 60 * 10 ))
     # Suppose rsync sbatch jobs will last less than 10 mins, not really necessary...
 fi
