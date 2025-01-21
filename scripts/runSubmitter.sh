@@ -367,6 +367,7 @@ sacct -j ${submitterSlurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+
 # xargs -d '\n' to keep the quotes ".
 sbatchSubmitLine=$(sacct -j ${submitterSlurmFullJobId} --format SubmitLine%1000 | awk '/sbatch[^@]+/{ print $0 }' | sed 's~sh sbatch~sh "sbatch~' | sed -E 's~$~"~' | tr -s ' ' | sed -E 's~^ ~~' | sed -E 's~ "$~"~' | xargs -d '\n')
 repeatSubmitLine=$sbatchSubmitLine
+: '
 if [[ "${repeatSubmitLine}" =~  .+begin=.+ ]]; then
   repeatSubmitLine="$(echo "${repeatSubmitLine}" | sed -r s~--begin=[0-9\:]+~--begin=${repeatBeginTime}~)"
   printf "\n\n\n"
@@ -378,10 +379,11 @@ if [[ "${repeatSubmitLine}" =~  .+begin=.+ ]]; then
   $repeatSubmitLine
   printf "#############################################################################\n"
 else
+'
   #repeatSubmitLine="${repeatSubmitLine/sbatch/sbatch --begin=${repeatBeginTime} }"
   printf "\n\n\n"
   printf "#############################################################################\n"
   printf "Absence of begin in submit line. No submit schedule for repeated job.\n"
   printf "#############################################################################\n"
-fi
+#fi
 
