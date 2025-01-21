@@ -13,6 +13,7 @@ export level3User= # HIDDEN
 export archiveDir= # HIDDEN
 export archiveDir1= # HIDDEN
 export archiveDir2= # HIDDEN
+export archiveDir3= # HIDDEN
 export myHome= # HIDDEN
 export projectDir= # HIDDEN 
 export slurmName1= # HIDDEN
@@ -54,6 +55,7 @@ umask u=rwx,g=rwx,o=rx
 # ESP environment variables
 export espArchiveDir=${archiveDir1}
 export espArchiveDirNrt=${archiveDir2}
+export espArchiveDirOps=${archiveDir3}
 export espProjectDir=${projectDir}MATLAB/esp/
 export espDevProjectDir==${projectDir}dev/esp/
 export slurmLogDir1=${slurmScratchDir1}slurm_out/
@@ -65,6 +67,7 @@ export espLogSnDir=${projectDir}slurm_out_SnowToday/
 
 # User specific aliases and functions
 alias gEspArchive="cd ${espArchiveDirNrt}"
+alias gEspArchiveOps="cd ${espArchiveDirOps}"
 alias gEsp="cd ${espProjectDir}"
 alias gDevEsp="cd ${espDevProjectDir}"
 alias gEspScratch="cd ${espScratchDir}"
@@ -79,7 +82,7 @@ alias scancelInt="squeue -h -t R -O jobid,name | awk '/interactive/ {print \$1}'
 
 alias squeue='squeue -u ${USER}'
 alias rm='rm -i'
-alias rsync='/bin/rsync -HpvxrltoDu --chmod=ug+rw,o-w,+X,Dg+s'
+alias rsync='/bin/rsync -HpvxrltogDu --chmod=ug+rw,o-w,+X,Dg+s'
 alias watchq='ml slurm/${slurmName1}; watch -d -n 2 "squeue --user=${USER} --long"'
 alias iAlpineBig="ml slurm/${slurmName1}; salloc --nodes=1 --time=04:00:00 --ntasks=20 --mem=50G --partition=${slurmPartition1} --account=${slurmAccount1}"
 alias iAlpineSmall="ml slurm/${slurmName1}; salloc --nodes=1 --time=10:00:00 --ntasks=2 --partition=${slurmPartition1} --account=${slurmAccount1}"

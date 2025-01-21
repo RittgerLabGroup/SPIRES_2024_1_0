@@ -128,7 +128,7 @@ classdef ESPEnv < handle
             'v[0-9]{3}'}', ...
             VariableNames = {'toReplace', 'replacingRegexp'});
             % NB: timestampAndNrt can also be a process date of the format yyyyMMdd.
-        rsyncAlias = '/bin/rsync -HpvxrltoDu --chmod=ug+rw,o-w,+X,Dg+s';
+        rsyncAlias = '/bin/rsync -HpvxrltogDu --chmod=ug+rw,o-w,+X,Dg+s';
         slurmSafetySecondsBeforeKill = 3 * 60; % in seconds.
     end
     methods(Static)

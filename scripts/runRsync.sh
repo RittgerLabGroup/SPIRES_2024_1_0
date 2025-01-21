@@ -110,7 +110,7 @@ if [[ -z ${originPath} ]] || [[ -z ${targetPath} ]]; then
   error_exit "Line $LINENO: Unexpected number of arguments."
 fi
 
-thisRsync='/bin/rsync -HpvxrltoDu --chmod=ug+rw,o-w,+X,Dg+s'
+thisRsync='/bin/rsync -HpvxrltogDu --chmod=ug+rw,o-w,+X,Dg+s'
 # By precaution, should be in your ~/.bashrc too.
 echo "${thisRsync} $originPath $targetPath..."
 $thisRsync $originPath $targetPath
