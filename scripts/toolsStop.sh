@@ -14,6 +14,7 @@ if [ $matlabLaunched ] && [ ${#matlabString} -gt 0 ]; then
   printf "\n\n"
   matlab -nodesktop -nodisplay -r "${matlabString}"
   exitCode=$?
+  #exitCode=0
   printf "\nexitCode=${exitCode}\n"
   sleep 3
     # To make sure that log was written in slurmStdOut
