@@ -119,3 +119,17 @@ for thisTile in ${thisTiles[@]}; do
 done
 # -n string not empty (length <> 0)
 
+# Land subdivisions per big region
+
+# eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_landsubdivisions.csv)" | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }'  | grep -v "=;" | tail -n +3)
+
+subdivisionsByRegionString=$(cat ${workingDirectory}/tbx/conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "" $8 ":" $2 ":" $12 ";\n" }' | grep -E "^[^:].*" | grep -E "\:[^0];" | tail -n +3)
+
+declare -A countOfSubdivisionsPerBigRegion
+for bigRegionId in {1..10}; do
+  countOfSubdivisionsPerBigRegion[${bigRegionId}]=$(printf "${subdivisionsByRegionString}" | grep -E "^"${bigRegionId}"\:" | wc -l)
+done
+
+#cat ${workingDirectory}/tbx/conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }' | grep -v "=;" | tail -n +3
+
+
