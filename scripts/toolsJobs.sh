@@ -2,6 +2,8 @@
 #
 # Functions to get infos on jobs and write in logs.
 
+slurmTerminatedStates=(BOOT_FAIL CANCELLED COMPLETED DEADLINE FAILED NODE_FAIL OUT_OF_MEMORY TIMEOUT)
+
 # Functions.
 ########################################################################################
 # On Blanca, seff is not systematically found. We bypass this by a direct handling
@@ -83,8 +85,7 @@ validate_end_status(){
 
   # New code to get info on the job:
   state=$(sacct --format State -j ${thatJobId} | sed '3q;d' | tr -d ' ')
-  terminatedStates=(BOOT_FAIL CANCELLED COMPLETED DEADLINE FAILED NODE_FAIL OUT_OF_MEMORY TIMEOUT)
-  if [[ ! " ${terminatedStates[*]} " =~ [[:space:]]${state}[[:space:]] ]]; then
+  if [[ ! " ${slurmTerminatedStates[*]} " =~ [[:space:]]${state}[[:space:]] ]]; then
     printf "1 - Job not ended"
     return
   fi
