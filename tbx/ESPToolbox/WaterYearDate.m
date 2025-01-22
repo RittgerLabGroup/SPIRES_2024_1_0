@@ -2,6 +2,7 @@ classdef WaterYearDate < handle
 % Handles the dates for ESP, in particular the several-month
 % window to calculates some variables and statistics
     properties
+        % NB: this class has a copy method to update if update properties here.
         firstMonth = 10; % SIER_288. Possibility to change first month of
             % wateryear to 7 (south hemisphere). This should be a constant, and we may
             % tryhave an inherited south hemisphere waterYearDate, but unfortunately
@@ -288,6 +289,8 @@ classdef WaterYearDate < handle
             % NB: thisDatetime should be <= dateOfToday or at least belong to the
             % same waterYear (verif not implemented!!!).                        @warning
             %
+            % NB: this class has a copy method, to update if you add properties.
+            %
 
 %{
             % A way to force waterYearDate goes to the end of the waterYear, even
@@ -333,8 +336,21 @@ classdef WaterYearDate < handle
             % SIER_245 we handle all dates of waterYearDate until the day before today
             % if last month = today's month.
             % NB: Has it an impact for the early data in 2000?
-            if obj.thisDatetime > obj.dateOfToday
+            if obj.thisDatetime >= obj.dateOfToday
+                thatDatetime = obj.thisDatetime;
                 obj.thisDatetime = obj.dateOfToday - caldays(1);
+                % Correction of monthwindow if thisDatetime was corrected by
+                % dateOfToday.
+                if monthWindow > 1
+                    thatDatetimeToFirst = dateshift(thatDatetime, 'start', 'month');
+                    thatDateOfTodayToFirst = ...
+                        dateshift(obj.dateOfToday, 'start', 'month');
+                    % Remove the number of calendar months to window month.
+                    calendarMonthlagBetweenDates = split(between( ...
+                        thatDateOfTodayToFirst, thatDatetimeToFirst, 'months'), ...
+                        'months');
+                    monthWindow = max(monthWindow - calendarMonthlagBetweenDates, 1);
+                end
             end
 
             if exist('firstMonth', 'var') & firstMonth <= obj.yearMonthWindow
@@ -343,25 +359,30 @@ classdef WaterYearDate < handle
             
             % monthWindow.
             [thisYYYY, thisMM, thisDD] = ymd(obj.thisDatetime);
-            
-            if exist('monthWindow', 'var')
-                % Cap the monthWindow to the starting month of the year (oct)
-                % except if overlap on other year is permitted.
-                % NB: should rather be in constructor, impact?            @todo
-                if ~obj.overlapOtherYear
-                    monthCountSinceWaterYearFirstMonth = ...
-                        obj.getMonthWindowFromMonths( ...
-                            obj.firstMonth, thisMM);
-                    obj.monthWindow = min(monthWindow, ...
-                        monthCountSinceWaterYearFirstMonth);
-                else
-                    obj.monthWindow = monthWindow;
-                end
-            end
 
+            % Cap the monthWindow to the starting month of the year (oct)
+            % except if overlap on other year is permitted.
+            % NB: should rather be in constructor, impact?            @todo
+            if ~obj.overlapOtherYear
+                monthCountSinceWaterYearFirstMonth = ...
+                    obj.getMonthWindowFromMonths( ...
+                        obj.firstMonth, thisMM);
+                obj.monthWindow = min(monthWindow, ...
+                    monthCountSinceWaterYearFirstMonth);
+            else
+                obj.monthWindow = monthWindow;
+            end
+%{
             fprintf('%s: WaterYearDate: %s, firstMonth %d, monthWindow: %d.\n', ...
                 mfilename(), obj.toChar(), ...
                 obj.firstMonth, obj.monthWindow);
+%}
+        end
+        function waterYearDate = copy(obj)
+          % Copy and create a second WaterYearDate object.
+          waterYearDate = WaterYearDate( ...
+            obj.thisDatetime, obj.firstMonth, obj.monthWindow, ...
+            dateOfToday = obj.dateOfToday, overlapOtherYear = obj.overlapOtherYear);
         end
         function dateRange = getDailyDatetimeRange(obj)
             % Return
@@ -552,10 +573,12 @@ classdef WaterYearDate < handle
                 obj.dayStartTime.HH, obj.dayStartTime.MIN, obj.dayStartTime.SS);
                 % Some dates may be recorded not at 12:00 for older versions of code.
             if thisDate > theseDate(end) | thisDate < theseDate(1)
-                error('WaterYearDateShorten:badDate', ...
+                warning('WaterYearDateShorten:badDate', ...
                     sprintf(['%s: Date %s should be included in the period covered', ...
                         ' by waterYearDate %s.\n'], thisFunction, ...
                         string(thisDate, 'yyyy-MM-dd'), obj.toChar()));
+                waterYearDate = obj; 
+                return;
             end
             waterYearDate = obj;
             if ~ismember(waterYearDate.monthWindow, [0, 1])
