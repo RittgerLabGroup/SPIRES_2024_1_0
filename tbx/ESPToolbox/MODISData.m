@@ -22,7 +22,7 @@ classdef MODISData < handle
             % mod09ga spires (v6.1). Patterns corresponds to the version code inserted
             % in the filename of the lpdaac product. For Landsat Oli, concatenation of
             % collection number and collection category: 02.t1 (t1 for Tier 1).
-            
+
         georeferencing = struct(northwest = struct(x0 = - pi * 6.371007181e+06, ...
             y0 = pi * 6.371007181e+06 / 2), tileInfo = struct( ...
                 dx = 2 * pi * 6.371007181e+06 / 36 / 2400, ...
@@ -124,7 +124,7 @@ classdef MODISData < handle
             label = p.Results.label;
             obj.archiveDir = getenv('espArchiveDir');                      % @deprecated
             obj.inputProduct = p.Results.inputProduct;
-            
+
             obj.inputProductVersion = p.Results.inputProductVersion;
 
             path = fileparts(mfilename('fullpath'));
@@ -193,17 +193,26 @@ classdef MODISData < handle
                 'modisspiresfill', label, ...
                 'modspiresdaily', label, ...
                 'modspirestime', label, ...
+                'modspirestimebycell', label, ...
                 'modspiresyeartmp', label, ...
                 'modisspiressmooth', label, ...
                 'modisspiressmoothbycell', label, ...
                 'SCAGDRFSGap',  label, ...
                 'SCAGDRFSSTC',  label, ...
+                'spiresdailytifsinu', label, ...
+                'spiresdailymetadatajson', label, ...
+                'modspiresdailytifsinu', label, ...
+                'modspiresdailymetadatajson', label, ...
+                'vnpspiresdailytifsinu', label, ...
+                'vnpspiresdailymetadatajson', label, ...
                 'VariablesMatlab',  label, ...
                 'variablesmatlab2', label, ...
                 'daacnetcdfv20220', label, ...
+                'spiresdailynetcdf', label, ...
                 'spiresfill', label, ...
                 'spiressmoothbycell', label, ...
                 'VariablesNetCDF',  label, ...
+                'spiresdailytifproj', label, ...
                 'VariablesGeotiff',  label, ...
                 'VariablesGeotiffv20231',  label, ...
                 'RegionalStatsMatlab',  label, ...
@@ -214,6 +223,7 @@ classdef MODISData < handle
                 'RegionalStatsCsv',  label, ...
                 'vnpspiresdaily', label, ...
                 'vnpspirestime', label, ...
+                'vnpspirestimebycell', label, ...
                 'vnpspiresyeartmp', label);
 
             obj.versionOf.MODISCollection = 6;                             % @deprecated
@@ -367,7 +377,7 @@ classdef MODISData < handle
                 firstMonth = WaterYearDate.defaultFirstMonthForSouthTiles;
             end
         end
-        function mapCellsReference = getMapCellsReference(obj, positionalData)
+        function mapCellsReference = getMapCellsReference(obj, positionalData, varargin)
             % Parameters
             % ----------
             % positionalTileData: struct(horizontalId=int, verticalId=int,
@@ -376,6 +386,9 @@ classdef MODISData < handle
             %   - verticalId: vertical id of the tile.
             %   - columnCount: number of pixels along a row of the tile.
             %   - rowCount: number of pixels along a column of the tile.
+            % resamplingFactor: int, optional. By default 1, if "native resolution"
+            %   used, for modis/viirs 2400x2400 with pixel size 4.633127165279165e+02.
+            %   Put 2 for tiles of 1200x1200.
             %
             % Return
             % ------
@@ -385,6 +398,15 @@ classdef MODISData < handle
             % NB/NetCDF: Beware that before matlab 2022, the ProjectedCRS.GeographicCRS
             %   property of the mapCellsReference object is not set.
             % To access this property, you should call geocrs(MODISData.geocrsWkt);
+            p = inputParser;
+            addParameter(p, 'resamplingFactor', 1);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            resamplingFactor = p.Results.resamplingFactor;
+            if ~ismember(resamplingFactor, [1, 2])
+              error('BadResamplingFactor', ['MODISData:getMapCellsReference(): ', ...
+                'only resamplingFactor of 1 (default) or 2 allowed']);
+            end
 
             theseFieldnames = fieldnames(positionalData);
             for fieldIdx = 1:length(theseFieldnames)
@@ -392,21 +414,22 @@ classdef MODISData < handle
                     positionalData.(theseFieldnames{fieldIdx}), 'double');
                     % required by maprefcells.
             end
-            dx = obj.georeferencing.tileInfo.dx;
-            dy = obj.georeferencing.tileInfo.dy;
+            dx = obj.georeferencing.tileInfo.dx * resamplingFactor;
+            dy = obj.georeferencing.tileInfo.dy * resamplingFactor;
             northWestX =  obj.georeferencing.northwest.x0 + ...
                 positionalData.horizontalId * ...
-                obj.georeferencing.tileInfo.columnCount * dx;
+                obj.georeferencing.tileInfo.columnCount / resamplingFactor * dx;
                 % don't use positionalData.columnCount here, we need the size of modis
                 % elemental tiles to get the space from x0.
             northWestY = obj.georeferencing.northwest.y0 - ...
                 positionalData.verticalId * ...
-                obj.georeferencing.tileInfo.rowCount * dy;
+                obj.georeferencing.tileInfo.rowCount / resamplingFactor * dy;
             refMatrix = [[0 -dy];[dx 0];[northWestX + dx  / 2 - dx, ...
                 northWestY - dy / 2 + dy]]; % Should give result same as deprecated
                                             % makerefmat()
             mapCellsReference = refmatToMapRasterReference(refMatrix,...
-                    [positionalData.rowCount positionalData.columnCount]);
+                    [positionalData.rowCount positionalData.columnCount] ...
+                      / resamplingFactor);
 %{
 % Version before 2023-06-19. Doesn't work for some tiles and didn't figure out why.
             mapCellsReference = maprefcells([ ...
@@ -423,10 +446,13 @@ classdef MODISData < handle
 
         end
         function positionalData = getTilePositionIdsAndColumnRowCount( ...
-            obj, tileRegionName)
+            obj, tileRegionName, varargin)
             % Parameters
             % ----------
             % tileRegionName: char. Tile region name (format h00v00).
+            % resamplingFactor: int, optional. By default 1, if "native resolution"
+            %   used, for modis/viirs 2400x2400 with pixel size 4.633127165279165e+02.
+            %   Put 2 for tiles of 1200x1200.
             %
             % Return
             % ------
@@ -437,10 +463,23 @@ classdef MODISData < handle
             %   - columnCount: number of pixels along a row of the tile.
             %   - rowCount: number of pixels along a column of the tile.
             % SIER_320.
+            p = inputParser;
+            addParameter(p, 'resamplingFactor', 1);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            resamplingFactor = p.Results.resamplingFactor;
+            if ~ismember(resamplingFactor, [1, 2])
+              error('BadResamplingFactor', ...
+                ['MODISData:getTilePositionIdsAndColumnRowCount(): ', ...
+                'only resamplingFactor of 1 (default) or 2 allowed']);
+            end
+
             positionalData.horizontalId = str2num(tileRegionName(2:3));
             positionalData.verticalId = str2num(tileRegionName(5:6));
-            positionalData.columnCount = obj.georeferencing.tileInfo.columnCount;
-            positionalData.rowCount = obj.georeferencing.tileInfo.rowCount;
+            positionalData.columnCount = ...
+              obj.georeferencing.tileInfo.columnCount / resamplingFactor;
+            positionalData.rowCount = ...
+              obj.georeferencing.tileInfo.rowCount / resamplingFactor;
 
             % Bypass the MockRegionDataset tiles, which don't have this
             % nomenclature. We want to be at lat/lon similar to h08v04.
