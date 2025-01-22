@@ -18,25 +18,25 @@ classdef Variables
         albedoMaxGrainSize = 1999;  % Max grain size accepted to calculate albedo
                                     % spires in parBal package
         dataStatus = ...
-            struct(observed = 1, ...
-                unavailable = 0, ...
-                cloudyOrOther = 10, ...
-                highSolarZenith = 20, ...
-                unknownSolarZenith = 21, ...
-                lowValue = 30, ...
-                notForGeneralPublic = 40, ...
-                falsePositive = 50, ...
-                noInput = 60, ...
-                noObservation = 61, ...
-                poorQuality = 62, ...
-                noReflectance = 63, ...
-                lowNdsi = 64, ...
-                lowSnowFraction = 65, ...
-                lowGrainSize = 66, ...
-                lowNbOfObservationsOverTime = 67, ...
-                water = 68, ...
-                lowElevation = 69, ...
-                temporary = 255); % possible values
+            struct(observed = uint8(1), ...
+                unavailable = uint8(0), ...
+                cloudyOrOther = uint8(10), ...
+                highSolarZenith = uint8(20), ...
+                unknownSolarZenith = uint8(21), ...
+                lowValue = uint8(30), ...
+                notForGeneralPublic = uint8(40), ...
+                falsePositive = uint8(50), ...
+                noInput = uint8(60), ...
+                noObservation = uint8(61), ...
+                poorQuality = uint8(62), ...
+                noReflectance = uint8(63), ...
+                lowNdsi = uint8(64), ...
+                lowSnowFraction = uint8(65), ...
+                lowGrainSize = uint8(66), ...
+                lowNbOfObservationsOverTime = uint8(67), ...
+                water = uint8(68), ...
+                lowElevation = uint8(69), ...
+                temporary = uint8(255)); % possible values
             % for the viewable_snow_fraction_status variable to indicate
             % observed and reliable/unobserved/interpolated data.
             % False positive: dry lakes.
@@ -94,7 +94,7 @@ classdef Variables
             % unavailable modscag data are considered temporary, same as pixels having
             % modscag data for v2023.0, v2023.e, k, and thus are considered observed,
             % contrary to >= v2023.1.
-            % 
+            %
             % 2. days_since_last_observation: for a pixel/day, 0 if observation,
             % otherwise number of days after the day of last observation + 1 for the
             % ongoing day. In the case above, days_since_last_observation will equal:
@@ -110,8 +110,9 @@ classdef Variables
             %   cellIdx: int, optional. Index of the cell part of the tile to update. 1
             %     by default. Index are counted starting top to bottom column 1, top to
             %     bottom column 2, ... until bottom of last column.
-            %   countOfCells: int, optional. Number of cells dividing the tile to
+            %   countOfCellPerDimension: array(int), optional. Number of cells dividing the tile to
             %     update. 1 by default.
+            %   countOfPixelPerDimension: array(int).
             %   logLevel: int, optional. Indicate the density of logs.
             %       Default 0, all logs. The higher the less logs.
             %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
@@ -120,8 +121,12 @@ classdef Variables
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             tic;
             thisFunction = 'Variables.calcDaysWithoutObservations';
+            espEnv = obj.region.espEnv;
             p = inputParser;
-            optim = struct(cellIdx = 1, countOfCells = 1, ...
+            optim = struct(cellIdx = [1, 1], countOfCellPerDimension = [1, 1], ...
+                countOfPixelPerDimension = [ ...
+                  espEnv.modisData.georeferencing.tileInfo.rowCount, ...
+                  espEnv.modisData.georeferencing.tileInfo.columnCount], ...
                 logLevel = 0, parallelWorkersNb = 0);
             addParameter(p, 'optim', optim);
             p.StructExpand = false;
@@ -136,17 +141,24 @@ classdef Variables
             fprintf(['%s: Starting, region: %s, waterYearDate: %s, ', ...
                 'cellIdx: %d, countOfCells: %d, logLevel: %d, ', ...
                 'parallelWorkersNd: %d...\n'], thisFunction, obj.region.name, ...
-                waterYearDate.toChar(), optim.cellIdx, optim.countOfCells, ...
+                waterYearDate.toChar(), optim.cellIdx, optim.countOfCellPerDimension(1), ...
                 optim.logLevel, optim.parallelWorkersNb);
-            
-            espEnv = obj.region.espEnv;
-            indices = espEnv.modisData.getIndicesForCellInTile(optim.cellIdx, ...
-                    optim.countOfCells);
+
+            [startIdx, endIdx, ~] = espEnv.getIndicesForCell( ...
+                optim.cellIdx, optim.countOfCellPerDimension, ...
+                optim.countOfPixelPerDimension);
+            indices = struct();
+                % To keep former code with indices below, but could be replaced.   @todo
+            indices.rowStartId = startIdx(1);
+            indices.rowEndId = endIdx(1);
+            indices.columnStartId = startIdx(2);
+            indices.columnEndId = endIdx(2);
 
             inputDataLabel = 'VariablesMatlab';
             outputDataLabel = 'VariablesMatlab';
-            outputMeasurementTypeId = [47, 75];
+            outputMeasurementTypeId = [47, 75, 115];
             % 47. days_without_observation, 75. days_since_last_observation
+            % 115. calculated_from_rare_observation
             [variable, variableLink] = espEnv.getVariable(outputDataLabel, ...
                 inputDataLabel = inputDataLabel, ...
                 outputMeasurementTypeId = outputMeasurementTypeId);
@@ -155,7 +167,7 @@ classdef Variables
             dataLabel = inputDataLabel;
             theseDates = waterYearDate.getDailyDatetimeRange();
             inputVarId = unique(variableLink.inputVarId);
-            
+
             % For each group of variables (e.g. modis stc, modis spires, ...)
             for inputVarIdx = 1:length(inputVarId)
                 % 1. Loading status data...
@@ -171,7 +183,12 @@ classdef Variables
                     variable(variable.measurementTypeId == 75, :), ...
                     variableLink(variableLink.inputVarId == thisInputVarId, :), ...
                     LeftKeys = 'id', RightKeys = 'outputVarId');
-                
+
+                % Add properties for Mask of rare observations for v2023.0e. 2025-01-17.
+                calculatedFromRareObservation = innerjoin( ...
+                    variable(variable.measurementTypeId == 115, :), ...
+                    variableLink(variableLink.inputVarId == thisInputVarId, :), ...
+                    LeftKeys = 'id', RightKeys = 'outputVarId');
                 thisDaySince = reshape( ...
                     cast(espEnv.getDataForWaterYearDateAndVarName( ...
                         objectName, dataLabel, waterYearDate, varName, ...
@@ -182,17 +199,15 @@ classdef Variables
                         length(theseDates)])';
                 % actually it is iniatlly thiStatus.
                 % Each column = temporal series of a pixel.
-   
+
                 % 2. Calculations...
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 % Determine which day is without observation.
                 isNoObservation = ismember(thisDaySince, ...
-                    obj.dataStatusForNoObservation);
-                thisDaySince(isNoObservation) = 1;   
-                thisDaySince(~isNoObservation) = 0;
-                isNoObservation = [];
-                thisDaySince = cast(thisDaySince, 'int16');
+                    cast(obj.dataStatusForNoObservation, class(thisDaySince)));
+                thisDaySince = cast(isNoObservation, 'int16');
                     % int16 to make diff, which can be negative.
+                isNoObservation = [];
                 indicesForPeriods = cumsum([ones(1, size(thisDaySince, 2)); ...
                     abs(diff(thisDaySince, 1, 1))]);
                 isEqualSuccessiveIndicesForPeriods = ...
@@ -200,7 +215,7 @@ classdef Variables
                         indicesForPeriods(1:end - 1, :)] == ...
                         indicesForPeriods);
                 indicesForPeriods = [];
-                
+
                 for rowIdx = 2:size(thisDaySince, 1)
                     thisDaySince(rowIdx, :) = ...
                         isEqualSuccessiveIndicesForPeriods(rowIdx, :) ...
@@ -218,7 +233,7 @@ classdef Variables
                 isEqualSuccessiveIndicesForPeriods = [];
 %{
                 % Previous implementation too slow. 2024-03-25. Seb.
-                
+
                 thisStatus = cast(thisStatus, dayWithout.type{1});
                 thisDayWithout = sum(thisStatus, 1, 'native');
                 thisDaySince = cumsum(thisStatus, 1);
@@ -231,14 +246,14 @@ classdef Variables
                     % of observed or full of unobserved.
                     if ~isSet(pixelIdx)
                         unobserved = int16(thisStatus(:, pixelIdx));
-                            % 
+                            %
                         indicesForPeriods = cumsum([1; diff(unobserved) ~= 0]);
                             % An additional 1 to get the same size as unobserved.
                         cumSumForPeriods = arrayfun(@(idxForPeriod) ...
                             cumsum(unobserved(indicesForPeriods == idxForPeriod)), ...
                             1:indicesForPeriods(end), UniformOutput = false);
                         thisDaySinceLastObservation = cat(1, cumSumForPeriods{:});
-                        
+
                         maxOfCumSumForPeriods = arrayfun(@(idxForPeriod) ...
                             repmat( ...
                                 max(thisDaySinceLastObservation( ...
@@ -246,9 +261,9 @@ classdef Variables
                                 [length(find(indicesForPeriods == idxForPeriod)), ...
                                 1]), ...
                             1:indicesForPeriods(end), UniformOutput = false);
-                        
+
                         thisDaySince(:, pixelIdx) = ...
-                            thisDaySinceLastObservation; 
+                            thisDaySinceLastObservation;
                         thisDayWithout(:, pixelIdx) = ...
                             cat(1, maxOfCumSumForPeriods{:});
                     end % isSet.
@@ -264,17 +279,31 @@ classdef Variables
                         [numel(indices.rowStartId:indices.rowEndId), ...
                         numel(indices.columnStartId:indices.columnEndId), ...
                         length(theseDates)]), dayWithout.type{1});
-                
+
+
                 % 3. Saving, collection of units and divisor...
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 fprintf('%s: Saving varId %d output...\n', thisFunction, ...
                     thisInputVarId);
                 output = struct();
                 theseVariables = {daySince, dayWithout};
+
+                % Add properties for Mask of rare observations for v2023.0e. 2025-01-17.
+                isCalculatedFromRareObservationIfDaysWithoutObsAbove = ...
+                    Tools.valueInTableForThisField( ...
+                        obj.region.filter.mosaic, ...
+                        'lineName', ...
+                        'isCalculatedFromRareObservationIfDaysWithoutObsAbove', ...
+                        'minValue');
+                if isCalculatedFromRareObservationIfDaysWithoutObsAbove < 366
+                    theseVariables = {daySince, dayWithout, ...
+                        calculatedFromRareObservation};
+                end
+
                 for varIdx = 1:size(theseVariables, 2)
                     thisVariable = theseVariables{varIdx};
                     varName = thisVariable.name{1};
-                    
+
                     output.([varName '_divisor']) = thisVariable.divisor(1);
                     output.([varName '_min']) = thisVariable.min(1);
                     output.([varName '_max']) = thisVariable.max(1);
@@ -282,32 +311,43 @@ classdef Variables
                         thisVariable.nodata_value(1);
                     output.([varName '_type']) = thisVariable.type{1};
                     output.([varName '_units']) = thisVariable.unit{1};
-                    
+
                 end % varIdx
-                
+
                 dataLabel = outputDataLabel;
                 varName = '';
                 complementaryLabel = '';
                 theseFieldNames = fieldnames(output);
                 parfor(dateIdx = 1:length(theseDates), optim.parallelWorkersNb)
                     thisDate = theseDates(dateIdx);
-                    
+
                     [thisFilePath, thisFileExists, ~] = ...
                         espEnv.getFilePathForDateAndVarName(objectName, dataLabel, ...
                         thisDate, varName, complementaryLabel);
                     if ~thisFileExists
                         warning('%s: Inexistent file %s.\n', mfilename, thisFilePath);
                     else
+                        fprintf('Updating %s...\n', thisFilePath);
                         thisFileObj = matfile(thisFilePath, Writable = true);
                         thisFileObj.(daySince.name{1})(...
                             indices.rowStartId:indices.rowEndId, ...
                             indices.columnStartId:indices.columnEndId) = ...
-                            thisDaySince(:, :, dateIdx); 
+                            thisDaySince(:, :, dateIdx);
                             % daily .mat files have only 2 dims.
                         thisFileObj.(dayWithout.name{1})(...
                             indices.rowStartId:indices.rowEndId, ...
                             indices.columnStartId:indices.columnEndId) = ...
                             thisDayWithout(:, :, dateIdx);
+
+                        % Add mask of rare observations for v2023.0.1 = v2023.0e + v2023.0. 2025-01-17.
+                        if isCalculatedFromRareObservationIfDaysWithoutObsAbove < 366
+                            thisFileObj.(calculatedFromRareObservation.name{1})(...
+                                indices.rowStartId:indices.rowEndId, ...
+                                indices.columnStartId:indices.columnEndId) = ...
+                                thisDayWithout(:, :, dateIdx) > ...
+                                isCalculatedFromRareObservationIfDaysWithoutObsAbove;
+                        end
+
                         for fieldIdx = 1:length(theseFieldNames)
                             thisFieldName = theseFieldNames{fieldIdx};
                             thisFileObj.(thisFieldName) = output.(thisFieldName);
@@ -437,7 +477,7 @@ classdef Variables
             fprintf(['%s: Starting, region: %s, waterYearDate: %s... \n'], ...
               thisFunction, obj.region.name, ...
                 waterYearDate.toChar());
-            
+
             espEnv = obj.region.espEnv;
 
             inputDataLabel = 'VariablesMatlab';
@@ -474,9 +514,9 @@ classdef Variables
                     variableLink(variableLink.inputVarId == thisInputVarId, :), ...
                     LeftKeys = 'id', RightKeys = 'outputVarId');
                 nameOfSnowCoverDay = snowCoverDay.name{1};
-                
+
                 snowFraction = inputVariable(inputVariable.id == thisInputVarId, :);
-               
+
                 data.(nameOfSnowCoverDay) = ...
                     espEnv.getDataForWaterYearDateAndVarName( ...
                         objectName, dataLabel, waterYearDate, varName);
@@ -484,7 +524,7 @@ classdef Variables
                     snowFraction.nodata_value(1);
                 % snow_fraction, uint8 to uint16. 3rd dimension = temporal series of
                 % a pixel located in 1st + 2nd dim.
-                
+
                 % 3. Filtering low snow fraction
                 % (set to 0), low elevation (set to no data), and calculating
                 % snow_cover_days...
@@ -502,7 +542,7 @@ classdef Variables
                         snowCoverDay.type{1});
                 else
                     data.(nameOfSnowCoverDay) = ones( ...
-                        size(data.(nameOfSnowCoverDay)), snowCoverDay.type{1});    
+                        size(data.(nameOfSnowCoverDay)), snowCoverDay.type{1});
                 end
                 data.(nameOfSnowCoverDay)(isNoData) = snowCoverDay.nodata_value(1);
                 isNoData = [];
@@ -517,7 +557,7 @@ classdef Variables
                 end
 
                 data.(nameOfSnowCoverDay) = cumsum(data.(nameOfSnowCoverDay), 3);
-                
+
                 % 4. Saving, collection of units and divisor...
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 fprintf('%s: Saving varId %d output...\n', thisFunction, ...
@@ -535,7 +575,7 @@ classdef Variables
                     output.([varName '_type']) = thisVariable.type{1};
                     output.([varName '_units']) = thisVariable.unit{1};
                 end % varIdx
-                
+
                 dataLabel = outputDataLabel;
                 varName = '';
                 complementaryLabel = '';
@@ -548,6 +588,7 @@ classdef Variables
                     if ~thisFileExists
                         warning('%s: Inexistent file %s.\n', mfilename, thisFilePath);
                     else
+                        fprintf('Updating %s...\n', thisFilePath);
                         thisFileObj = matfile(thisFilePath, Writable = true);
                         thisFileObj.(nameOfSnowCoverDay) = ...
                                 data.(nameOfSnowCoverDay)(:, :, dateIdx);
@@ -562,16 +603,16 @@ classdef Variables
             end % inputVarIdx
             t2 = toc;
             fprintf(['%s: Done in %.2f seconds.\n'], thisFunction, t2);
-                
+
 %{
-            % NB: Older code used in v2023.x.                                  @obsolete               
-                
+            % NB: Older code used in v2023.x.                                  @obsolete
+
 inputVarName, outputVarName
             % inputVarName: char. Name of the variable over which carrying calculations,
             %   either snow_fraction or snow_fraction_s.
             % ouputVarName: char. Name of the output variable, either snow_cover_days
             %   or snow_cover_days_s.
-            
+
             tic;
             fprintf('%s: Start %s calculations\n', mfilename(), outputVarName);
             % 1. Initialization, elevation data, dates
@@ -846,8 +887,8 @@ inputVarName, outputVarName
                 phi0(nans) = NaN;
 
                 % Based on conversation with Dozier, Aug 2023:
-		        % N.B.: phi0 and aspect must be referenced to the same
-		        % angular convention for this function to work properly
+                % N.B.: phi0 and aspect must be referenced to the same
+                % angular convention for this function to work properly
                 muZ = sunslope(mu0, phi0, slope, aspect);
                 muZ(muZ > 1.0) = 1.0; % 2024-01-05, occasionally ParBal.sunslope()
                     % returns a few 10-16 higher than 1 (h24v05, 2011/01/08)
