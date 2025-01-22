@@ -1,9 +1,5 @@
 id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,maxValue,arrayValues,replacedVarId,replacedVarName,comment
 0,Order by which the filtering is processed. Important for thresholding by snow_fraction. This column should stay in 2nd position (to be sorted in EspEnv instanciation). (The id of the threshold group should stay in 1st position).,Indicate where the group is used,Only used for stcStruct,,Variable upon which the thresholds should be performed,,,,,Variable set to not reliable value when the threshold is applied.,Comment line.
-3,1,snowCoverDay,,,elevation,800,,,40,snow_fraction,snowCoverDayMins.minElevation
-3,2,snowCoverDay,,40,snow_fraction,10,,,40,snow_fraction,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
-3,3,snowCoverDay,,,elevation,800,,,55,snow_fraction_s,snowCoverDayMins.minElevation
-3,4,snowCoverDay,,55,snow_fraction_s,10,,,55,snow_fraction_s,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
 1,1,mosaic,,36,viewable_snow_fraction,5,,,36,viewable_snow_fraction,"Mosaic filtering. This filter set #1 corresponds to v2023.0, v2023.1."
 1,2,mosaic,,36,viewable_snow_fraction,5,,,43,deltavis,
 1,3,mosaic,,36,viewable_snow_fraction,5,,,41,grain_size,
@@ -23,6 +19,7 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 1,17,mosaic,,54,viewable_snow_fraction_s,5,,,54,viewable_snow_fraction_s,
 1,18,mosaic,,54,viewable_snow_fraction_s,0,,,61,snow_cover_days_s,
 1,19,mosaic,,54,viewable_snow_fraction_s,5,,,55,snow_fraction_s,
+1,20,mosaic,isCalculatedFromRareObservationIfDaysWithoutObsAbove,,,367,,,,,"Introduced for v2023.0.1 (v2023.0e + v2023.0) in 2025/1/10 to generate a mask “calculated_from_rare_observation” in netcdfs. If days without observation are > this value, calculated_from_rare_observation = 1, otherwise 0."
 2,1,publish,,,elevation,800,,,40,snow_fraction,
 2,2,publish,,40,snow_fraction,10,,,40,snow_fraction,
 2,3,publish,,,elevation,800,,,48,albedo_clean_mu0,
@@ -49,6 +46,10 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 2,24,publish,,40,snow_fraction,0,,,14,solar_zenith,
 2,25,publish,,40,snow_fraction,0,,,45,snow_cover_days,
 2,26,publish,,40,snow_fraction,10,,,36,viewable_snow_fraction,
+3,1,snowCoverDay,,,elevation,800,,,40,snow_fraction,snowCoverDayMins.minElevation
+3,2,snowCoverDay,,40,snow_fraction,10,,,40,snow_fraction,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
+3,3,snowCoverDay,,,elevation,800,,,55,snow_fraction_s,snowCoverDayMins.minElevation
+3,4,snowCoverDay,,55,snow_fraction_s,10,,,55,snow_fraction_s,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
 4,1,statistic,,,elevation,0,,,40,snow_fraction,
 4,2,statistic,,40,snow_fraction,10,,,40,snow_fraction,
 4,3,statistic,,,elevation,800,,,48,albedo_clean_mu0,
@@ -75,20 +76,20 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 4,24,statistic,,40,snow_fraction,0,,,14,solar_zenith,
 4,25,statistic,,40,snow_fraction,0,,,45,snow_cover_days,
 4,26,statistic,,40,snow_fraction,0,,,36,viewable_snow_fraction,
-4,1,statistic,,,elevation,0,,,55,snow_fraction_s,
-4,2,statistic,,55,snow_fraction_s,10,,,55,snow_fraction_s,
-4,3,statistic,,,elevation,800,,,62,albedo_s,
-4,7,statistic,,,elevation,800,,,58,dust_concentration_s,
-4,8,statistic,,,elevation,800,,,57,grain_size_s,
-4,10,statistic,,,elevation,800,,,63,radiative_forcing_s,
-4,13,statistic,,,elevation,800,,,61,snow_cover_days_s,
-4,14,statistic,,,elevation,0,,,54,viewable_snow_fraction_s,
-4,15,statistic,,55,snow_fraction_s,30,,,62,albedo_s,
-4,19,statistic,,55,snow_fraction_s,30,,,58,dust_concentration_s,
-4,20,statistic,,55,snow_fraction_s,30,,,57,grain_size_s,
-4,22,statistic,,55,snow_fraction_s,30,,,63,radiative_forcing_s,
-4,25,statistic,,55,snow_fraction_s,0,,,61,snow_cover_days_s,
-4,26,statistic,,55,snow_fraction_s,0,,,54,viewable_snow_fraction_s,
+4,27,statistic,,,elevation,0,,,55,snow_fraction_s,
+4,28,statistic,,55,snow_fraction_s,10,,,55,snow_fraction_s,
+4,29,statistic,,,elevation,800,,,62,albedo_s,
+4,30,statistic,,,elevation,800,,,58,dust_concentration_s,
+4,31,statistic,,,elevation,800,,,57,grain_size_s,
+4,32,statistic,,,elevation,800,,,63,radiative_forcing_s,
+4,33,statistic,,,elevation,800,,,61,snow_cover_days_s,
+4,34,statistic,,,elevation,0,,,54,viewable_snow_fraction_s,
+4,35,statistic,,55,snow_fraction_s,30,,,62,albedo_s,
+4,36,statistic,,55,snow_fraction_s,30,,,58,dust_concentration_s,
+4,37,statistic,,55,snow_fraction_s,30,,,57,grain_size_s,
+4,38,statistic,,55,snow_fraction_s,30,,,63,radiative_forcing_s,
+4,39,statistic,,55,snow_fraction_s,0,,,61,snow_cover_days_s,
+4,40,statistic,,55,snow_fraction_s,0,,,54,viewable_snow_fraction_s,
 5,1,stc,mindays,,,10,,,,,"Gap/Stc filtering. This filter set #5 corresponds to v2023.1 and v2023.1a,c, Alaska, Himalayas Note that for Andes, applyFalsePositiveMask was set to 1 (set #405)"
 5,2,stc,sthreshForGS,,,0.2,,,,,Gap/Stc filtering
 5,3,stc,sthreshForRF,,,0.7,,,,,Gap/Stc filtering
@@ -114,10 +115,11 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 5,23,stc,idwDefaultValueFordrfs_grnsz,,,600,,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 5,24,stc,idwDefaultValueFordeltavis,,,600,,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 5,25,stc,idwDefaultValueForradiative_forcing,,,600,,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
+6,0,spires,comment,,,1,,,,,This version is used by v2024.1.0 (formerly v2024.0d or v2024.hist)
 6,1,spires,snowCanopyMeanVerticalDividedByHorizontalCrownRadius,,,2.7,,,,,b_R = 2.7 avg vertical crown radius divided by average horizontal crown radius. To compute Canopy cover fraction or cc_adj.
 6,2,spires,gapCloudMccMinimalSwir,,,2000,,,,,0.2. MccM.pixFeatures() L5. To compute cloud mask using deep learning.
 6,3,spires,gapSnowMinimalNDSI,,,-0.5,,,,,ndsimin
-6,4,spires,spiresGroupingToleranceValue,,,5,,,,,Tolval. 0.05 for reflectance from 0 to 1.6
+6,4,spires,spiresGroupingToleranceValue,,,5,,,,,Tolval. 0.05 for reflectance from 0 to 1.6 (v2024.1.0). 0.07 for v2025.0.0 and v2025.0.1
 6,5,spires,spiresSnowFractionDifferenceBackgroundNoBackground,,,0.02,,,,,
 6,6,spires,spatialInterpSnowFractionBelowWhichGrainSizeInterpIsDone,,,30,,,,,grain_thresh
 6,7,spires,spatialInterpSnowFractionBelowWhichDustInterpIsDone,,,90,,,,,dust_thresh
@@ -134,18 +136,33 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 6,18,spires,peakFixingMaximalDurationInDay,,,40,,,,,maxFixedDays
 6,19,spires,peakFixingDayWithoutCorrection,,,7,,,,,Nd
 6,20,spires,peakFixingStartDay,,,214,,,,,1st Apr for northern hemisphere
-6,21,spires,imresizeInterpolationMethod,,,3,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Ned’s code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
+6,21,spires,imresizeInterpolationMethod,,,3,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Neds code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
 6,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
-6,23,spires,spiresBackgroundReflectanceSourceForModis,,,1,,,,,"0: default background reflectance calculated for 2019 with Ned’s code, 1: background reflectance supplied by Ned 2023."
+6,23,spires,spiresBackgroundReflectanceSourceForModis,,,1,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023."
 6,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
 6,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
+6,26,spires,setToNoObservationBelowThisValueOfRawSnowFraction,,,10,,,,,"When raw_viewable_snow_fraction_s is equal or below this value, the observation is not taken into account in time interpolation"
+6,27,spires,setToNoObservationBelowThisValueOfSpatialGrainSize,,,40,,,,,"When spatial_grain_size_s is equal or below this value and raw_viewable_snow_fraction_s above rawSnowFractionSetToNoObservationBelowThisValue, the observation is not taken into account in time interpolation."
+6,28,spires,setToNoObservationBelowThisNumberOfDaysOfSnow,,,3,,,,,"When less than x observations are in a period being between two absent snow period, these days are set to no observation."
+6,29,spires,setToNoObservationBelowThisNumberOfDaysOfAbsentSnow,,,3,,,,,"When less than x absent snow observations are in a period being between two snow period, these days are set to no observation."
+6,30,spires,snowCoverDayIsSetToZeroIfSnowFractionBelowThisValue,,,10,,,,,
+6,31,spires,minMonthWindowForFixPeak,,,8,,,,,"Below this number of months of the waterYearDate (strictly), fix peak is not carried out."
+6,32,spires,spatialInterpMode,,,0,,,,,"Mode of spatial interpolation for grain size and dust. 0: like Neds code, only distance-weighted interpolation using reference pixels. 1: interpolation using all valid pixels, .elevation-wise"
+6,33,spires,snowInversionFilter,,,0,,,,,0. Remove nodata (clouds) and low ndsi/water from snow inversion calculation. 10. Do not remove anything (takes more time).
+6,34,spires,yearlyBackgroundReflectance,,,0,,,,,0. Only background reflectance of 2019 (and Neds files for westernUS). 1. background reflectance of each water year depends of the reflectance of previous summer.
+6,35,spires,painterCloudMask,,,0,,,,,"0. Cloud mask by reflectance mins not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+6,36,spires,cloudMaskExtension,,,0,,,,,"0. Cloud mask by reflectance mins not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+6,37,spires,saltpanDetection,,,0,,,,,"0. Detection of anomalous, included saltpans (elevation dependent) not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+6,38,spires,noDataDefinitionBeforeSmoothing,,,0,,,,,"0. very close to v2024.1.0: no data in input file, neural cloud, background reflectance nodata, water body (v2024.1.0 and v2025.0.0). 1. no data in input file, neural, painter, extension clouds, saltpan, nb: background reflectance has always data, snow fraction <= 10 and grain size <= 40 when no ndsi < -.05 and no neural either and snow fraction different from 0, and the all different from water and not below elev. Threshold (v2025.0.1)."
+6,39,spires,zeroDefinitionBeforeSmoothing,,,0,,,,,"0. very close to v2024.1.0: raw snow fraction <= 10, spatial grain size <= 40 um, rare observations calculated with movingPersist() method, elevation threshold (v2024.1.0 and v2025.0.0). 1. neural either, ndsi < -0.5, water, elevation threshold, raw snow fraction = 0, and the all is not nodata (v2025.0.1)."
+6,40,spires,timeDetectionMethodForFalsePositive,,,0,,,,,"0. Use of movingPersist() as in Ned’s and v2024.1.0, v2025.0.0. 1. Using of the number of days without snow observed, and days without free snow observed (v2025.0.1)."
+101,1,mosaic,,36,viewable_snow_fraction,5,,,44,radiative_forcing,Unit test
+102,1,publish,,36,viewable_snow_fraction,30,,,40,snow_fraction,Unit test
+102,2,publish,,,elevation,800,,,44,radiative_forcing,Unit test
 103,1,snowCoverDay,,,elevation,800,,,40,snow_fraction,Unit test snowCoverDayMins.minElevation
 103,2,snowCoverDay,,40,snow_fraction,10,,,40,snow_fraction,Unit test snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
 103,3,snowCoverDay,,,elevation,800,,,55,snow_fraction_s,snowCoverDayMins.minElevation
 103,4,snowCoverDay,,55,snow_fraction_s,10,,,55,snow_fraction_s,snowCoverDayMins.minSnowCoverFraction. Beware it's on Mosaic since 2023-12-28 (previously on STCube).
-101,1,mosaic,,36,viewable_snow_fraction,5,,,44,radiative_forcing,Unit test
-102,1,publish,,36,viewable_snow_fraction,30,,,40,snow_fraction,Unit test
-102,2,publish,,,elevation,800,,,44,radiative_forcing,Unit test
 104,1,statistic,,,elevation,0,,,40,snow_fraction,
 104,2,statistic,,40,snow_fraction,0,,,40,snow_fraction,
 104,3,statistic,,,elevation,0,,,48,albedo_clean_mu0,
@@ -172,24 +189,25 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 104,24,statistic,,40,snow_fraction,0,,,14,solar_zenith,
 104,25,statistic,,40,snow_fraction,0,,,45,snow_cover_days,
 104,26,statistic,,40,snow_fraction,0,,,36,viewable_snow_fraction,
-104,1,statistic,,,elevation,0,,,55,snow_fraction_s,
-104,2,statistic,,55,snow_fraction_s,0,,,55,snow_fraction_s,
-104,3,statistic,,,elevation,0,,,62,albedo_s,
-104,7,statistic,,,elevation,0,,,58,dust_concentration_s,
-104,8,statistic,,,elevation,0,,,57,grain_size_s,
-104,10,statistic,,,elevation,0,,,63,radiative_forcing_s,
-104,13,statistic,,,elevation,0,,,61,snow_cover_days_s,
-104,14,statistic,,,elevation,0,,,54,viewable_snow_fraction_s,
-104,15,statistic,,55,snow_fraction_s,30,,,62,albedo_s,
-104,19,statistic,,55,snow_fraction_s,30,,,58,dust_concentration_s,
-104,20,statistic,,55,snow_fraction_s,30,,,57,grain_size_s,
-104,22,statistic,,55,snow_fraction_s,30,,,63,radiative_forcing_s,
-104,25,statistic,,55,snow_fraction_s,0,,,61,snow_cover_days_s,
-104,26,statistic,,55,snow_fraction_s,0,,,54,viewable_snow_fraction_s,
+104,27,statistic,,,elevation,0,,,55,snow_fraction_s,
+104,28,statistic,,55,snow_fraction_s,0,,,55,snow_fraction_s,
+104,29,statistic,,,elevation,0,,,62,albedo_s,
+104,30,statistic,,,elevation,0,,,58,dust_concentration_s,
+104,31,statistic,,,elevation,0,,,57,grain_size_s,
+104,32,statistic,,,elevation,0,,,63,radiative_forcing_s,
+104,33,statistic,,,elevation,0,,,61,snow_cover_days_s,
+104,34,statistic,,,elevation,0,,,54,viewable_snow_fraction_s,
+104,35,statistic,,55,snow_fraction_s,30,,,62,albedo_s,
+104,36,statistic,,55,snow_fraction_s,30,,,58,dust_concentration_s,
+104,37,statistic,,55,snow_fraction_s,30,,,57,grain_size_s,
+104,38,statistic,,55,snow_fraction_s,30,,,63,radiative_forcing_s,
+104,39,statistic,,55,snow_fraction_s,0,,,61,snow_cover_days_s,
+104,40,statistic,,55,snow_fraction_s,0,,,54,viewable_snow_fraction_s,
+106,0,spires,comment,,,1,,,,,This version is used by v2025.0.1 (formerly dubbed v2024.0f as per early December 2024 or v2025.nrt)
 106,1,spires,snowCanopyMeanVerticalDividedByHorizontalCrownRadius,,,2.7,,,,,b_R = 2.7 avg vertical crown radius divided by average horizontal crown radius. To compute Canopy cover fraction or cc_adj.
 106,2,spires,gapCloudMccMinimalSwir,,,2000,,,,,0.2. MccM.pixFeatures() L5. To compute cloud mask using deep learning.
 106,3,spires,gapSnowMinimalNDSI,,,-0.5,,,,,ndsimin
-106,4,spires,spiresGroupingToleranceValue,,,10,,,,,Tolval. 0.05 for reflectance from 0 to 1.6
+106,4,spires,spiresGroupingToleranceValue,,,7,,,,,Tolval. 0.05 for reflectance from 0 to 1.6 (v2024.1.0). 0.07 for v2025.0.0 and v2025.0.1
 106,5,spires,spiresSnowFractionDifferenceBackgroundNoBackground,,,0.02,,,,,
 106,6,spires,spatialInterpSnowFractionBelowWhichGrainSizeInterpIsDone,,,30,,,,,grain_thresh
 106,7,spires,spatialInterpSnowFractionBelowWhichDustInterpIsDone,,,90,,,,,dust_thresh
@@ -205,12 +223,27 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 106,17,spires,peakFixingHampelToRemoveSpikeNSigma,,,2,,,,,
 106,18,spires,peakFixingMaximalDurationInDay,,,40,,,,,maxFixedDays
 106,19,spires,peakFixingDayWithoutCorrection,,,7,,,,,Nd
-106,20,spires,peakFixingStartDay,,,214,,,,,1st May for northern hemisphere
-106,21,spires,imresizeInterpolationMethod,,,1,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Ned’s code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
+106,20,spires,peakFixingStartDay,,,214,,,,,1st Apr for northern hemisphere
+106,21,spires,imresizeInterpolationMethod,,,1,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Neds code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
 106,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
-106,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Ned’s code, 1: background reflectance supplied by Ned 2023."
+106,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023."
 106,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
 106,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
+106,26,spires,setToNoObservationBelowThisValueOfRawSnowFraction,,,10,,,,,"When raw_viewable_snow_fraction_s is equal or below this value, the observation is not taken into account in time interpolation"
+106,27,spires,setToNoObservationBelowThisValueOfSpatialGrainSize,,,40,,,,,"When spatial_grain_size_s is equal or below this value and raw_viewable_snow_fraction_s above rawSnowFractionSetToNoObservationBelowThisValue, the observation is not taken into account in time interpolation."
+106,28,spires,setToNoObservationBelowThisNumberOfDaysOfSnow,,,3,,,,,"When less than x observations are in a period being between two absent snow period, these days are set to no observation."
+106,29,spires,setToNoObservationBelowThisNumberOfDaysOfAbsentSnow,,,3,,,,,"When less than x absent snow observations are in a period being between two snow period, these days are set to no observation."
+106,30,spires,snowCoverDayIsSetToZeroIfSnowFractionBelowThisValue,,,10,,,,,
+106,31,spires,minMonthWindowForFixPeak,,,8,,,,,"Below this number of months of the waterYearDate (strictly), fix peak is not carried out."
+106,32,spires,spatialInterpMode,,,1,,,,,"Mode of spatial interpolation for grain size and dust. 0: like Neds code, only distance-weighted interpolation using reference pixels. 1: interpolation using all valid pixels, .elevation-wise"
+106,33,spires,snowInversionFilter,,,10,,,,,0. Remove nodata (clouds) and low ndsi/water from snow inversion calculation. 10. Do not remove anything (takes more time).
+106,34,spires,yearlyBackgroundReflectance,,,1,,,,,0. Only background reflectance of 2019 (and Neds files for westernUS). 1. background reflectance of each water year depends of the reflectance of previous summer.
+106,35,spires,painterCloudMask,,,1,,,,,"0. Cloud mask by reflectance mins not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+106,36,spires,cloudMaskExtension,,,1,,,,,"0. Cloud mask by reflectance mins not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+106,37,spires,saltpanDetection,,,1,,,,,"0. Detection of anomalous, included saltpans (elevation dependent) not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+106,38,spires,noDataDefinitionBeforeSmoothing,,,1,,,,,"0. very close to v2024.1.0: no data in input file, neural cloud, background reflectance nodata, water body (v2024.1.0 and v2025.0.0). 1. no data in input file, neural, painter, extension clouds, saltpan, nb: background reflectance has always data, snow fraction <= 10 and grain size <= 40 when no ndsi < -.05 and no neural either and snow fraction different from 0, and the all different from water and not below elev. Threshold (v2025.0.1)."
+106,39,spires,zeroDefinitionBeforeSmoothing,,,1,,,,,"0. very close to v2024.1.0: raw snow fraction <= 10, spatial grain size <= 40 um, rare observations calculated with movingPersist() method, elevation threshold (v2024.1.0 and v2025.0.0). 1. neural either, ndsi < -0.5, water, elevation threshold, raw snow fraction = 0, and the all is not nodata (v2025.0.1)."
+106,40,spires,timeDetectionMethodForFalsePositive,,,1,,,,,"0. Use of movingPersist() as in Ned’s and v2024.1.0, v2025.0.0. 1. Using of the number of days without snow observed, and days without free snow observed (v2025.0.1)."
 201,1,mosaic,,36,viewable_snow_fraction,5,,,36,viewable_snow_fraction,"Mosaic filtering. This filter set #201 corresponds to v2023.0e, v2023.1b."
 201,2,mosaic,,36,viewable_snow_fraction,5,,,43,deltavis,
 201,3,mosaic,,36,viewable_snow_fraction,5,,,41,grain_size,
@@ -224,12 +257,13 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 201,11,mosaic,,36,viewable_snow_fraction,5,,,49,albedo_observed_mu0,
 201,12,mosaic,,36,viewable_snow_fraction,5,,,50,albedo_clean_muZ,
 201,13,mosaic,,36,viewable_snow_fraction,5,,,51,albedo_observed_muZ,
-201,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,,91,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g,k 67.5 for v2023.0e. Currently only set viewable_snow_fraction_status = highSolarZenith. In the first previous version, above this value, all was set to nodata."
+201,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,,67.5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g,k 67.5 for v2023.0e. Currently only set viewable_snow_fraction_status = highSolarZenith. In the first previous version, above this value, all was set to nodata."
 201,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,,4,11,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
-201,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,,5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d. WARNING: This doesn’t seem to work/be tested"
+201,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,,5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d. WARNING: This doesnt seem to work/be tested"
 201,17,mosaic,,54,viewable_snow_fraction_s,5,,,54,viewable_snow_fraction_s,
 201,18,mosaic,,54,viewable_snow_fraction_s,0,,,61,snow_cover_days_s,
 201,19,mosaic,,54,viewable_snow_fraction_s,5,,,55,snow_fraction_s,
+201,20,mosaic,isCalculatedFromRareObservationIfDaysWithoutObsAbove,,,10,,,,,"Introduced for v2023.0.1 (v2023.0e + v2023.0) in 2025/1/10 to generate a mask “calculated_from_rare_observation” in netcdfs. If days without observation are > this value, calculated_from_rare_observation = 1, otherwise 0."
 205,1,stc,mindays,,,10,,,,,"Gap/Stc filtering. This filter set #205 corresponds to v2023.0b, v2023.0e and v2023.1b, westernUS"
 205,2,stc,sthreshForGS,,,0.3,,,,,Gap/Stc filtering
 205,3,stc,sthreshForRF,,,0.3,,,,,Gap/Stc filtering
@@ -255,6 +289,47 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 205,23,stc,idwDefaultValueFordrfs_grnsz,,,600,,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 205,24,stc,idwDefaultValueFordeltavis,,,600,,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
 205,25,stc,idwDefaultValueForradiative_forcing,,,600,,,,,Stc cube interpolation. 2023-12-05. Default value affected to interpolated pixels if the tile is full of no data. For grain_size variable.
+206,0,spires,comment,,,1,,,,,"This version is used by v2025.0.0 early version given for Alaska (formerly dubbed v2024.0f october or v2025.nrt.0), close to v2024.1.0 in terms of parametering but with the window cloud detection mechanism different from v2024.1.0 (close to v2025.0.1 with larger window size). Version of configuration was not tested [2025-01-21]."
+206,1,spires,snowCanopyMeanVerticalDividedByHorizontalCrownRadius,,,2.7,,,,,b_R = 2.7 avg vertical crown radius divided by average horizontal crown radius. To compute Canopy cover fraction or cc_adj.
+206,2,spires,gapCloudMccMinimalSwir,,,2000,,,,,0.2. MccM.pixFeatures() L5. To compute cloud mask using deep learning.
+206,3,spires,gapSnowMinimalNDSI,,,-0.5,,,,,ndsimin
+206,4,spires,spiresGroupingToleranceValue,,,7,,,,,Tolval. 0.05 for reflectance from 0 to 1.6 (v2024.1.0). 0.07 for v2025.0.0 and v2025.0.1
+206,5,spires,spiresSnowFractionDifferenceBackgroundNoBackground,,,0.02,,,,,
+206,6,spires,spatialInterpSnowFractionBelowWhichGrainSizeInterpIsDone,,,30,,,,,grain_thresh
+206,7,spires,spatialInterpSnowFractionBelowWhichDustInterpIsDone,,,90,,,,,dust_thresh
+206,8,spires,snowFractionSetToZeroBelowElevation,,,0,,,,,"in meters. 500M for westernUS, 0 for others"
+206,9,spires,snowFractionSetToZeroBelowThisValue,,,10,,,,,fsca_thresh
+206,10,spires,gapRareObservationSlidingWindowHalfSize,,,40,,,,,45 2021 IEEEvalue
+206,11,spires,gapRareObservationMinDayWithObservationAboveMinValue,,,20,,,,,13 2021 IEEEvalue
+206,12,spires,smoothingDustSetToZeroBeforeGrainSizeMaxWhenBelowGrainSizeValue,,,300,,,,,dust_rg_thresh. The actual threshold is * 10 (ppm) because value stored in files with divisor 0.1.
+206,13,spires,smoothingSplineParamForSnowAndDust,,,0.1,,,,,
+206,14,spires,smoothingSplineParamForGrainSize,,,0.8,,,,,
+206,15,spires,smoothingSplineMinimalCountOfPositiveObservation,,,2,,,,,
+206,16,spires,peakFixingHampelToRemoveSpikeHalfWindow,,,2,,,,,
+206,17,spires,peakFixingHampelToRemoveSpikeNSigma,,,2,,,,,
+206,18,spires,peakFixingMaximalDurationInDay,,,40,,,,,maxFixedDays
+206,19,spires,peakFixingDayWithoutCorrection,,,7,,,,,Nd
+206,20,spires,peakFixingStartDay,,,214,,,,,1st Apr for northern hemisphere
+206,21,spires,imresizeInterpolationMethod,,,1,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Neds code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
+206,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
+206,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023."
+206,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
+206,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
+206,26,spires,setToNoObservationBelowThisValueOfRawSnowFraction,,,10,,,,,"When raw_viewable_snow_fraction_s is equal or below this value, the observation is not taken into account in time interpolation"
+206,27,spires,setToNoObservationBelowThisValueOfSpatialGrainSize,,,40,,,,,"When spatial_grain_size_s is equal or below this value and raw_viewable_snow_fraction_s above rawSnowFractionSetToNoObservationBelowThisValue, the observation is not taken into account in time interpolation."
+206,28,spires,setToNoObservationBelowThisNumberOfDaysOfSnow,,,20,,,,,"When less than x observations are in a period being between two absent snow period, these days are set to no observation."
+206,29,spires,setToNoObservationBelowThisNumberOfDaysOfAbsentSnow,,,20,,,,,"When less than x absent snow observations are in a period being between two snow period, these days are set to no observation."
+206,30,spires,snowCoverDayIsSetToZeroIfSnowFractionBelowThisValue,,,10,,,,,
+206,31,spires,minMonthWindowForFixPeak,,,8,,,,,"Below this number of months of the waterYearDate (strictly), fix peak is not carried out."
+206,32,spires,spatialInterpMode,,,0,,,,,"Mode of spatial interpolation for grain size and dust. 0: like Neds code, only distance-weighted interpolation using reference pixels. 1: interpolation using all valid pixels, .elevation-wise"
+206,33,spires,snowInversionFilter,,,0,,,,,0. Remove nodata (clouds) and low ndsi/water from snow inversion calculation. 10. Do not remove anything (takes more time).
+206,34,spires,yearlyBackgroundReflectance,,,0,,,,,0. Only background reflectance of 2019 (and Neds files for westernUS). 1. background reflectance of each water year depends of the reflectance of previous summer.
+206,35,spires,painterCloudMask,,,0,,,,,"0. Cloud mask by reflectance mins not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+206,36,spires,cloudMaskExtension,,,0,,,,,"0. Cloud mask by reflectance mins not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+206,37,spires,saltpanDetection,,,0,,,,,"0. Detection of anomalous, included saltpans (elevation dependent) not applied (v2024.1.0, v2025.0.0). 1. Applied (v2025.0.1)."
+206,38,spires,noDataDefinitionBeforeSmoothing,,,0,,,,,"0. very close to v2024.1.0: no data in input file, neural cloud, background reflectance nodata, water body (v2024.1.0 and v2025.0.0). 1. no data in input file, neural, painter, extension clouds, saltpan, nb: background reflectance has always data, snow fraction <= 10 and grain size <= 40 when no ndsi < -.05 and no neural either and snow fraction different from 0, and the all different from water and not below elev. Threshold (v2025.0.1)."
+206,39,spires,zeroDefinitionBeforeSmoothing,,,0,,,,,"0. very close to v2024.1.0: raw snow fraction <= 10, spatial grain size <= 40 um, rare observations calculated with movingPersist() method, elevation threshold (v2024.1.0 and v2025.0.0). 1. neural either, ndsi < -0.5, water, elevation threshold, raw snow fraction = 0, and the all is not nodata (v2025.0.1)."
+206,40,spires,timeDetectionMethodForFalsePositive,,,0,,,,,"0. Use of movingPersist() as in Ned’s and v2024.1.0, v2025.0.0. 1. Using of the number of days without snow observed, and days without free snow observed (v2025.0.1)."
 301,1,mosaic,,36,viewable_snow_fraction,5,,,36,viewable_snow_fraction,Mosaic filtering. This filter set #301 corresponds to v2023.1a.
 301,2,mosaic,,36,viewable_snow_fraction,5,,,43,deltavis,
 301,3,mosaic,,36,viewable_snow_fraction,5,,,41,grain_size,
@@ -270,10 +345,11 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 301,13,mosaic,,36,viewable_snow_fraction,5,,,51,albedo_observed_muZ,
 301,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,,67.5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g,k 67.5 for v2023.0e. Currently only set viewable_snow_fraction_status = highSolarZenith. In the first previous version, above this value, all was set to nodata."
 301,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,,0,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
-301,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,,5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d. WARNING: This doesn’t seem to work/be tested"
+301,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,,5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d. WARNING: This doesnt seem to work/be tested"
 301,17,mosaic,,54,viewable_snow_fraction_s,5,,,54,viewable_snow_fraction_s,
 301,18,mosaic,,54,viewable_snow_fraction_s,0,,,61,snow_cover_days_s,
 301,19,mosaic,,54,viewable_snow_fraction_s,5,,,55,snow_fraction_s,
+301,20,mosaic,isCalculatedFromRareObservationIfDaysWithoutObsAbove,,,367,,,,,"Introduced for v2023.0.1 (v2023.0e + v2023.0) in 2025/1/10 to generate a mask “calculated_from_rare_observation” in netcdfs. If days without observation are > this value, calculated_from_rare_observation = 1, otherwise 0."
 305,1,stc,mindays,,,10,,,,,Gap/Stc filtering. This filter set #305 corresponds to no version but can be used for tests to prepare v2024.0
 305,2,stc,sthreshForGS,,,0.2,,,,,Gap/Stc filtering
 305,3,stc,sthreshForRF,,,0.7,,,,,Gap/Stc filtering
@@ -314,10 +390,11 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 401,13,mosaic,,36,viewable_snow_fraction,5,,,51,albedo_observed_muZ,
 401,14,mosaic,AngleAboveWhichToApplySolarZenithMask,,,67.5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 for v2023.1 v2023.0 v2023.0b-d,f-g,k 67.5 for v2023.0e. Currently only set viewable_snow_fraction_status = highSolarZenith. In the first previous version, above this value, all was set to nodata."
 401,15,mosaic,applyFalsePositiveManualMaskInLowSeason,,,1,12,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. min: 4 (Apr.), max 11 (Nov.): all locations at the false positive mask (dry lakes) have snow_fraction(s) set to 0 and rf, dv, albedo, grain size set to nodata (v2023.0e, v2023.1b), only from the start of the month min to the end of the month max. min: 1, max 12: mask applied full year (v2023.1c, d). 0: v2023.1, v2023.0 v2023.0b-d,f-g doesn't apply the mask."
-401,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,,5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d. WARNING: This doesn’t seem to work/be tested"
+401,16,mosaic,ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum,,,5,,,,,"Mosaic/Netcdf Nodata. Introduced in v2023.1 / v2023.0e. 91 does nothing for v2023.1 v2023.0 v2023.0b-d,f-g. 5 all is set to nodata for pixels without observed data and having solar zenith = 0 in a tile with other solar_zeniths higher than 5 for v2023.0e, v2023.1a-d. WARNING: This doesnt seem to work/be tested"
 401,17,mosaic,,54,viewable_snow_fraction_s,5,,,54,viewable_snow_fraction_s,
 401,18,mosaic,,54,viewable_snow_fraction_s,0,,,61,snow_cover_days_s,
 401,19,mosaic,,54,viewable_snow_fraction_s,5,,,55,snow_fraction_s,
+401,20,mosaic,isCalculatedFromRareObservationIfDaysWithoutObsAbove,,,367,,,,,"Introduced for v2023.0.1 (v2023.0e + v2023.0) in 2025/1/10 to generate a mask “calculated_from_rare_observation” in netcdfs. If days without observation are > this value, calculated_from_rare_observation = 1, otherwise 0."
 405,1,stc,mindays,,,10,,,,,"Gap/Stc filtering. This filter set #405 corresponds to v2023.1d (Andes, with applyFalsePositiveMask = 1 compared to #5 and #305)."
 405,2,stc,sthreshForGS,,,0.2,,,,,Gap/Stc filtering
 405,3,stc,sthreshForRF,,,0.7,,,,,Gap/Stc filtering
