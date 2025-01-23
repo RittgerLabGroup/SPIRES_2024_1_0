@@ -71,6 +71,7 @@ defaultSlurmArrayTaskId=292
 expectedCountOfArguments=
 inputDataLabels=(modisspiressmoothbycell spiresdailytifsinu)
 outputDataLabels=(VariablesMatlab modspiresdaily vnpspiresdaily spiresdailytifsinu spiresdailymetadatajson)
+# NB: Inconsistency here because spiresdailytifsinu will have the version of the outputLabel, not the inputLabel
 filterConfLabel=
 mainBashSource=${BASH_SOURCE}
 mainProgramName=${BASH_SOURCE[0]}
