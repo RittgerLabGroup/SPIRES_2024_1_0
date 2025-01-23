@@ -47,6 +47,8 @@ classdef ESPEnv < handle
         myConfigurationOfVariables  % Table storing the parameters for each variable
             % at different steps of the process Step1, Step2, etc ...        @deprecated
         parallelismConf   % struct with parameters for parallelism
+        regions = struct()  % struct(h08v04 = region1, h08v05 = region2)
+            % Struct listing Regions objects, with keys being the regionName.
         scratchPath % char. Path hosting all files necessary for the run of the project.
 %{
         %                                                                      @obsolete
@@ -240,7 +242,7 @@ classdef ESPEnv < handle
                 inputProductVersion = originalEspEnv.modisData.inputProductVersion);
                     % versionOf.SubdivisionStatsDailyCsv chosen arbitrarily.
             espEnv = ESPEnv(modisData = modisData, ...
-                archivePath = originalEspEnv.defaultArchivePath, ...
+                archivePath = originalEspEnv.archivePath, ...
                 espWebExportConfId = originalEspEnv.espWebExportConfId, ...
                 scratchPath = originalEspEnv.scratchPath, ...
                 filterMyConfByVersionOfAncillary = ...
@@ -350,6 +352,7 @@ classdef ESPEnv < handle
                 obj.myConf.(confLabel) = tmp;
             end
             % Limit the table of file paths to the version of ancillary data.
+            % obsolete: if obj.filterMyConfByVersionOfAncillary == 1 : we can't do that, due to implementation of getFile and getData.
             obj.myConf.filePath = obj.myConf.filePath(strcmp( ...
                 obj.myConf.filePath.version, obj.modisData.versionOf.ancillary), :);
             % Very dirty:
@@ -608,9 +611,20 @@ classdef ESPEnv < handle
             % Initialize...
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             thisFunction = 'ESPEnv.checkSlurmJobStatus';
+            if obj.slurmEndDate <= ...
+                datetime('now') + seconds(obj.slurmSafetySecondsBeforeKill)
+                error('ESPEnv:TimeLimit', 'Error, Job has reached its time limit.');
+            end
             objectName = '';
             dataLabel = 'espjobforscancel';
-            
+            [filePath, fileExists] =  obj.getFilePathForObjectNameDataLabel( ...
+              objectName, dataLabel); 
+              % File on scratch/espJobs named {slurmFullJobId}_scancel.txt
+            % delete(filePath);
+            if fileExists
+              error('ESPEnv:scancelRequired', ...
+                  'Error, Job cancellation required by user.');
+            end
         end
         function [varData, conversionMask] = getAndSaveData(obj, objectName, inputDataLabel, ...
             outputDataLabel, varargin)
@@ -638,6 +652,8 @@ classdef ESPEnv < handle
             % complementaryLabel: char, optional. Only used to add EPSG code for
             %   geotiffs. E.g. EPSG_3857.
             % monthWindow: int, optional. MonthWindow of the data within the file.
+            % sourceFileName: char, optional. Source file of the input that was used
+            %   to generate the data.
             % timestampAndNrt: char, optional. Only for mod09ga files.
             % patternsToReplaceByJoker: cell array(char), optional.
             %   List of arguments (patterns)
@@ -721,6 +737,7 @@ classdef ESPEnv < handle
                 parallelWorkersNb = 0);
             addParameter(p, 'optim', struct());
             addParameter(p, 'force', struct());
+            addParameter(p, 'sourceFileName', '');
             addParameter(p, 'theseDate', datetime('today'));
             addParameter(p, 'varName', 'defaultVarName');
             addParameter(p, 'complementaryLabel', '');
@@ -731,6 +748,7 @@ classdef ESPEnv < handle
             p.StructExpand = false;
             parse(p, varargin{:});
             optim = p.Results.optim;
+            sourceFileName = p.Results.sourceFileName;
             optimFieldNames = fieldnames(defaultOptim);
             for fieldIdx = 1:length(optimFieldNames)
                 thisFieldName = optimFieldNames{fieldIdx};
@@ -765,7 +783,8 @@ classdef ESPEnv < handle
                 % and set force = nothing.
                 force = struct();
                 obj.saveData(varData, objectName, dataLabel, theseDate = theseDate, ...
-                    varName = varName, force = force, optim = optim);
+                    varName = varName, force = force, optim = optim, ...
+                    sourceFileName = sourceFileName);
                 fprintf(['%s: Saved , object: %s, thisDate: %s, ', ...
                     ' varName: %s, inputDataLabel: %s, outputDataLabel, %s, ' ...
                     'cellIdx: [%s], countOfCellPerDimension: [%s], ', ...
@@ -884,21 +903,35 @@ classdef ESPEnv < handle
             % Initialize...
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             thisFunction = 'ESPEnv.getDataForDateAndVarName';
-            p = inputParser;
+            
             defaultOptim = struct(cellIdx = [1, 1, 1], ...
                 countOfCellPerDimension = [1, 1, 1], ...
                 force = 0, logLevel = 0, ...
                 parallelWorkersNb = 0);
+
             % Mustn't add countOfPixelPerDimension in default.                  @warning
+            p = inputParser;
             addParameter(p, 'optim', struct());
             addParameter(p, 'force', struct());
             addParameter(p, 'patternsToReplaceByJoker', {});
             addParameter(p, 'monthWindow', WaterYearDate.yearMonthWindow);
             addParameter(p, 'timestampAndNrt', '');
+%{
+            optim = struct();
+            force = struct();
+            patternsToReplaceByJoker = {};
+            monthWindow = WaterYearDate.yearMonthWindow;
+            timestampAndNrt = '';
+%}
 
             p.StructExpand = false;
             parse(p, varargin{:});
             optim = p.Results.optim;
+            force = p.Results.force;
+            patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
+            monthWindow = p.Results.monthWindow;
+            timestampAndNrt = p.Results.timestampAndNrt;
+
             optimFieldNames = fieldnames(defaultOptim);
             for fieldIdx = 1:length(optimFieldNames)
                 thisFieldName = optimFieldNames{fieldIdx};
@@ -906,10 +939,7 @@ classdef ESPEnv < handle
                     optim.(thisFieldName) = defaultOptim.(thisFieldName);
                 end
             end % fieldIx.
-            force = p.Results.force;
-            patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
-            monthWindow = p.Results.monthWindow;
-            timestampAndNrt = p.Results.timestampAndNrt;
+            
             fprintf(['%s: Starting, region: %s, dataLabel: %s, thisDate: %s, ', ...
                 'varName: %s, ', ...
                 'cellIdx: [%s], countOfCellPerDimension: [%s], logLevel: %d, ', ...
@@ -994,6 +1024,9 @@ classdef ESPEnv < handle
             [startIdx, endIdx, thisSize] = obj.getIndicesForCellForDataLabel( ...
                 objectName, dataLabel, theseDate = thisDate, varName = varName, ...
                 force = force, optim = optim);
+                % NB-2025-01-17. For fileConf.period = 3 (3-month) endIdx(3) and
+                % thisSize(3) currently return = -1. Need to update later the code.
+                %                                                                  @todo
 
             % Configuration of input (from file) and output (what we want).
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1134,6 +1167,13 @@ classdef ESPEnv < handle
                             double([startIdx(1), startIdx(2)]), ...
                             double([thisSize(1), thisSize(2)]), double([1, 1]));
                             % Arguments: start, count, stride.
+                        if strcmp(dataLabel, 'vnp09ga')
+                            varData = varData';
+                        end
+                          % Addition because Daac seems to record the data row-wise
+                          % rather than column-wise and the heavy hierarchy in the daac
+                          % files seem to screw matlab. 20241202.
+                          % could also do flipup(rot90(data)).
                     elseif inputFileConf.period == 5
                         varData = h5read(filePath, ...
                             [inputFileConf.datasetGroupPath{1}, ...
@@ -1250,45 +1290,178 @@ classdef ESPEnv < handle
             % Handling and get of the metadata in the .mat file. Not done for other
             % extensions.
             elseif strcmp(fileExtension, '.mat')
-                % In regular process, a proper
-                % handling of thisDate and of the generation of files (potentially
-                % with nodata/NaN-filled variables) should make all files present &
-                % the last condition useless.
-                if ~strcmp(varNameWithinFile, '')
-                    % varData = parloadMatrices(filePath, varNameWithinFile); 2024-03-25
-                    fileObj = matfile(filePath);
-                    if strcmp(varNameWithinFile, 'metaData')
-                        try
-                            varData = fileObj.(varNameWithinFile);
-                        catch thisException
-                            warning('%s: %s, %s.\n', thisFunction, ...
-                                thisException.identifier, thisException.message);
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % a. Case with a classic file consisting in 1 cell only, =full modis
+                %   tile with time as depth dimension, as in spires v20231027.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                if ischar(filePath)
+                  % In regular process, a proper
+                  % handling of thisDate and of the generation of files (potentially
+                  % with nodata/NaN-filled variables) should make all files present &
+                  % the last condition useless.
+                  if ~strcmp(varNameWithinFile, '')
+                      % varData = parloadMatrices(filePath, varNameWithinFile); 2024-03-25
+                      fileObj = matfile(filePath);
+                      if strcmp(varNameWithinFile, 'metaData')
+                          try
+                              varData = fileObj.(varNameWithinFile);
+                          catch thisException
+                              warning('%s: %s, %s.\n', thisFunction, ...
+                                  thisException.identifier, thisException.message);
+                          end
+                      else
+                          switch inputFileConf.dimensionInfo
+                              case 11
+                                  % 11: 1 dim column: row*column (reshaped matrix with on
+                                  % column with each pixel correspond to a row).
+                                  varData = fileObj.(varNameWithinFile)( ...
+                                      starIdx(1):endIdx(1));
+                              case {20, 21}
+                                  % 20: 2 dim: pixel row x pixel column (only one day
+                                  % here).
+                                  % 21: 2 dim: day x row*column (reshaped matrix with
+                                  % each pixel correspond to a column of days).
+                                  varData = fileObj.(varNameWithinFile)( ...
+                                      startIdx(1):endIdx(1), startIdx(2):endIdx(2));
+                              case 30
+                                  % 30: pixel row x pixel column x day
+                                  if inputFileConf.period == 3
+                                      % 3 month files return the full dataset on the
+                                      % third dimension, because we don't handle
+                                      % the cutting of 3rd dimension yet for that kind
+                                      % of file.                                   @todo
+                                      varData = fileObj.(varNameWithinFile)( ...
+                                          startIdx(1):endIdx(1), startIdx(2):endIdx(2), ...
+                                          :);
+                                      if ~isequal(optim.cellIdx, ...
+                                          defaultOptim.cellIdx) | ...
+                                          ~isequal(optim.countOfCellPerDimension, ...
+                                              defaultOptim.countOfCellPerDimension)
+                                          warning(['getDataForDateAndVarName ', ...
+                                              'doesnt', ...
+                                              'take into account optim for file', ...
+                                              'period = 3 (3-month files).\n']);
+                                      end
+                                  else
+                                      varData = fileObj.(varNameWithinFile)( ...
+                                          startIdx(1):endIdx(1), startIdx(2):endIdx(2), ...
+                                          startIdx(3):endIdx(3));
+                                  end
+                          end
+                      end
+                  else
+                      varData = load(filePath); % Not sure whether that works in
+                          % parfor loops.
+                  end
+
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % b. Case with a set of cell-split files to combine to form a tile,
+                %   as in an early version of spires v2025.0.1 (formerly v2024.0f) modspirestimebycell.
+                %   NB: Works only for 1 day and full tile. Very specific to v2024.0f.
+                %       and doesnt raise error otherwise...                     @warning
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                elseif iscell(filePath) & size(filePath, 1) > 1
+                    if isempty(thisDate) || isempty(varName) || ...
+                      strcmp(varName, 'metaData') || ...
+                      (~(inputFileConf.dimensionInfo == 30 && ...
+                          inputFileConf.period == 5))
+                      error( ...
+                         ['%s: No handling of empty date, ', ...
+                         'empty varName, "metaData" varName, ', ...
+                         'inputFileConf.dimensionInfo different from 30, ', ...
+                         'inputFileConf.period different from 5.\n'], thisFunction);
+                    end
+                    % NB: there should be here another requirement on the number of
+                    % files expected.
+                    for fileIdx = 1:size(filePath)
+                        thisFilePath = filePath{fileIdx};
+                        fileObj = matfile(thisFilePath);
+                        [~, ~, ~, ~, ~, metaData] = ...
+                            obj.getMetadataFromFilePath(thisFilePath, dataLabel);
+                        if fileIdx == 1
+                            oneData = fileObj.( ...
+                                varNameWithinFile)(1:2, 1, 1);
+                            varData = ...
+                                ones(obj.modisData.sensorProperties.tiling. ...
+                                    rowPixelCount, ...
+                                    obj.modisData.sensorProperties.tiling. ...
+                                    columnPixelCount, 1, class(oneData));
+                            if isinteger(oneData)
+                                varData = intmax(class(oneData)) * varData;
+                            else
+                                varData = NaN * varData;
+                            end
                         end
-                    else
+                        % Occasionally, spirestime miss the last day and the
+                        % dataset has a lower size (in days) than expected.     @tocheck
+                        thatSize = size(fileObj, varNameWithinFile);
+                        if startIdx(3) > thatSize(3)
+                            warning(['Impossible to read %s in %s, ', ...
+                                ' 3rd dim called position %d but size %d in ', ...
+                                'file.\n'], ...
+                                varNameWithinFile, thisFilePath, ...
+                                startIdx(3), ...
+                                thatSize(3));
+                            varData = [];
+                            return;
+                        end   
+                        try
+                            varData(metaData.rowStartId:metaData.rowEndId, ...
+                                metaData.columnStartId:metaData.columnEndId) = ...
+                                fileObj.(varNameWithinFile)( ...
+                                    1:end, 1:end, double(startIdx(3):endIdx(3)));
+                                % Matlab requires double precision indices for h5read.
+                        catch thisException
+                            warning(['Impossible to read %s in %s, called position', ...
+                                ' [1:end, 1:end, %d:%d].\n'], ...
+                               varNameWithinFile, thisFilePath, ...
+                                startIdx(3), endIdx(3));
+                            rethrow(thisException);
+                        end
+                    end % fileIdx = 1:size(filePath).
+                end % if iscell(filePath) & size(filePath, 1) > 1.
+                
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % .tif files.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
+            elseif strcmp(fileExtension, '.tif')
+
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % a. Case with a classic file consisting in 1 cell only, =full modis
+                %   tile with time as depth dimension = 1 day.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                if ischar(filePath)
+                    % In regular process, a proper
+                    % handling of thisDate and of the generation of files (potentially
+                    % with nodata/NaN-filled variables) should make all files present &
+                    % the last condition useless.
+                    if ~strcmp(varNameWithinFile, '')
                         switch inputFileConf.dimensionInfo
-                            case 11
-                                % 11: 1 dim column: row*column (reshaped matrix with on
-                                % column with each pixel correspond to a row).
-                                varData = fileObj.(varNameWithinFile)( ...
-                                    starIdx(1):endIdx(1));
-                            case {20, 21}
+                            case 20
                                 % 20: 2 dim: pixel row x pixel column (only one day
                                 % here).
-                                % 21: 2 dim: day x row*column (reshaped matrix with
-                                % each pixel correspond to a column of days).
-                                varData = fileObj.(varNameWithinFile)( ...
-                                    startIdx(1):endIdx(1), startIdx(2):endIdx(2));
-                            case 30
-                                % 30: pixel row x pixel column x day
-                                varData = fileObj.(varNameWithinFile)( ...
-                                    startIdx(1):endIdx(1), startIdx(2):endIdx(2), ...
-                                    startIdx(3):endIdx(3));
+                                [varData, ~] = readgeoraster(filePath);
+                                varData = varData(startIdx(1):endIdx(1), ...
+                                    startIdx(2):endIdx(2));
                         end
                     end
-                else
-                    varData = load(filePath); % Not sure whether that works in
-                        % parfor loops.
-                end
+
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % b. Case with a set of cell-split files to combine to form a tile,
+                %   NOT IMPLEMENTED.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                elseif iscell(filePath) & size(filePath, 1) > 1
+                    %
+                end % if iscell(filePath) & size(filePath, 1) > 1.
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % .json files.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Json files are used for metadata or configuration.
+            % varData is then open as a struct.
+            elseif strcmp(fileExtension, '.json')
+                varData = fileread(filePath);
+                varData = jsondecode(varData);
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % .csv files.
@@ -1360,7 +1533,11 @@ classdef ESPEnv < handle
                 if actualResamplingFactor ~= 1
                      if ~ismember(class(varData), {'single', 'double'})
                         varData = single(varData);
-                        varData(varData == inputVariable.nodata_value(1)) = NaN;
+                        if inputVariable.nodata_value(1) ~= 0
+                          % We exclude the nodata = 0 to convert to NaN,
+                          % as for reflectance for instance.
+                          varData(varData == inputVariable.nodata_value(1)) = NaN;
+                        end
                     end
                     if ismember('resamplingMethod', fieldnames(force))
                         varData = imresize( ...
@@ -1410,7 +1587,9 @@ classdef ESPEnv < handle
                 if ismember(inputVariable.type{1}, {'single', 'double'}) | ...
                     ismember(class(varData), {'single', 'double'})
                     conversionMask = bitset(conversionMask, 1, isnan(varData));
-                else
+                elseif inputVariable.nodata_value(1) ~= 0
+                    % We exclude the cases when the nodata values are 0, for instance
+                    % reflectance or bit fields.
                     conversionMask = bitset(conversionMask, 1, ...
                         varData == inputVariable.nodata_value(1));
                 end
@@ -1428,7 +1607,11 @@ classdef ESPEnv < handle
                 if actualDivisor ~= 1
                     if ~ismember(class(varData), {'single', 'double'})
                         varData = single(varData);
-                        varData(varData == inputVariable.nodata_value(1)) = NaN;
+                        if inputVariable.nodata_value(1) ~= 0
+                          % We don't convert to NaN when no data value = 0, as for
+                          % reflectance for instance.
+                          varData(varData == inputVariable.nodata_value(1)) = NaN;
+                        end
                     end
                     varData = varData / actualDivisor;
                 end
@@ -1489,9 +1672,11 @@ classdef ESPEnv < handle
                   varData(logical(isNoData)) = outputNoDataValue;
                 end
             else
+%{
                 warning(['%s: No conversion for extension %s or ', ...
                     'varName metaData or non numeric data.\n'], ...
                     thisFunction, fileExtension);
+%}
             end
         end
         function [data, mapCellsReference, metaData] = ...
@@ -1510,6 +1695,26 @@ classdef ESPEnv < handle
             %   'elevation'.
             %   NB: specific handling for spiresModel, depending on modis/viirs and Ned
             %   filter conf or not.
+            % optim: struct(cellIdx, countOfCellPerDimension, force, logLevel,
+            %       parallelWorkersNb). Optional.
+            %   cellIdx: array(int), optional. [rowCellIdx, columnCellIdx,
+            %       depthCellIdx].
+            %       Indices of the cell part of a tile. Row indices are counted from
+            %       top to bottom, column indices from left to right. Default [1, 1].
+            %   countOfCellPerDimension: array(int), optional.
+            %       [rowCellCount, columnCellCount, depthCellCount].
+            %       Number of cells dividing the set of
+            %       rows and same for columns. E.g. if we want to divide a 2400x2400
+            %       tile in 9 cells, countOfCellPerDimension = [3, 3]. Default [1, 1].
+            %   countOfPixelPerDimension: array(int), optional. [rowCount, columnCount,
+            %       depthCount].
+            %       Number of pixels in a row and same in a column and in depth
+            %       (3rd dimension). MUST have same number of elements as cellIdx.
+            %   force: int, optional. Default 0. Unused.
+            %       IMPORTANT: irrelevant here.
+            %   logLevel: int, optional. Indicate the density of logs.
+            %       Default 0, all logs. The higher the less logs.
+            %   parallelWorkersNb: int, optional. If 0 (default), no parallelism.
             %
             % Return
             % ------
@@ -1519,9 +1724,65 @@ classdef ESPEnv < handle
             %   If file doesn't exit, empty.
             % mapCellsReference: MapCellsReference. Allows to georeference the data.
             thisFunction = 'ESPEnv.getDataForObjectNameDataLabel';
+            
+            p = inputParser;
+            defaultOptim = struct(cellIdx = [1, 1, 1], ...
+                countOfCellPerDimension = [1, 1, 1], ...
+                force = 0, logLevel = 0, ...
+                parallelWorkersNb = 0);
+            % Mustn't add countOfPixelPerDimension in default.                  @warning
+            % add 3 dims, because of backgroundreflectance who has the 7 reflectances
+            % as 3rd dim.                                                       @warning
+            addParameter(p, 'optim', struct());
+
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            optim = p.Results.optim;
+            optimFieldNames = fieldnames(defaultOptim);
+            for fieldIdx = 1:length(optimFieldNames)
+                thisFieldName = optimFieldNames{fieldIdx};
+                if ~ismember(thisFieldName, fieldnames(optim))
+                    optim.(thisFieldName) = defaultOptim.(thisFieldName);
+                end
+            end % fieldIx.
+            
+            % Specific case spiresmodel dataLabel. This case is also treated in
+            % getFilePathForObjectNameDataLabel() and should probably be in another
+            % method.                                                              @todo
+            if ismember(dataLabel, {'spiresmodel', 'backgroundreflectance'})
+                switch obj.modisData.inputProduct
+                    case 'mod09ga'
+                        thatConfId = obj.myConf.region(strcmp( ...
+                            obj.myConf.region.name, objectName), :).spiresConfId(1);
+                        thatConf = ...
+                            obj.myConf.filter(obj.myConf.filter.id == thatConfId, :);
+                        switch dataLabel
+                            case 'backgroundreflectance'
+                                dataLabel = [dataLabel, 'formodis'];
+                            case 'spiresmodel'
+                                parameterName = 'spiresModelForModis'; 
+                                valueForThatParameter = ...
+                                    Tools.valueInTableForThisField(thatConf, ...
+                                    'lineName', parameterName, 'minValue');
+                                if valueForThatParameter == 1
+                                    dataLabel = 'spiresmodelformodisned';
+                                else
+                                    dataLabel = [dataLabel, 'formodis'];
+                                end
+                        end
+                    case 'vnp09ga'
+                        dataLabel = [dataLabel, 'forviirs'];
+                end
+                fprintf('%s: updated dataLabel to: %s.\n', mfilename(), dataLabel);
+            end
 
             [filePath, fileExists] = obj.getFilePathForObjectNameDataLabel( ...
-                objectName, dataLabel);
+                objectName, dataLabel); % NB: this method doesnt accept optim parameter.
+                
+            [startIdx, endIdx, thisSize] = obj.getIndicesForCellForDataLabel( ...
+                objectName, dataLabel, optim = optim);
+            thisFileConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
+              dataLabel), :); 
             if ~fileExists
                 warning('%s: Absent file %s.\n', mfilename(), filePath);
                 data = [];
@@ -1531,7 +1792,16 @@ classdef ESPEnv < handle
                 fileExtension = Tools.getFileExtension(filePath);
                 if strcmp(fileExtension, '.mat')
                     tmpObj = matfile(filePath);
-                    data = tmpObj.data;
+                    if thisFileConf.dataClass(1) == 1 && ...
+                      thisFileConf.dimensionInfo(1) == 3
+                      data = tmpObj.data( ...
+                        startIdx(1):endIdx(1), startIdx(2):endIdx(2), :);
+                    elseif thisFileConf.dataClass(1) == 1 && ...
+                      thisFileConf.dimensionInfo(1) == 2
+                      data = tmpObj.data(startIdx(1):endIdx(1), startIdx(2):endIdx(2));
+                    else
+                      data = tmpObj.data;
+                    end
                     % Specific to v3.1. elevation, slope, aspect, canopy. 2024-03-23.
                     if ismember(class(data), {'single', 'double'})
                         data(isnan(data)) = 0;
@@ -1548,6 +1818,7 @@ classdef ESPEnv < handle
                     end
                 elseif strcmp(fileExtension, '.tif')
                     [data, mapCellsReference] = readgeoraster(filePath);
+                    data = data(startIdx(1):endIdx(1), startIdx(2):endIdx(2));
                     if ~isa(mapCellsReference, 'MapCellsReference')
                         mapCellsReference = [];
                     end
@@ -1633,10 +1904,21 @@ classdef ESPEnv < handle
             addParameter(p, 'patternsToReplaceByJoker', {});
             addParameter(p, 'monthWindow', WaterYearDate.yearMonthWindow);
             addParameter(p, 'timestampAndNrt', '');
-
+%{
+            optim = struct();
+            force = struct();
+            patternsToReplaceByJoker = {};
+            monthWindow = WaterYearDate.yearMonthWindow;
+            timestampAndNrt = '';
+%}
             p.StructExpand = false;
             parse(p, varargin{:});
             optim = p.Results.optim;
+            force = p.Results.force;
+            patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
+            monthWindow = p.Results.monthWindow;
+            timestampAndNrt = p.Results.timestampAndNrt;
+            
             optimFieldNames = fieldnames(defaultOptim);
             for fieldIdx = 1:length(optimFieldNames)
                 thisFieldName = optimFieldNames{fieldIdx};
@@ -1644,10 +1926,13 @@ classdef ESPEnv < handle
                     optim.(thisFieldName) = defaultOptim.(thisFieldName);
                 end
             end % fieldIx.
-            force = p.Results.force;
-            patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
-            monthWindow = p.Results.monthWindow;
-            timestampAndNrt = p.Results.timestampAndNrt;
+            
+            if length(optim.cellIdx) == 2
+              optim.cellIdx(3) = 1;
+              optim.countOfCellPerDimension(3) = 1;
+            end
+              % NB: Very dirty, should be properly handled elsewhere.              @todo
+
             fprintf(['%s: Starting, region: %s, dataLabel: %s, waterYearDate: %s, ', ...
                 'varName: %s, ', ...
                 'cellIdx: [%s], countOfCellPerDimension: [%s], logLevel: %d, ', ...
@@ -1656,6 +1941,11 @@ classdef ESPEnv < handle
                 varName, join(string(optim.cellIdx), ', '), ...
                 join(string(optim.countOfCellPerDimension), ', '), ...
                 optim.logLevel, optim.parallelWorkersNb, monthWindow, timestampAndNrt);
+                
+            aggregateCells = ismember('rowStartId', patternsToReplaceByJoker);
+                % This induces that data are split into cell files which are aggregated
+                % to form a tile. 2024-02-28.
+                % RowStartId should be replaced by something like dim1StartId...   @todo
 
             filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
@@ -1664,7 +1954,9 @@ classdef ESPEnv < handle
 
             [filePath, fileExists, lastDateInFile, waterYearDate] = ...
                 obj.getFilePathForWaterYearDate(objectName, dataLabel, ...
-                    waterYearDate, optim = optim);
+                    waterYearDate, ...
+                    patternsToReplaceByJoker = patternsToReplaceByJoker, ...
+                    varName = varName, optim = optim);
                 % Raises error if dataLabel not in configuration_of_filenames.csv and
                 % in modisData.versionOf.
             filePath = filePath(fileExists == 1); % In regular process, a proper
@@ -1697,10 +1989,11 @@ classdef ESPEnv < handle
                 varData = datenum(varData);
             elseif strcmp(varName, 'RefMatrix')
                 varData = load(filePath{1}, 'RefMatrix').RefMatrix;
-            else
+            else % all other variables...
                 % Get the varName within the file, which might be distinct from varName.
                 fileConf = obj.myConf.filePath( ...
                     strcmp(obj.myConf.filePath.dataLabel, dataLabel), :);
+                inputFileConf = fileConf;
 
                 % Get the varName within the file, which might be distinct from varName.
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1748,7 +2041,7 @@ classdef ESPEnv < handle
                     % water yearly.
                     % NB: Beware, cannot work on files for julian years.        @warning
                     countOfDaysInFile = daysact( ...
-                        waterYearDate.getFirstDatetimeOfWaterYear(), lastDateInFile) ...
+                        waterYearDate.getFirstDatetimeOfWaterYear(), lastDateInFile(1)) ...
                         + 1;
                     sizeInThirdDimension = countOfDaysInFile;
                 end
@@ -1814,50 +2107,174 @@ classdef ESPEnv < handle
                                         varNameWithinFile, filePath{fileIdx});
                                     rethrow(thisException);
                                 end
-                            else
+                            elseif strcmp(fileExtension, '.mat')
                                 fileObj = matfile(filePath{fileIdx});
                                 varData(:, :, fileIdx) = ...
                                     fileObj.(varNameWithinFile)( ...
                                         startIdx(1):endIdx(1), ...
                                         startIdx(2):endIdx(2));
-                            end % default .mat.
+                            elseif strcmp(fileExtension, '.tif')
+                                tmpData = readgeoraster(filePath{fileIdx});
+                                varData(:, :, fileIdx) = ...
+                                    tmpData(startIdx(1):endIdx(1), ...
+                                        startIdx(2):endIdx(2));
+                        
+                            end % if strcmp(fileExtension, '.h5')
                         end
                     else
+                        if strcmp(fileExtension, '.tif')
+                            error('.Tif not for several days per file.\n');
+                        end
                         % several days per file.
                         lastIndex = 0;
-                        for fileIdx = 1:size(filePath, 2)
-                            if strcmp(fileExtension, '.h5')
-                                % WARNING: only works if there's only one file only.
-                                % very specific to modisspiressmoothbycell.
-                                %                                               @warning
-                                try
+                        if ~aggregateCells
+                            for fileIdx = 1:size(filePath, 2)
+                                if strcmp(fileExtension, '.h5')
+                                    % WARNING: only works if there's only one file only.
+                                    % very specific to modisspiressmoothbycell.
+                                    %                                               @warning
+                                    try
+                                        varData(:, :, lastIndex + 1: ...
+                                            lastIndex + countOfDaysInFile(fileIdx)) = ...
+                                            h5read(filePath{fileIdx}, ...
+                                                [datasetGroupPath, varNameWithinFile], ...
+                                            double([startIdx(1), startIdx(2), ...
+                                                startIdx(3)]), ...
+                                            double([thisSize(1), thisSize(2), ...
+                                                thisSize(3)]), ...
+                                            double([1, 1, 1]));
+                                    catch thisException
+                                        warning('Impossible to read %s in %s.\n', ...
+                                            varNameWithinFile, filePath{fileIdx});
+                                        rethrow(thisException);
+                                    end
+                                else
+                                    fileObj = matfile(filePath{fileIdx});
                                     varData(:, :, lastIndex + 1: ...
                                         lastIndex + countOfDaysInFile(fileIdx)) = ...
-                                        h5read(filePath{fileIdx}, ...
-                                            [datasetGroupPath, varNameWithinFile], ...
-                                        double([startIdx(1), startIdx(2), ...
-                                            startIdx(3)]), ...
-                                        double([thisSize(1), thisSize(2), ...
-                                            thisSize(3)]), ...
-                                        double([1, 1, 1]));
-                                catch thisException
-                                    warning('Impossible to read %s in %s.\n', ...
-                                        varNameWithinFile, filePath{fileIdx});
-                                    rethrow(thisException);
+                                        fileObj.(varNameWithinFile)( ...
+                                            startIdx(1):endIdx(1), ...
+                                            startIdx(2):endIdx(2), :);
+                                end % default .mat.
+                                lastIndex = lastIndex + countOfDaysInFile(fileIdx);
+                            end %  fileIdx = 1:size(filePath, 2)
+                        else % aggregateCells = 1, NB: we load .mat files in both cases...
+                            % this is confusing, sorry!!!
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            % a. Case with a classic file consisting in 1 cell only, =full modis
+                            %   tile with time as depth dimension, as in spires v20231027.
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            if ischar(filePath)
+                              % In regular process, a proper
+                              % handling of thisDate and of the generation of files (potentially
+                              % with nodata/NaN-filled variables) should make all files present &
+                              % the last condition useless.
+                              if ~strcmp(varNameWithinFile, '')
+                                  % varData = parloadMatrices(filePath, varNameWithinFile); 2024-03-25
+                                  fileObj = matfile(filePath);
+                                  if strcmp(varNameWithinFile, 'metaData')
+                                      try
+                                          varData = fileObj.(varNameWithinFile);
+                                      catch thisException
+                                          warning('%s: %s, %s.\n', thisFunction, ...
+                                              thisException.identifier, thisException.message);
+                                      end
+                                  else
+                                      switch inputFileConf.dimensionInfo
+                                          case 11
+                                              % 11: 1 dim column: row*column (reshaped matrix with on
+                                              % column with each pixel correspond to a row).
+                                              varData = fileObj.(varNameWithinFile)( ...
+                                                  starIdx(1):endIdx(1));
+                                          case {20, 21}
+                                              % 20: 2 dim: pixel row x pixel column (only one day
+                                              % here).
+                                              % 21: 2 dim: day x row*column (reshaped matrix with
+                                              % each pixel correspond to a column of days).
+                                              varData = fileObj.(varNameWithinFile)( ...
+                                                  startIdx(1):endIdx(1), startIdx(2):endIdx(2));
+                                          case 30
+                                              % 30: pixel row x pixel column x day
+                                              varData = fileObj.(varNameWithinFile)( ...
+                                                  startIdx(1):endIdx(1), startIdx(2):endIdx(2), ...
+                                                  startIdx(3):endIdx(3));
+                                      end
+                                  end
+                              else
+                                  varData = load(filePath); % Not sure whether that works in
+                                      % parfor loops.
+                              end
+
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            % b. Case with a set of cell-split files to combine to form a tile,
+                            %   as in spires v2024.0f modspirestime.
+                            %   NB: Works only for 1 day and full tile. Very specific to v2024.0f.
+                            %       and doesnt raise error otherwise...                     @warning
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            elseif iscell(filePath) & size(filePath, 1) > 1
+                                if isempty(varName) || ...
+                                  strcmp(varName, 'metaData') || ...
+                                  (~(inputFileConf.dimensionInfo == 30 && ...
+                                      inputFileConf.period == 5))
+                                  error( ...
+                                     ['%s: No handling of ', ...
+                                     'empty varName, "metaData" varName, ', ...
+                                     'inputFileConf.dimensionInfo different from 30, ', ...
+                                     'inputFileConf.period different from 5.\n'], thisFunction);
                                 end
-                            else
-                                fileObj = matfile(filePath{fileIdx});
-                                varData(:, :, lastIndex + 1: ...
-                                    lastIndex + countOfDaysInFile(fileIdx)) = ...
-                                    fileObj.(varNameWithinFile)( ...
-                                        startIdx(1):endIdx(1), ...
-                                        startIdx(2):endIdx(2), :);
-                            end % default .mat.
-                            lastIndex = lastIndex + countOfDaysInFile(fileIdx);
-                        end
-                    end
-                end
-            end
+                                % NB: there should be here another requirement on the number of
+                                % files expected.
+                                for fileIdx = 1:size(filePath)
+                                    thisFilePath = filePath{fileIdx};
+                                    fileObj = matfile(thisFilePath);
+                                    [~, ~, ~, ~, ~, metaData] = ...
+                                        obj.getMetadataFromFilePath(thisFilePath, dataLabel);
+                                    if fileIdx == 1
+                                        oneData = fileObj.( ...
+                                            varNameWithinFile)(1:2, 1, 1);
+                                        varData = ...
+                                            ones(obj.modisData.sensorProperties.tiling. ...
+                                                rowPixelCount, ...
+                                                obj.modisData.sensorProperties.tiling. ...
+                                                columnPixelCount, thisSize(3), class(oneData));
+                                        if isinteger(oneData)
+                                            varData = intmax(class(oneData)) * varData;
+                                        else
+                                            varData = NaN * varData;
+                                        end
+                                    end
+                                    % Occasionally, spirestime miss the last day and the
+                                    % dataset has a lower size (in days) than expected.     @tocheck
+                                    thatSize = size(fileObj, varNameWithinFile);
+                                    if startIdx(3) > thatSize(3)
+                                        warning(['Impossible to read %s in %s, ', ...
+                                            ' 3rd dim called position %d but size %d in ', ...
+                                            'file.\n'], ...
+                                            varNameWithinFile, thisFilePath, ...
+                                            startIdx(3), ...
+                                            thatSize(3));
+                                        varData = [];
+                                        return;
+                                    end   
+                                    try
+                                        varData(metaData.rowStartId:metaData.rowEndId, ...
+                                            metaData.columnStartId:metaData.columnEndId, :) = ...
+                                            fileObj.(varNameWithinFile)( ...
+                                                1:end, 1:end, double(startIdx(3):endIdx(3)));
+                                            % Matlab requires double precision indices for h5read.
+                                    catch thisException
+                                        warning(['Impossible to read %s in %s, called position', ...
+                                            ' [1:end, 1:end, %d:%d].\n'], ...
+                                           varNameWithinFile, thisFilePath, ...
+                                            startIdx(3), endIdx(3));
+                                        rethrow(thisException);
+                                    end
+                                end % fileIdx = 1:size(filePath).
+                            end % if ischar(filePath) else iscell(filePath) & size(filePath, 1) > 1.
+                        end % if ~aggregateCells
+                    end % if ismember(fileConf.dateInFileName{1}, {'yyyyJD', 'yyyyMMdd'}) one day per file or several days...
+                end %if strcmp(varName, 'refl')
+            end % if strcmp(varName, filePathConf.dateFieldName{1})
 
             % Reshape/convert/divisor the data.
             % (like in getDataForDateAndVarName(), in a minimal way. The 2 methods are
@@ -1913,7 +2330,10 @@ classdef ESPEnv < handle
             if actualResamplingFactor ~= 1
                 if ~ismember(class(varData), {'single', 'double'})
                     varData = single(varData);
-                    varData(varData == inputVariable.nodata_value(1)) = NaN;
+                    if inputVariable.nodata_value(1) ~= 0
+                    % We exclude nodata value = 0 to convert to NaN, (e.g. reflectance).
+                      varData(varData == inputVariable.nodata_value(1)) = NaN;
+                    end
                 end
                 if ismember('resamplingMethod', fieldnames(force))
                     varData = imresize( ...
@@ -1944,7 +2364,11 @@ classdef ESPEnv < handle
             if actualDivisor ~= 1
                 if ~ismember(class(varData), {'single', 'double'})
                     varData = single(varData);
-                    varData(varData == inputVariable.nodata_value(1)) = NaN;
+                    if inputVariable.nodata_value(1) ~= 0
+                      % We exclude the cases when the nodata values are 0, for instance
+                      % reflectance or bit fields.
+                      varData(varData == inputVariable.nodata_value(1)) = NaN;
+                    end
                 end
                 varData = varData / actualDivisor;
             end
@@ -2287,7 +2711,9 @@ classdef ESPEnv < handle
                     filePath = filePath{1};
                     fileExists = fileExists(1);
                     fileLastEditDate = fileLastEditDate(1);
-                    thisDate = thisDate(1);
+                    if ~isnat(thisDate)
+                      thisDate = thisDate(1);
+                    end
                 end
                 % Here I think we need to get the varName and objectName if they were
                 % in wild cards *.                                                 @todo
@@ -2301,9 +2727,11 @@ classdef ESPEnv < handle
                 % Copy the file from the archive if present in archive ...
                 archiveFilePath = strrep( ...
                     thatFilePath, obj.scratchPath, obj.archivePath);
-                cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
-                fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
-                [status, cmdout] = system(cmd);
+                if isdir(archiveFilePath)
+                  cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+                  fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+                  [status, cmdout] = system(cmd);
+                end
                 tmpFiles = struct2table(dir(filePath));
                 % if files present in archive and copied we recall the method.
                 if ~isempty(tmpFiles)
@@ -2475,9 +2903,11 @@ classdef ESPEnv < handle
               % Copy the file from the archive if present in archive ...
               archiveFilePath = strrep( ...
                   thatFilePath, obj.scratchPath, obj.archivePath);
-              cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
-              fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
-              [status, cmdout] = system(cmd);
+              if isdir(archiveFilePath)
+                cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+                fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+                [status, cmdout] = system(cmd);
+              end
             end
 
             % 2. Generation of the filename, check existence of filenames and determine
@@ -2511,6 +2941,8 @@ classdef ESPEnv < handle
                         datetime(x, InputFormat = 'dd-MMM-yyyy HH:mm:ss'), ...
                         tmpFiles, InputVariables = {'date'}));
                 end
+                  % NB: the return of getFilePathForDateAndVarName() fileExists as
+                  % cell is not consistent with the rest and should be improved.   @todo
                 % De-cellification if only 1 return.
                 if iscell(filePath) & length(filePath) == 1
                     filePath = filePath{1};
@@ -2526,9 +2958,11 @@ classdef ESPEnv < handle
                     % Copy the file from the archive if present in archive ...
                     archiveFilePath = strrep( ...
                         thatFilePath, obj.scratchPath, obj.archivePath);
-                    cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
-                    fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
-                    [status, cmdout] = system(cmd);
+                    if isdir(archiveFilePath)
+                      cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
+                      fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+                      [status, cmdout] = system(cmd);
+                    end
                     tmpFiles = struct2table(dir(filePath));
                 end
                 
@@ -2646,9 +3080,11 @@ classdef ESPEnv < handle
             if ~fileExists && ~ismember(dataLabel, {'espjobforscancel'})
                 % Copy the file from the archive if present in archive ...
                 archiveFilePath = strrep(filePath, obj.scratchPath, obj.archivePath);
-                cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', filePath];
-                fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
-                [status, cmdout] = system(cmd);
+                if isdir(archiveFilePath)
+                  cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', filePath];
+                  fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+                  [status, cmdout] = system(cmd);
+                end
                 fileExists = isfile(filePath);
             end
         end
@@ -2666,6 +3102,11 @@ classdef ESPEnv < handle
             %   the version of dataLabel must be in obj.modisData.versionOf.(dataLabel).
             % waterYearDate: WaterYearDate. Cover the period for which we want the
             %   files.
+            % varName: char, optional. Name of the variable, used for tif files.
+            % patternsToReplaceByJoker: cell array(char), optional.
+            %   List of arguments (patterns)
+            %   we don't a priori know. The filepath in that case will be found using
+            %   a dir cmd (replacing some unknown patterns by the joker *).
             % optim: struct(cellIdx, countOfCellPerDimension, force, logLevel,
             %       parallelWorkersNb).
             %   cellIdx: array(int), optional. [rowCellIdx, columnCellIdx, depthCellIdx].
@@ -2712,18 +3153,24 @@ classdef ESPEnv < handle
 
             % 1. Generation and check existence of the file directory path.
             %---------------------------------------------------------------------------
-            varName = '';
             complementaryLabel = '';
-            p = inputParser;
+            
             defaultOptim = struct(cellIdx = [1, 1, 1], ...
                 countOfCellPerDimension = [1, 1, 1], force = 0, logLevel = 0, ...
                 parallelWorkersNb = 0);
             % Mustn't add countOfPixelPerDimension in default.                  @warning
+
+            p = inputParser;
             addParameter(p, 'optim', struct());
+            addParameter(p, 'patternsToReplaceByJoker', {});
+            addParameter(p, 'varName', '');
 
             p.StructExpand = false;
             parse(p, varargin{:});
             optim = p.Results.optim;
+            patternsToReplaceByJoker = p.Results.patternsToReplaceByJoker;
+            varName = p.Results.varName;
+
             optimFieldNames = fieldnames(defaultOptim);
             for fieldIdx = 1:length(optimFieldNames)
                 thisFieldName = optimFieldNames{fieldIdx};
@@ -2764,7 +3211,9 @@ classdef ESPEnv < handle
                 strcmp(obj.lastCallToGetFilePathForWaterYearDate.dataLabel, ...
                     dataLabel) && ...
                 isequal(obj.lastCallToGetFilePathForWaterYearDate.waterYearDate, ...
-                    waterYearDate)
+                    waterYearDate) && ...
+                isequal(obj.lastCallToGetFilePathForWaterYearDate.varName, ...
+                    varName)
                 filePath = obj.lastCallToGetFilePathForWaterYearDate.filePath;
                 lastDateInFile = ...
                     obj.lastCallToGetFilePathForWaterYearDate.lastDateInFile;
@@ -2794,57 +3243,95 @@ classdef ESPEnv < handle
                 % year or wateryear, unfortunately right now.
                 % WARNING: right now, we don't handle waterYearDate covering several
                 % waterYears, so here there's 1 file only.                      @warning
+                
+                % NB: There can be confusion between a set of wateryear cell files,
+                % handled in this condition, and a set of daily tile files, handled
+                % in the following, below that condition.
+                % DANGEROUS.....                                              @toimprove
 
                 thisDate = theseDates(end);
+                if length(optim.cellIdx) ~= 3
+                  optim.cellIdx(3) = 1;
+                  optim.countOfCellPerDimension(3) = 1;
+                end % NB: Dirty patch...
                 [thatFilePath, thatFileExists, ~, metaData] = ...
                     obj.getFilePathForDateAndVarName(objectName, dataLabel, ...
-                        thisDate, varName, complementaryLabel, optim = optim);
-                filePath = {thatFilePath};
-                fileExists = [thatFileExists];
-                if ~fileExists
+                        thisDate, varName, complementaryLabel, ...
+                        patternsToReplaceByJoker = patternsToReplaceByJoker, ...
+                        optim = optim);
+                if ~iscell(thatFilePath)
+                  filePath = {thatFilePath};
+                  fileExists = [thatFileExists];
+                else
+                  filePath = thatFilePath;
+                  fileExists = cell2mat(thatFileExists);
+                end
+                  % NB: the return of getFilePathForDateAndVarName() thatFileExists as
+                  % cell is not consistent with the rest and should be improved.   @todo
+                if ~fileExists(1)
                     lastDateInFile = [NaT];
                     waterYearDate = [];
                 else
-                    fileExtension = Tools.getFileExtension(thatFilePath);
-                    if strcmp(fileExtension, '.h5')
+                    % NB: The following is heavy, by checking all the files...  @warning
+                    lastDateInFile = repmat(NaT, [length(filePath), 1]);
+                    fileExtension = Tools.getFileExtension(filePath{1});
+                    for fileIdx = 1:length(filePath)
+                        % Maybe there's a smarter way with arrayfun/cell2mat... @tocheck
+                        % This scans each cell file of a water year. Maybe there are
+                        % cases I don't think of which might bug....            @warning
+                        
+                        if strcmp(fileExtension, '.h5')
                         % NB: ugly. Should be handled in a function.               @todo
                         % this case is only for [xx]spiressmoothbycell dataLabel in .h5
                         % WARNING: Assumes that dates are written as attributes in
                         % location dateAttributePath.                           @warning
-                        thisLastDateInFile = h5readatt(thatFilePath, ...
-                            filePathConf.dateAttributePath{1}, ...
-                            filePathConf.dateFieldName{1});
-                    else
+                            fileDates = h5readatt(filePath{fileIdx}, ...
+                                filePathConf.dateAttributePath{1}, ...
+                                filePathConf.dateFieldName{1});
+                        elseif strcmp(fileExtension, '.mat')
                         % default .mat file. Others will raise error.
-                        thisLastDateInFile = load(thatFilePath, ...
-                            filePathConf.dateFieldName{1}).( ...
-                            filePathConf.dateFieldName{1});
+                            fileDates = load(filePath{fileIdx}, ...
+                                filePathConf.dateFieldName{1}).( ...
+                                filePathConf.dateFieldName{1});
+                        elseif strcmp(fileExtension, '.tif') 
+                            error('File should only be .h5, .mat.\n');
+                        end
+                        thatLastDate = fileDates(end);
+                        if isnumeric(thatLastDate)
+                            thatLastDate = num2str(thatLastDate);
+                        end
+                        if strcmp(filePathConf.dateFieldType{1}, 'datenum')
+                            thatLastDate = datetime(thatLastDate, ...
+                                ConvertFrom = filePathConf.dateFieldType{1});
+                        elseif strcmp(filePathConf.dateFieldType{1}, 'yyyyJD')
+                            thatLastDate = datetime(char(thatLastDate), ...
+                                InputFormat = 'uuuuDDD');
+                                % datetime expects ISO year uuuu and not gregorian yyyy.
+                        elseif strcmp(filePathConf.dateFieldType{1}, 'yyyyMMdd')
+                            thatLastDate = datetime(thatLastDate, ...
+                                InputFormat = 'yyyyMMdd');
+                        end % default: datetime.
+                        thatLastDate = datetime(year(thatLastDate), ...
+                            month(thatLastDate), day(thatLastDate), ...
+                            waterYearDate.dayStartTime.HH, ...
+                            waterYearDate.dayStartTime.MIN, ...
+                            waterYearDate.dayStartTime.SS);
+                            % Because dates are stored without time in spiressmoothbycell.
+                        lastDateInFile(fileIdx) = thatLastDate;
                     end
-                    thisLastDateInFile = thisLastDateInFile(end);
-                    if isnumeric(thisLastDateInFile)
-                        thisLastDateInFile = num2str(thisLastDateInFile);
-                    end
-                    if strcmp(filePathConf.dateFieldType{1}, 'datenum')
-                        thisLastDateInFile = datetime(thisLastDateInFile, ...
-                            ConvertFrom = filePathConf.dateFieldType{1});
-                    elseif strcmp(filePathConf.dateFieldType{1}, 'yyyyJD')
-                        thisLastDateInFile = datetime(char(thisLastDateInFile), ...
-                            InputFormat = 'uuuuDDD');
-                            % datetime expects ISO year uuuu and not gregorian yyyy.
-                    elseif strcmp(filePathConf.dateFieldType{1}, 'yyyyMMdd')
-                        thisLastDateInFile = datetime(thisLastDateInFile, ...
-                            InputFormat = 'yyyyMMdd');
-                    end % default: datetime.
-                    thisLastDateInFile = datetime(year(thisLastDateInFile), ...
-                        month(thisLastDateInFile), day(thisLastDateInFile), ...
-                        waterYearDate.dayStartTime.HH, ...
-                        waterYearDate.dayStartTime.MIN, ...
-                        waterYearDate.dayStartTime.SS);
-                        % Because dates are stored without time in spiressmoothbycell.
-                    lastDateInFile = [thisLastDateInFile];
-                    if ~isequal(thisLastDateInFile, theseDates(end))
+                    [uniqueDates, firstFileWithUniqueDates, ~] = ...
+                      unique(lastDateInFile);
+                    if numel(uniqueDates) ~= 1
+                        error('ESPEnv:getDataForWDates', ...
+                          ['ESPEnv.getDataForWaterYearDateAndVarName(): the ', ...
+                          'wateryear cover is distinct for at least one file %s', ...
+                          ' vs %s.\n'], ...
+                          filePath{firstFileWithUniqueDates(1)}, ...
+                          filePath{firstFileWithUniqueDates(2)});
+                    end     
+                    if ~isequal(lastDateInFile(1), theseDates(end))
                         waterYearDate = ...
-                            waterYearDate.shortenToDate(thisLastDateInFile);
+                            waterYearDate.shortenToDate(lastDateInFile(1));
                     end
                 end
                 return;
@@ -2870,6 +3357,7 @@ classdef ESPEnv < handle
                 [filePath{dateIdx}, ~, thatMetaData] = ...
                     obj.replacePatternsInFileOrDirPaths(filePath{dateIdx}, ...
                     objectName, dataLabel, thisDate, varName, complementaryLabel, ...
+                    patternsToReplaceByJoker = patternsToReplaceByJoker, ...
                     optim = optim);
                     % If there are jokers in pattern to replace, this list can yield
                     % multiple results. However, the metaData are not specifically
@@ -2891,10 +3379,12 @@ classdef ESPEnv < handle
                     % Copy the file from the archive if present in archive ...
                     archiveFilePath = strrep(filePath{dateIdx}, obj.scratchPath, ...
                         obj.archivePath);
-                    cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', ...
-                        filePath{dateIdx}];
-                    fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
-                    [status, cmdout] = system(cmd);
+                    if isdir(archiveFilePath)
+                      cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', ...
+                          filePath{dateIdx}];
+                      fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
+                      [status, cmdout] = system(cmd);
+                    end
                 end   
                 if isfile(filePath{dateIdx})
                     fileExists(dateIdx) = 1;
@@ -2921,7 +3411,7 @@ classdef ESPEnv < handle
               filePath(fileExists == 1);
             obj.lastCallToGetFilePathForWaterYearDate.lastDateInFile = ...
               lastDateInFile(fileExists == 1);
-
+            obj.lastCallToGetFilePathForWaterYearDate.varName = varName;
 
             lastDateInFileWhichExists = lastDateInFile(fileExists == 1);
             if ~isempty(lastDateInFileWhichExists) && ...
@@ -2953,7 +3443,7 @@ classdef ESPEnv < handle
             %   E.g. if we want to divide a 2400x2400 tile in 9 cells,
             %   countOfCellPerDimension = [3, 3]. Default [1, 1]. MUST have same
             %   number of elements as cellIdx.
-            % countOfPixelPerDimension: int or array(int), optional.
+            % countOfPixelPerDimension: int or array(int).
             %   [rowCount, columnCount, depthCount].
             %   Number of pixels in a row and same in a column and in depth
             %   (3rd dimension). MUST have same number of elements as cellIdx.
@@ -3058,7 +3548,9 @@ classdef ESPEnv < handle
             %   (range 1-4294967295).
             % endIdx: array(uint32). List of end index for each dimension, e.g.
             %   [ending row idx, ending column idx, ending depth idx].
+            %   Can be -1 for 3rd dim if undetermined.
             % thisSize: array(uint32). List of size per dimension.
+            %   Can be -1 for 3rd dim if undetermined.
             %
             % NB: We don't handle the case when optim.countOfCellPerDimension = 1200 and
             % resampling factor 1/2.
@@ -3131,7 +3623,6 @@ classdef ESPEnv < handle
 
             thisFile = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
-                
             % If files split in cell files, the start and end indices should be
             % rectified accordingly for data (but not for patterns in filepath).
             % NB: this may be ugly....                                          @warning
@@ -3223,11 +3714,16 @@ classdef ESPEnv < handle
                         end
                         timeStartIdx = day(theseDate(1));
                         timeEndIdx = day(theseDate(end));
-                        % countOfCellPerTime = eom(year(thisDate(1)), month(thisDate(1)));
+                        % countOfCellPerTime = eomday(year(thisDate(1)), month(thisDate(1)));
                     case 3
                         % 3 months. It contains a varying number of days, up to 92.
-                        error(['%s: No handling of 3-month cubes right now.\n'], ...
-                            thisFunction);
+                        % NB: For this case, we only allow the full range of time in
+                        % file, represented by 1:-1.                               @todo
+                        timeStartIdx = 1;
+                        timeEndIdx = -1; % NB: Over the long term, I should change that.
+                                                                                 % @todo
+                        % obsolete. error(['%s: No handling of 3-month cubes right now.\n'], ...
+                        %     thisFunction);
                     case 4
                         % 1 calendar year, from Jan 1st to Dec 31, contains 365 or 366 days.
                         if year(theseDate(1)) ~= year(theseDate(end))
@@ -3350,7 +3846,13 @@ classdef ESPEnv < handle
                         optim.countOfPixelPerDimension(1:3));
                     startIdx(3) = timeStartIdx;
                     endIdx(3) = timeEndIdx;
-                    thisSize(3) = timeEndIdx - timeStartIdx + 1;
+                    if endIdx(3) == -1
+                        % Case of gap files of 3 months,
+                        % tweak need to be changed with later development          @todo
+                        thisSize(3) = -1; % Unknown size
+                    else
+                        thisSize(3) = timeEndIdx - timeStartIdx + 1;
+                    end
             end
         end
         function [objectId, varId, thisDate, thisYear, monthWindow, ...
@@ -3893,9 +4395,11 @@ classdef ESPEnv < handle
             %   Cover the period for which we want the data instantiated. Configuration
             %   in espEnv.myConf.filePath, field period and dimensionInfo. Default:
             %   today.
-            % varName: char, optional. Uniqe name of the variable. Configuration in
+            % varName: char, optional. Unique name of the variable. Configuration in
             %   espEnv.myConf.variable, espEnv.myConf.versionvariable.
             %   Default: 'defaultVarName'.
+            % sourceFileName: char, optional. Name of the file source of the input that
+            %   was used to generate these data.
             % force: struct(outputDataLabel, divisor, type, nodata_value,
             %   resamplingFactor, minMaxCut), optional. Used to
             %   override varName configuration.
@@ -3963,11 +4467,13 @@ classdef ESPEnv < handle
                 parallelWorkersNb = 0);
             addParameter(p, 'optim', struct());
             addParameter(p, 'force', struct());
+            addParameter(p, 'sourceFileName', '');
             addParameter(p, 'theseDate', datetime('today'));
             addParameter(p, 'varName', 'defaultVarName');
             p.StructExpand = false;
             parse(p, varargin{:});
             optim = p.Results.optim;
+            sourceFileName = p.Results.sourceFileName;
             optimFieldNames = fieldnames(defaultOptim);
             for fieldIdx = 1:length(optimFieldNames)
                 thisFieldName = optimFieldNames{fieldIdx};
@@ -3987,7 +4493,8 @@ classdef ESPEnv < handle
                 objectName, dataLabel, ...
                 theseDate = theseDate, varName = varName, force = force, optim = optim);
             obj.saveData(varData, objectName, dataLabel, theseDate = theseDate, ...
-                varName = varName, force = force, optim = optim);
+                varName = varName, force = force, optim = optim, ...
+                sourceFileName = sourceFileName);
 
             fprintf(['%s: Saved instantiated data, object: %s, ', ...
                 'theseDate: %s - %s, ', ...
@@ -4642,7 +5149,7 @@ classdef ESPEnv < handle
             filePathConf = obj.myConf.filePath(strcmp(obj.myConf.filePath.dataLabel, ...
                 dataLabel), :);
             thisDateFormat = filePathConf.dateInFileName{1};
-            if isa(thisDate, 'datetime')
+            if isa(thisDate, 'datetime') && ~isnat(thisDate)
                 if strcmp(thisDateFormat, 'yyyyJD')
                     replacement = [num2str(year(thisDate)), ...
                         sprintf('%03d', day(thisDate, 'dayofyear'))];
@@ -4676,7 +5183,7 @@ classdef ESPEnv < handle
                 end
                 newPath = replacePatternByValue(newPath, ...
                     {'thisYear', 'thisDate', 'thisWaterYear'}, ...
-                    {num2str(thisYear), replacement, thisWaterYear}, ...
+                    {num2str(thisYear), replacement, num2str(thisWaterYear)}, ...
                     patternsToReplaceByJoker);
                     % NB: thisWaterYear pattern incompatible with thisYear set.
                     % Requires to know before hand if a type of file is by water year
@@ -4687,7 +5194,7 @@ classdef ESPEnv < handle
                 % maybe not what is wanted...                                   @warning
                 newPath = replacePatternByValue(newPath, ...
                     {'thisYear', 'thisDate', 'thisWaterYear'}, ...
-                    {replacement, replacement, thisWaterYear}, ...
+                    {replacement, replacement, num2str(thisWaterYear)}, ...
                     patternsToReplaceByJoker);
                     % NB: thisWaterYear pattern incompatible with thisYear set.
                     % Requires to know before hand if a type of file is by water year
@@ -4734,6 +5241,8 @@ classdef ESPEnv < handle
             % varName: char, optional. Necessary to know if there's resampling (is
             %   this variable in 1200x1200 (resamplingFactor 2) or 2400x2400 (factor 1).
             %   Default: 'defaultVarName' (resamplingFactor 1).
+            % sourceFileName: char, optional. Name of the file source of the input that
+            %   was used to generate these data.
             % waterYearDate: WaterYearDate, optional. Cover the period for which we want
             %   the data saved. Incompatible with theseDate option. waterYearDate
             %   overrules theseDate.
@@ -4825,6 +5334,7 @@ classdef ESPEnv < handle
             addParameter(p, 'force', struct());
             addParameter(p, 'optim', struct());
             defaultDate = datetime('today');
+            addParameter(p, 'sourceFileName', '');
             addParameter(p, 'theseDate', datetime('today'));
             addParameter(p, 'thisIndex', 1);
             defaultWaterYearDate = WaterYearDate(datetime('today'), 1, 0);
@@ -4833,6 +5343,7 @@ classdef ESPEnv < handle
             p.StructExpand = false;
             parse(p, varargin{:});
             optim = p.Results.optim;
+            sourceFileName = p.Results.sourceFileName;
             optimFieldNames = fieldnames(defaultOptim);
             for fieldIdx = 1:length(optimFieldNames)
                 thisFieldName = optimFieldNames{fieldIdx};
@@ -4854,10 +5365,8 @@ classdef ESPEnv < handle
             end % to get a start and end.
             complementaryLabel = '';
             
-            if obj.slurmEndDate <= ...
-                datetime('now') + seconds(obj.slurmSafetySecondsBeforeKill)
-                error('ESPEnv:TimeLimit', 'Error, Job has reached its time limit.');
-            end
+            obj.checkSlurmJobStatus(); % Check if job to be cancelled.
+            
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Get file where the data need to be saved.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4868,7 +5377,13 @@ classdef ESPEnv < handle
             if ~isequal(waterYearDate, defaultWaterYearDate)
                 [filePath, fileExists, ~, ~, metaData] = ...
                     obj.getFilePathForWaterYearDate(objectName, dataLabel, ...
-                    waterYearDate);
+                    waterYearDate, optim = optim);
+                if iscell(filePath)
+                  % NB: it should be rather placed in getFilePathForWaterYearDate...
+                  %                                                                @todo
+                  filePath = filePath{1};
+                  fileExists = fileExists(1);
+                end
             else
                 [filePath, fileExists, ~, metaData] = ...
                     obj.getFilePathForDateAndVarName(objectName, dataLabel, ...
@@ -4907,7 +5422,7 @@ classdef ESPEnv < handle
                 objectConf = obj.myConf.landsubdivision(obj.myConf.landsubdivision ...
                     == objectId, :);
             end
-            metaData = [];
+            % metaData = [];
 
 %{
             % WARNING: unused car saving files by parts produce corrupted files in
@@ -5079,50 +5594,124 @@ classdef ESPEnv < handle
                     varData(logical(isNoData)) = outputNoDataValue;
                 end
             else
+%{
                 warning(['%s: No conversion for extension %s or', ...
                     'varName metaData or non numeric data.\n'], ...
                     thisFunction, fileExtension);
+%}
             end
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % .mat file save.
+            % .mat/.tif/.json file save.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Handling and get of the metadata in the .mat file. Not done for other
             % extensions. Only 1 file.
-            if ~strcmp(fileExtension, '.mat')
-                error(['%s: No save possible in other files than .mat right ', ...
-                    'now, %s.'], thisFunction, filePath);
+            if ~ismember(fileExtension, {'.mat', '.json', '.tif'})
+                error(['%s: No save possible in other files than .mat/.json/.tif ', ...
+                    'right now, %s.'], thisFunction, filePath);
             elseif strcmp(varNameWithinFile, '')
                 error(['%s: No variable varName.'], thisFunction);
             end
+            
+            mapCellsReference = [];
+            imageDescription = '';
+            artist = ''; % NB: those instantiate obligatory for the parfor loop after.
+            if strcmp(fileExtension, '.tif')
+                if metaData.objectType ~= 0
+                    error('Can save .tif only for regions, ', ...
+                        'not landsubdivisions, %s, %s, %s.\n', ...
+                        objectName, varNameWithinFile, ...
+                        char(thisDate, 'yyMMdd'));
+                end
+                if fileConf.dimensionInfo ~= 20
+                    % 20: 2 dim: pixel row x pixel column (only one day
+                    % here).
+                    error(['Can save .tif for dimensionInfo ~= 20, ', ...
+                        '%s, %s, %s.\n'], ...
+                        objectName, varNameWithinFile, ...
+                        char(thisDate, 'yyMMdd'));
+                end
+                if strcmp(obj.modisData.inputProduct, 'mod09ga')
+                    sensorDescription = 'MODIS/Terra L3 Daily 500m ';
+                elseif strcmp(modisData.inputProduct, 'vnp09ga')
+                    sensorDescription = 'VIIRS/Suomi NPP L3 Daily 500m ';
+                else
+                    error('Sensor description not available for %s', ...
+                      obj.modisData.inputProduct);
+                end
+                imageDescription = ['id: ', num2str(outputVariable.id(1)), ...
+                '; name: ', outputVariable.name{1}, ...
+                '; divisor: ', sprintf('%.6f', outputVariable.divisor(1)), ...
+                '; min: ', num2str(outputVariable.min(1)), ...
+                '; max: ', num2str(outputVariable.max(1)), ...
+                '; nodata: ', num2str(outputVariable.nodata_value(1)), ...
+                '; unit: ', outputVariable.unit{1}, ...
+                '; multiplicator: ', ...
+                  sprintf('%.6f', outputVariable.multiplicator_for_mosaics(1)), ...
+                '; resamplingFactor: ', num2str(outputVariable.resamplingFactor(1)), ...
+                '; sourceFile: ', sourceFileName, ...
+                '; code: https://github.com/sebastien-lenard/snow-today', ...
+                '; reference: Rittger, K., S. J. P. Lenard, Ross T. Palomaki. ', num2str(year(now)), '. ', sensorDescription, 'SIN Grid SPIReS Snow Cover and Snow Surface Properties, Version ', obj.modisData.versionOf.(dataLabel), '. INSTAAR, University of Colorado, Boulder, CO, USA. Digital Media.'];
+                artist = ['Sebastien Lenard, Karl Rittger, Ross Palomaki, ', ...
+                      num2str(year(now))];
+                
+                regionNamesDynamicallyLinked = fieldnames(obj.regions);
+                if ~ismember(objectName, regionNamesDynamicallyLinked)
+                    region = Regions(objectName, ...
+                        [objectName, '_mask'], obj, obj.modisData);
+                    obj.regions.(objectName) = region;
+                else
+                    region = obj.regions.(objectName);
+                end
+                mapCellsReference = region.getMapCellsReference(resamplingFactor = outputVariable.resamplingFactor(1));
+            end % strcmp(fileExtension, '.tif')
+
             if ~isequal(waterYearDate, defaultWaterYearDate)
-                parfor fileIdx = 1:size(filePath, 2)
-                    % length(filePath) must be = length(theseDate)
+                thatCountOfFiles = size(filePath, 2);
+                if ischar(filePath)
+                  thatCountOfFiles = 1;
+                end
+                parfor fileIdx = 1:thatCountOfFiles
+                    % length(filePath) can be = length(theseDate) or just 1 (spirestime)
+                    if thatCountOfFiles > 1
+                      thisFilePath = filePath{fileIdx};
+                    else
+                      thisFilePath = filePath;
+                    end
                     if strcmp(varNameWithinFile, 'metaData')
+                        if ~strcmp(fileExtension, '.mat')
+                            error(['%s: No save possible of metaData variable ', ...
+                                'in other files than .mat/.json/.tif ', ...
+                                'right now, %s.'], thisFunction, thisFilePath);
+                        end
                         appendFlag = 'append';
                         if ~fileExists(fileIdx)
                             appendFlag = 'new_file';
                         end
-                        Tools.parforSaveAsFieldInFile(filePath, varNameWithinFile, ...
-                            varData, appendFlag);
+                        Tools.parforSaveAsFieldInFile(thisFilePath, ...
+                            varNameWithinFile, varData, appendFlag);
                     else
-                        fileObj = matfile(filePath{fileIdx}, Writable = true);
-                        switch fileConf.dimensionInfo
-                            case 11
-                                % 11: 1 dim column: row*column (reshaped matrix with on
-                                % column with each pixel correspond to a row).
-                                fileObj.(varNameWithinFile) = ...
-                                    varData; % NB: not tested.                  @warning
-                            case {20, 21}
-                                % 20: 2 dim: pixel row x pixel column (only one day
-                                % here).
-                                fileObj.(varNameWithinFile) = ...
-                                      varData(:, :, fileIdx);
-                            case 30
-                                % 30: pixel row x pixel column x day
-                                fileObj.(varNameWithinFile) = varData;
-                                              % NB: not tested.                 @warning
-                        end
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        % .mat files.
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        if strcmp(fileExtension, '.mat')
+                          fileObj = matfile(thisFilePath, Writable = true);
+                          switch fileConf.dimensionInfo
+                              case 11
+                                  % 11: 1 dim column: row*column (reshaped matrix with on
+                                  % column with each pixel correspond to a row).
+                                  fileObj.(varNameWithinFile) = ...
+                                      varData; % NB: not tested.                @warning
+                              case {20, 21}
+                                  % 20: 2 dim: pixel row x pixel column (only one day
+                                  % here).
+                                  fileObj.(varNameWithinFile) = ...
+                                        varData(:, :, fileIdx);
+                              case 30
+                                  % 30: pixel row x pixel column x day
+                                  fileObj.(varNameWithinFile) = varData;
+                                                % NB: not tested.               @warning
+                          end
 %{
                     % WARNING: following produce corrupted files in parallel computing
                     %                                                           @warning
@@ -5146,10 +5735,44 @@ classdef ESPEnv < handle
                                     varData;  % NB: not tested.                 @warning
                         end
 %}
-                    end
-                end
-            else
-                if strcmp(varNameWithinFile, 'metaData')
+
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        % .tif files.
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+                        elseif strcmp(fileExtension, '.tif')
+                            [~, thisFileName, ~] = fileparts(thisFilePath);
+                            geotiffwrite(thisFilePath, varData(:, :, fileIdx), ...
+                                mapCellsReference, ...
+                                GeoKeyDirectoryTag = ...
+                                  obj.modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+                                TiffTags = struct(Compression = 'LZW', ...
+                                  DocumentName = thisFileName, ...
+                                  ImageDescription = imageDescription, ...
+                                  Artist = ['Sebastien Lenard, Karl Rittger, Ross Palomaki, ', ...
+                                    num2str(year(now))] ...
+                                  ));
+                        
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        % .json files.
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        % Json files are used for metadata or configuration.
+                        % varData is then open as a struct.
+                        elseif strcmp(fileExtension, '.json')
+                            if ~isstruct(varData)
+                                error(['varData %s should be struct to be saved ', ...
+                                'in %s.\n'], varName, filePath);
+                            end
+                            text = jsonencode(varData, "PrettyPrint", true);
+                            text = replace(text, {'%'}, {'%%'});
+                            fileID = fopen(thisFilePath, 'w');
+                            fprintf(fileID, text);
+                            fclose(fileID);
+                        end % if strcmp(fileExtension, '.mat')
+                    end %  strcmp(varNameWithinFile, 'metaData')
+                end % parfor fileIdx = 1:size(filePath, 2)
+            else % if ~isequal(waterYearDate, defaultWaterYearDate)
+                if strcmp(varNameWithinFile, 'metaData') && ...
+                    strcmp(fileExtension, '.mat')
                     metaData = varData;
                     saveLabel = '-append';
                     if ~fileExists
@@ -5157,8 +5780,12 @@ classdef ESPEnv < handle
                     end
                     save(filePath, varNameWithinFile, saveLabel);
                 else
-                    fileObj = matfile(filePath, Writable = true);
-                    fileObj.(varNameWithinFile) = varData;
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    % .mat files.
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    if strcmp(fileExtension, '.mat')
+                        fileObj = matfile(filePath, Writable = true);
+                        fileObj.(varNameWithinFile) = varData;
 %{
                     % WARNING: following produce corrupted files in parallel computing
                     %                                                           @warning
@@ -5179,6 +5806,35 @@ classdef ESPEnv < handle
                                 startIdx(3):endIdx(3)) = varData;
                     end
 %}
+                    elseif strcmp(fileExtension, '.tif')
+                         [~, fileName, ~] = fileparts(filePath);
+                        geotiffwrite(filePath, varData, ...
+                          mapCellsReference, ...
+                          GeoKeyDirectoryTag = ...
+                            obj.modisData.projection.modisSinusoidal.geoKeyDirectoryTag, ...
+                          TiffTags = struct(Compression = 'LZW', ...
+                            DocumentName = fileName, ...
+                            ImageDescription = imageDescription, ...
+                            Artist = ['Sebastien Lenard, Karl Rittger, Ross Palomaki, ', ...
+                              num2str(year(now))] ...
+                            ));
+
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    % .json files.
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    % Json files are used for metadata or configuration.
+                    % varData is then open as a struct.
+                    elseif strcmp(fileExtension, '.json')
+                        if ~isstruct(varData)
+                            error(['varData %s should be struct to be saved ', ...
+                            'in %s.\n'], varName, filePath);
+                        end
+                        text = jsonencode(varData, "PrettyPrint", true);
+                        text = replace(text, {'%'}, {'%%'});
+                        fileID = fopen(filePath, 'w');
+                        fprintf(fileID, text);
+                        fclose(fileID);
+                    end
                 end
             end
         end
