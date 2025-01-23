@@ -19,7 +19,8 @@ classdef AncillaryOutput < handle
     modisData = MODISData(label = versionLabel, versionOfAncillary = versionOfAncillary);
     espEnvWOFilter = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
         filterMyConfByVersionOfAncillary = 0);
-
+    dateOfToday = datetime(year(today()), month(today()), day(today()), 12, 0, 0);
+    
     % Get the subdivision names and source regions (to get ancillary version) and
     % the hierarchy from the configuration.
     espEnvWOFilter.setAdditionalConf('landsubdivision', ...
@@ -43,7 +44,7 @@ classdef AncillaryOutput < handle
     ancillaryOutput.writeSubdivisionTypes();
     % ancillaryOutput.writeVariables(); % NB: is stored as static, should change only
     % very rarely.
-    ancillaryOutput.writeRootSubdivisions();
+    ancillaryOutput.writeRootSubdivisions(dateOfToday = dateOfToday);
     subdivisionTable = ancillaryOutput.writeSubdivisionLinks();
     ancillaryOutput.writeSubdivisionMetadata(subdivisionTable);
 %}
@@ -133,7 +134,7 @@ classdef AncillaryOutput < handle
             fprintf(fileResource, text);
             fclose(fileResource);
         end
-        function rootSubdivisionTable = writeRootSubdivisions(obj)
+        function rootSubdivisionTable = writeRootSubdivisions(obj, varargin)
             % Generate the root subdivision conf file (1 file only), listing metadata
             % for root regions and the available variables.
             % NB: subdivision is called region in the web-app.
@@ -142,12 +143,27 @@ classdef AncillaryOutput < handle
             %                                                                      @todo
             % NB: A root region is not displayed if there's no geotiff.
             %
+            % Parameters
+            % ----------
+            % dateOfToday: datetime, optional. Default, today at 12:00:00.
+            %   Controls the date of today given to
+            %   WaterYearDate object, which caps the end date to the day previous to
+            %   dateOfToday.
+            %
             % Return
             % ------
             % rootSubdivisionTable: table. List of root subdivisions which should be
             %     exported to the web-app.
             %   
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            dateOfToday = datetime('today');
+            
+            p = inputParser;
+            addParameter(p, 'dateOfToday', dateOfToday);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            dateOfToday = p.Results.dateOfToday;
+            
             dataLabel = 'landsubdivisionrootinjson';
             outFilePath = obj.espEnvWOFilter.getFilePathForObjectNameDataLabel( ...
                 '', dataLabel);

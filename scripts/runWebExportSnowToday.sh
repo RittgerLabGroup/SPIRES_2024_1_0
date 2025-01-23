@@ -96,7 +96,7 @@ export SLURM_EXPORT_ENV=ALL
 
 # Core script.
 ########################################################################################
-# Main script constants. 
+# Main script constants.
 # Can be overriden by pipeline parameters in configuration.sh, itself can be overriden
 # by main script options.
 scriptId=webExpSn
@@ -144,13 +144,14 @@ try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
   ${espEnvWOFilterInstantiation}
+  dateOfToday = datetime(${dateOfTodayString});
 
   % Get the subdivision names and source regions (to get ancillary version) and
   % the hierarchy from the configuration.
   espEnvWOFilter.setAdditionalConf('landsubdivision', ...
-      confFieldNames = {'name', 'id', 'code', 'subdivisionType', 'sourceRegionId', ...
-      'sourceRegionName', 'used', 'root', 'CRS', 'firstMonthOfWaterYear', ...
-      'version', 'versionOfAncillary'});
+    confFieldNames = {'name', 'id', 'code', 'subdivisionType', 'sourceRegionId', ...
+    'sourceRegionName', 'used', 'root', 'CRS', 'firstMonthOfWaterYear', ...
+    'version', 'versionOfAncillary'});
   espEnvWOFilter.setAdditionalConf('landsubdivisionlink');
   espEnvWOFilter.setAdditionalConf('landsubdivisiontype');
   espEnvWOFilter.setAdditionalConf('webname');
@@ -161,7 +162,9 @@ try;
 
   ancillaryOutput.writeSubdivisionTypes();
   % No ancillaryOutput.writeVariables() because variables are stored in static (github).
-  rootSubdivisionTable = ancillaryOutput.writeRootSubdivisions();
+  rootSubdivisionTable = ancillaryOutput.writeRootSubdivisions(dateOfToday = dateOfToday);
+    % NB: Dont forget to update configuration_of_landsubdivisions with the correct
+    % version (e.g. v2025.0.1) for the root subdivisions.                       @warning
   subdivisionTable = ancillaryOutput.writeSubdivisionLinks();
   ancillaryOutput.writeSubdivisionMetadata(subdivisionTable);
 
@@ -186,7 +189,7 @@ try;
     exporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, varName, ...
       complementaryLabel);
   end;
-  
+
   for rootIdx = 1:height(rootSubdivisionTable);
     % Transfer the geotiffs to SnowToday web-app.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -195,25 +198,30 @@ try;
     % NB: Automatically transfer the last available geotiffs. The root region json file
     % also has its last date of data set to the data date of the last available
     % geotiffs.
-    dataLabel = 'VariablesGeotiff';
+
     complementaryLabel = ['EPSG_', num2str(Regions.webGeotiffEPSG)];
     regionName = '';
     originalEspEnv = exporter.espEnv;
     version = rootSubdivisionTable.version{rootIdx};
     versionOfAncillary = rootSubdivisionTable.versionOfAncillary{rootIdx};
-    
+
     thisEspEnv = ESPEnv.getESPEnvForRegionNameFromESPEnv(regionName, ...
-        originalEspEnv, version = version, ...
-        versionOfAncillary = versionOfAncillary);
+      originalEspEnv, version = version, ...
+      versionOfAncillary = versionOfAncillary);
+    if ismember(thisEspEnv.modisData.versionOf.VariablesGeotiff, {'v2024.0d', 'v2024.1.0'});
+      dataLabel = 'VariablesGeotiff';
+    else;
+      dataLabel = 'spiresdailytifproj';
+    end;
     thisExporter = ExporterToWebsite(thisEspEnv, versionOfAncillariesToExport, ...
-        toBeUsedFlag = toBeUsedFlag);
+      toBeUsedFlag = toBeUsedFlag);
     varNames = unique(thisEspEnv.myConf.variableregion( ...
       thisEspEnv.myConf.variableregion.writeGeotiffs == 1, :).output_name);
-    
+
     for varIdx = 1:length(varNames);
-        varName = varNames{varIdx};
-        thisExporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, ...
-            varName, complementaryLabel);
+      varName = varNames{varIdx};
+      thisExporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, ...
+          varName, complementaryLabel);
     end;
 
     % Transfer the .json plots to SnowToday web-app.
@@ -223,12 +231,12 @@ try;
     varNames = unique(thisEspEnv.myConf.variableregion( ...
         thisEspEnv.myConf.variableregion.writeStats == 1, :).output_name);
     for varIdx = 1:length(varNames);
-        varName = varNames{varIdx};
-        thisExporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, ...
-            varName, complementaryLabel);
+      varName = varNames{varIdx};
+      thisExporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, ...
+        varName, complementaryLabel);
     end;
   end;
-  
+
   % Trigger web-app ingest.
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   exporter.generateAndExportTrigger(); % Beware this will launch ingestion.
