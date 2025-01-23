@@ -6,41 +6,77 @@ classdef DailyDataVisualizer
   %
 %{
   % Use Case for landsat (swiss).
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % output visualization files are in the same directory tree, with folder visualization
   % instead of output.
+  addpath(genpath(getenv('matlabPathForESPToolbox')));
   regionShortName = '042034'; % '194027';
+  regionName = 'p042r034';
   varName = 'snow';
   years = 2013:2024;
-  inputProductAndVersions = {'lc08.l2sp.02.t1', 'lc09.l2sp.02.t1'};
-  thisYear = 2013;
-  inputProductAndVersion = 'lc08.l2sp.02.t1';
+  archivePath = getenv('espArchiveDirNrt');
+  scratchPath = getenv('slurmScratchDir1');
+  inputProducts = {'lc08.l2sp', 'lc09.l2sp'};
+  inputProductVersions = {'02.t1', '02.t1'};
+  label = 'v2024.0';
+  versionOfAncillary = 'v3.2';
+  inputProductIdx = 1;
+  inputProduct = inputProducts{inputProductIdx};
+  inputProductVersion = inputProductVersions{inputProductIdx};
+
+  modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary, ...
+        inputProduct = inputProduct, inputProductVersion = inputProductVersion);
+  espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
+    archivePath = archivePath);
+  region = Regions(regionName, '', espEnv, modisData);
+
   filePathPattern = [getenv('espScratchDir'), inputProductAndVersion, ...
     '/scagdrfs/v2024.0/output/', ...
     regionShortName, '/', num2str(thisYear), '/*', varName, '.tif'];
   [status, cmdout] = ...
     system(['ls ', filePathPattern]);
   filePaths = splitlines(cmdout);
-  dailyDataVisualizer = DailyDataVisualizer();
+  
+  dailyDataVisualizer = DailyDataVisualizer(region);
   for fileIdx = 1:length(filePaths)
     filePathForSnowFractionTif = filePaths{fileIdx};
     if ~isempty(filePathForSnowFractionTif)
       dailyDataVisualizer.generatePngForDailyLandsatScagTif( ...
-        filePathForSnowFractionTif,visible = 1);
+        filePathForSnowFractionTif, visible = 1);
     end
     close;
   end
 %}
+
   properties (Constant)
     colormapDir = fullfile(getenv('espProjectDir'), 'tbx', 'colormaps'); % to put ancillary elsewhere @todo
+    maximalReflectanceValueForRGB = 100  % used to adjust for contrast.
+      % Reflectance > 160 are highly reflective material due to a few restrictive
+      % reasons included strikelights.
+    reflectanceBandsForRGB = {'reflectance_6_1628_1652', ...
+      'reflectance_1_620_670', 'reflectance_3_459_479'};
+      % NB: Order is important.                                                 @warning
   end
   properties
+    region % Regions obj.
     webColorMaps % struct containing all color maps.
   end
 
   methods
-    function obj = DailyDataVisualizer()
+    function obj = DailyDataVisualizer(region)
+      % Constructor.
+      %
+      % Parameters
+      % ----------
+      % region: Regions obj. With name of the pathrow of the landsat scene.
+      %   E.g. for p042r034.
+      %
+      % Return
+      % ------
+      % obj: albedoInversorForLc.
+      obj.region = region;
       webColorMaps = struct();
-      filePath = fullfile(getenv('espProjectDir'), 'tbx', 'conf', 'colormaps.json');
+      filePath = getenv('webColorMapFilePathInJson');
       thoseColorMaps = jsondecode(fileread(filePath));
       colorIds = fieldnames(thoseColorMaps);
       for colorIdx = 1:length(colorIds)
@@ -68,6 +104,7 @@ classdef DailyDataVisualizer
       %         in range [0. 1.], default is 2% saturation, or [0.01 0.99]
       %   xRangeForImageSubset - [int, int]. Default [1, nCols]. 2-element vector with sample begin end range to subset [minColId, maxColId].
       %   yRangeForImageSubset - [int, int]. Default [1, nRows]. 2-element vector with line begin end range to subset [minRowId, maxRowId].
+      %   savingResolution: int.
       %   visible: int. 0, default, figure will not display and is only saved. 1: figure
       %     will display.
       % Optional Input
@@ -150,11 +187,11 @@ classdef DailyDataVisualizer
 
       plotRows = 1;
       plotCols = numel(info.filetype);
-      figure(Units = 'pixels', ...
+      thisFigure = figure(Units = 'pixels', ...
         Position = [0, 0, (plotCols * 400), (plotRows * 400)], visible = visible);
       titleFontSize = 12;
 
-      tiledlayout(plotRows, plotCols, Padding = 'none', TileSpacing = 'compact');
+      tiledlayout(plotRows, plotCols, Padding = 'loose', TileSpacing = 'compact');
       % output Directory.
       outputDirectoryPath = replace(fileparts(filePathForSnowFractionTif), ...
         'output', 'visualization');
@@ -202,7 +239,7 @@ classdef DailyDataVisualizer
         else
           data = readgeoraster(thisFilePath);
           if varIdx == 3
-            data(data <= 5) = 0;
+            data(data < 10) = 0;
             snowEqualsZero = data == 0;
             snowIsNoData = data == 255;
           end
@@ -245,7 +282,8 @@ classdef DailyDataVisualizer
         [~, name, ~] = fileparts(filePathForSnowFractionTif);
         outFilename = fullfile(outputDirectoryPath, ...
           sprintf("%s.dailyvisu.v%02d.png", replace(name, '.snow', ''), version));
-        print(gcf, outFilename, '-dpng', '-r300');
+        exportgraphics(thisFigure, outFilename, 'Resolution', 1200);
+        % print(gcf, outFilename, '-dpng', '-r300');
         fprintf("%s: saved visualization to: %s\n", mfilename(), outFilename);
 
         %close all;
