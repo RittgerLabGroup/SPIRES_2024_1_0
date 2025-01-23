@@ -69,8 +69,8 @@ export SLURM_EXPORT_ENV=ALL
 scriptId=moSpires
 defaultSlurmArrayTaskId=292
 expectedCountOfArguments=
-inputDataLabels=(modisspiressmoothbycell)
-outputDataLabels=(VariablesMatlab modspiresdaily vnpspiresdaily)
+inputDataLabels=(modisspiressmoothbycell spiresdailytifsinu)
+outputDataLabels=(VariablesMatlab modspiresdaily vnpspiresdaily spiresdailytifsinu spiresdailymetadatajson)
 filterConfLabel=
 mainBashSource=${BASH_SOURCE}
 mainProgramName=${BASH_SOURCE[0]}
@@ -106,14 +106,24 @@ try;
   region = Regions(${inputForRegion});
   waterYearDate = WaterYearDate(${inputForWaterYearDate});
   mosaic = Mosaic(region);
-  inputDataLabel = 'modisspiressmoothbycell';
   if ismember(region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) && ismember(modisData.versionOf.VariablesMatlab, {'v2024.0', 'v2024.0d'});
     mosaic.delete(waterYearDate);
+    inputDataLabel = 'modisspiressmoothbycell';
     outputDataLabel = 'VariablesMatlab';
-  else;
+  elseif strcmp(modisData.inputProduct, 'mod09ga');
+    inputDataLabel = 'modspirestimebycell';
     outputDataLabel = 'modspiresdaily';
+  elseif strcmp(modisData.inputProduct, 'vnp09ga');
+    inputDataLabel = 'vnpspirestimebycell';
+    outputDataLabel = 'vnpspiresdaily';
   end;
-  mosaic.writeSpiresData(waterYearDate, inputDataLabel, outputDataLabel);
+  if ismember(modisData.versionOf.spiresdailytifsinu, {'v2024.0', 'v2024.0d', 'v2024.0f'});
+    mosaic.writeSpiresData(waterYearDate, inputDataLabel, outputDataLabel);
+  else;
+    mosaic = [];
+    mosaic = SpiresMosaicAlbedo(region);
+    mosaic.mosaic(waterYearDate);
+  end;
 ${catchExceptionAndExit}
 
 EOM
