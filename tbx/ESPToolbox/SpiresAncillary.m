@@ -88,8 +88,7 @@ classdef SpiresAncillary < handle
       ndvi = NaN([thisSize(1), thisSize(2), length(theseDate)], 'single');
       ndsi = NaN(size(ndvi), 'single');
 
-      dataLabels = struct(mod09ga = 'modspiresdaily', vnp09ga = 'vnpspiresdaily');
-      dataLabel = dataLabels.(modisData.inputProduct);
+      dataLabel = SpiresInversor.dataLabels.(modisData.inputProduct);
       complementaryLabel = '';
       force = struct(resamplingFactor = 1, ...
         resamplingMethod = 'nearest', type = 'single');
