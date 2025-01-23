@@ -260,6 +260,8 @@ classdef Regions < handle
                 LeftKeys = 'varId', RightKeys = 'id', ...
                 LeftVariables = {'writeGeotiffs', 'writeStats', 'isDefault'});
             obj.myConf.variable = thisTable;
+            
+            obj.espEnv.regions.(obj.name) = obj;
         end
         function coordinates = buildModisSinuCoordinatesForReprojection(obj, ...
             geotiffEPSG)
@@ -544,7 +546,13 @@ classdef Regions < handle
                 obj.geotiffCrop.yTop) / 2)];
             yLimit = sort(yLimit);
         end
-        function mapCellsReference = getMapCellsReference(obj)
+        function mapCellsReference = getMapCellsReference(obj, varargin)
+            % Parameter
+            % ---------
+            % resamplingFactor: int, optional. By default 1, if "native resolution"
+            %   used, for modis/viirs 2400x2400 with pixel size 4.633127165279165e+02.
+            %   Put 2 for tiles of 1200x1200.
+            %
             % Return
             % ------
             % mapCellsReference: MapCellsReference object. Of the region object.
@@ -552,13 +560,23 @@ classdef Regions < handle
             % Encapsulates the MODISData getMapCellsReference. Here
             % we need to have the list of all tiles that compose the big region,
             % which we can't have if we only base on the MODISData object.
+            p = inputParser;
+            addParameter(p, 'resamplingFactor', 1);
+            p.StructExpand = false;
+            parse(p, varargin{:});
+            resamplingFactor = p.Results.resamplingFactor;
+            if ~ismember(resamplingFactor, [1, 2])
+              error('BadResamplingFactor', ['Regions:getMapCellsReference(): ', ...
+                'only resamplingFactor of 1 (default) or 2 allowed']);
+            end
+
             modisData = obj.espEnv.modisData;
             horizontalTileIds = zeros([1, length(obj.tileIds)], 'uint8');
             verticalTileIds = zeros([1, length(obj.tileIds)], 'uint8');
             for idx = 1:length(obj.tileIds)
                 positionalTileData = ...
                     modisData.getTilePositionIdsAndColumnRowCount( ...
-                    obj.tileIds{idx});
+                    obj.tileIds{idx}, resamplingFactor = 1);
                 horizontalTileIds(idx) = positionalTileData.horizontalId;
                 verticalTileIds(idx) = positionalTileData.verticalId;
             end
@@ -566,12 +584,13 @@ classdef Regions < handle
             positionalData.verticalId = min(verticalTileIds);
             positionalData.columnCount = ...
                 modisData.georeferencing.tileInfo.columnCount * ...
-                length(unique(horizontalTileIds));
+                length(unique(horizontalTileIds)); % / resamplingFactor;
             positionalData.rowCount = ...
                 modisData.georeferencing.tileInfo.rowCount * ...
-                length(unique(verticalTileIds));
+                length(unique(verticalTileIds)); % / resamplingFactor;
 
-            mapCellsReference = obj.modisData.getMapCellsReference(positionalData);
+            mapCellsReference = obj.modisData.getMapCellsReference(positionalData, ...
+              resamplingFactor = resamplingFactor);
         end
         function outCellsReference = getOutCellsReference(obj, geotiffEPSG)
             % Parameters
