@@ -225,7 +225,13 @@ classdef AncillaryOutput < handle
                     % getESPEnvForRegionNameFromESPEnv(). Modify the method?       @todo
                 
                 objectName = rootSubdivisionTable.sourceRegionName{rootIdx};
-                dataLabel = 'VariablesGeotiff';
+                % TEMPORARY dataLabel til v2024.0d for website prod deprecated. 20241210.
+                if ismember(thisEspEnv.modisData.versionOf.VariablesGeotiff, ...
+                    {'v2024.0d'})
+                    dataLabel = 'VariablesGeotiff';
+                else
+                    dataLabel = 'spiresdailytifproj';
+                end
                     % NB: Actually both are required, geotiff + stats.             @todo
                 
                 % Get the variables and build the array of sensor sources for the
@@ -236,7 +242,7 @@ classdef AncillaryOutput < handle
                     RightVariables = {'id', 'output_name', 'nodata_value', ...
                     'web_longname', ...
                     'web_colormap_value_min', 'web_colormap_value_max', ...
-                    'web_sensor_text'});
+                    'web_colormap_is_dynamic', 'web_sensor_text'});
                 regionVarConf = sortrows(regionVarConf, ...
                 {'web_sensor_text', 'web_longname'});
                     % variables ordered by sensor/source names and variable names.
@@ -274,8 +280,7 @@ classdef AncillaryOutput < handle
                     % historicWaterYearRange, historicSource. NB: historicSource should
                     % be DYNAMIC                                                   @todo
                     % NB: what if there is only the not_processed geotiff?         @todo
-                    
-                    dataLabel = 'VariablesGeotiff';
+
                     thisDate = '';
                     varName = thisVarConf.id(varIdx); % And not output_name.
                         % NB: a bit confusional, should find a solution in file name
@@ -325,9 +330,25 @@ classdef AncillaryOutput < handle
                     varMetadata.colormap_value_range = ...
                         [thisVarConf.web_colormap_value_min(varIdx), ...
                         thisVarConf.web_colormap_value_max(varIdx)];
-                        % dataValueRange. Should be dynamic. Specs to clarify.     @todo
+                    % Dynamic for albedos, deltavis, radiative forcing Seb 20241125.
+                    if thisVarConf.web_colormap_is_dynamic(varIdx) == 1
+                      [varData, ~] = readgeoraster(filePath);
+                      thatClass = class(varData);
+                      thatMinMax = ...
+                        prctile(varData(varData ~= intmax(thatClass)), [5 95], "all");
+                      % obsolete. thatMin = min(varData(varData ~= intmax(thatClass)), [], 'all');
+                      % obsolete. thatMax = max(varData(varData ~= intmax(thatClass)), [], 'all');
+                      varData = [];
+                      if strcmp(thatClass, 'uint8')
+                        varMetadata.colormap_value_range = ...
+                          [floor(thatMinMax(1) / 5) * 5, ceil(thatMinMax(2) / 5) * 5];
+                      elseif strcmp(thatClass, 'uint16')
+                        varMetadata.colormap_value_range = ...
+                          [floor(thatMinMax(1) / 50) * 50, ceil(thatMinMax(2) / 50) * 50];
+                      end
+                    end
+                    
                     % Geotiff relative paths in json.
-                    dataLabel = 'VariablesGeotiff';
                     thisDate = '';
                     varName = thisVarConf.id(varIdx); % And not output_name.
                         % NB: a bit confusional, should find a solution in file name
