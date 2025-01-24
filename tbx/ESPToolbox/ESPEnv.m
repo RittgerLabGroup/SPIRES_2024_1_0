@@ -2958,7 +2958,7 @@ classdef ESPEnv < handle
                     % Copy the file from the archive if present in archive ...
                     archiveFilePath = strrep( ...
                         thatFilePath, obj.scratchPath, obj.archivePath);
-                    if isdir(archiveFilePath)
+                    if isdir(archiveFilePath) || isfile(archiveFilePath)
                       cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
                       fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
                       [status, cmdout] = system(cmd);
@@ -3080,7 +3080,7 @@ classdef ESPEnv < handle
             if ~fileExists && ~ismember(dataLabel, {'espjobforscancel'})
                 % Copy the file from the archive if present in archive ...
                 archiveFilePath = strrep(filePath, obj.scratchPath, obj.archivePath);
-                if isdir(archiveFilePath)
+                if isdir(archiveFilePath) | isfile(archiveFilePath)
                   cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', filePath];
                   fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
                   [status, cmdout] = system(cmd);
