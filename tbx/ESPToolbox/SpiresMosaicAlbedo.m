@@ -4,11 +4,6 @@ classdef SpiresMosaicAlbedo < handle
   properties
     region  % Regions Obj.
   end
-  properties(Constant)
-    dataLabels = struct( ...
-      mod09ga = 'modspiresdailytifsinu', ...
-      vnp09ga = 'vnpspiresdailytifsinu');
-  end
   methods(Static)
     function mu = sunslope( mu0, phi0, S,A )
       %sunslope cosine of illumination angle on slope
@@ -110,7 +105,7 @@ classdef SpiresMosaicAlbedo < handle
       theseDates = waterYearDate.getDailyDatetimeRange();
 
       inputDataLabel = SpiresTimeInterpolator.dataLabels.(modisData.inputProduct);
-      outputDataLabel = obj.dataLabels.(modisData.inputProduct);
+      outputDataLabel = SpiresInversor.dataLabels.(modisData.inputProduct);
       [outputVariable, ~] = espEnv.getVariable(outputDataLabel, ...
         inputDataLabel = inputDataLabel);
       [albedoVariable, ~] = espEnv.getVariable(outputDataLabel, ...
