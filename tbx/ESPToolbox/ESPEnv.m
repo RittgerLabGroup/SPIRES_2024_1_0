@@ -530,19 +530,29 @@ classdef ESPEnv < handle
             % to exist, but apparently randomly this is not the case.
             if ~isempty(getenv('SLURM_SCRATCH')) && ...
                 isfolder(getenv('SLURM_SCRATCH')) && ...
-                ~isempty(getenv('SLURM_ARRAY_JOB_ID'))
+                ~isempty(getenv('SLURM_ARRAY_JOB_ID')) && ...
+                ~isempty(getenv('SLURM_ARRAY_TASK_ID'))
+                    obj.parallelismConf.jobStorageLocation = ...
+                        fullfile(getenv('SLURM_SCRATCH'), ...
+                            [getenv('SLURM_ARRAY_JOB_ID'), '_', ...
+                            getenv('SLURM_ARRAY_TASK_ID')]);
+            elseif ~isempty(getenv('SLURM_SCRATCH')) && ...
+                isfolder(getenv('SLURM_SCRATCH')) && ...
+                ~isempty(getenv('SLURM_JOB_ID'))
                 obj.parallelismConf.jobStorageLocation = ...
                     fullfile(getenv('SLURM_SCRATCH'), ...
-                        getenv('SLURM_ARRAY_JOB_ID'));
-                if ~isfolder(obj.parallelismConf.jobStorageLocation)
-                    mkdir(obj.parallelismConf.jobStorageLocation)
-                end
+                        getenv('SLURM_JOB_ID'));
+                
             % if not in a job, but still on a linux machine
             elseif ~isempty(getenv('TMPDIR'))
                 obj.parallelismConf.jobStorageLocation = getenv('TMPDIR');
             % if Windows machine
             else
                 obj.parallelismConf.jobStorageLocation = getenv('TMP');
+            end
+            
+            if ~isfolder(obj.parallelismConf.jobStorageLocation)
+                mkdir(obj.parallelismConf.jobStorageLocation)
             end
 
             % Initialize lastCall properties.
@@ -591,12 +601,21 @@ classdef ESPEnv < handle
 
             % If no pool (or previous pool shut down), create a new pool.
             if isempty(S.pool)
+                tic;
                 S.cluster = parcluster('local');
+                fprintf('Parallel cluster local instantiated in %.2f mins.\n', ...
+                    toc / 60);
                 S.cluster.JobStorageLocation = jobStorageLocation;
+                fprintf('Job storage location: %s.\n', ...
+                    S.cluster.JobStorageLocation);
                 if maxWorkers == 0 || maxWorkers > S.cluster.NumWorkers
                     maxWorkers = S.cluster.NumWorkers;
                 end
+                tic;
+                fprintf('%s: Parallel cluster local submitting...\n', ...
+                    char(datetime('now'), 'yyyyMMdd HH:mm:ss'));
                 S.pool = parpool(S.cluster, maxWorkers, IdleTimeout = 60 * 24); % 2024-07-14 no automatic shutdown of a pool before a day (spiresFill constraints)
+                fprintf('Parallel cluster local launched in %.2f mins.\n', toc / 60);
                 S.cluster.disp();
             end
             S.pool.disp();
