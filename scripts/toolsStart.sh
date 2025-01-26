@@ -197,9 +197,10 @@ if [ -v SLURM_JOB_ID ] && [ ! -v USER ]; then
 fi
 
 if [[ $SLURM_ARRAY_TASK_ID -ne $SLURM_ARRAY_TASK_MIN ]]; then
-  printf "Not first task of the job. Waiting 10 sec...\n"
+  sleepingTime=$(echo "5 + $RANDOM % ${SLURM_ARRAY_TASK_COUNT} * 0.3" | bc)
+  printf "Not first task of the job. Waiting %.2f sec...\n" $sleepingTime
   # Additional security against file locks.
-  sleep 10
+  sleep ${sleepingTime};
 fi
 ########################################################################################
 # 2. Get the slurm variables.
