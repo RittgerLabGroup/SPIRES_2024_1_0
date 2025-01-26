@@ -6,8 +6,30 @@ classdef SpiresMosaicAlbedo < handle
   end
   properties(Constant)
     dataLabels = struct( ...
-      mod09ga = 'spiresdailytifsinu', ...
-      vnp09ga = 'spiresdailytifsinu');
+      mod09ga = 'modspiresdailytifsinu', ...
+      vnp09ga = 'vnpspiresdailytifsinu');
+  end
+  methods(Static)
+    function mu = sunslope( mu0, phi0, S,A )
+      %sunslope cosine of illumination angle on slope
+      % From Jeff's parbal package.
+      %
+      % mu = sunslope( mu0,phi0,S,A )
+      %
+      % Input (angles in degrees)
+      %   mu0, cosine of sun angle on flat surface
+      %   phi0, sun azimuth, degrees, +ccw from south
+      %   S, slope angle, degrees, from horizontal
+      %   A, slope azimuth, degrees, +ccw from south
+
+      mu = mu0.*cosd(S) + sqrt((1-mu0).*(1+mu0)).*sind(S).*cosd(phi0-A);
+      if isscalar(mu) && mu<0
+        mu = 0;
+      else
+        t = mu<0;
+        mu(t) = 0;
+      end
+    end
   end
   methods
     function obj = SpiresMosaicAlbedo(region)
@@ -23,8 +45,8 @@ classdef SpiresMosaicAlbedo < handle
     end
     function mosaic(obj, waterYearDate, varargin)
       % Mosaicing of the time interpolator cell output into 1 file per tile(region)
-      % water year, calculates deltavis, radiative forcing and albedos, and save in 
-      % the daily files. This mosaicing is necessary because the 
+      % water year, calculates deltavis, radiative forcing and albedos, and save in
+      % the daily files. This mosaicing is necessary because the
       % load of the 36 cells per day per variable during the repatriation of data to
       % spiresdaily file was taking one min per variable per day...
       %
@@ -53,7 +75,7 @@ classdef SpiresMosaicAlbedo < handle
       espEnv = obj.region.espEnv;
       modisData = espEnv.modisData;
       objectName = obj.region.name;
-      
+
       defaultOptim = struct(cellIdx = [1, 1], ...
         countOfCellPerDimension = [1, 1], force = 0, logLevel = 0, ...
         parallelWorkersNb = 0);
@@ -81,7 +103,7 @@ classdef SpiresMosaicAlbedo < handle
         join(num2str(optim.cellIdx), ', '), ...
         join(num2str(optim.countOfCellPerDimension), ', '), ...
         optim.force, optim.logLevel, optim.parallelWorkersNb);
-      
+
       % Determination of the time window for valid observation detection and
       % interpolation, based on raw_viewable_snow_fraction_s data.
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -95,7 +117,7 @@ classdef SpiresMosaicAlbedo < handle
         inputDataLabel = outputDataLabel);
       albedoVariable = albedoVariable( ...
         ismember(albedoVariable.id, [62, 63, 96, 99]), :);
-  
+
       % Check files and their dates.
       % NB: we assume it's the same set of files for all the dates of the
       %   called waterYearDate.                                           @warning
@@ -131,12 +153,21 @@ classdef SpiresMosaicAlbedo < handle
       thisFilePath = filePath{1};
       fprintf('Testing validity of %s...\n', thisFilePath);
       fileObj = matfile(thisFilePath);
+        % NB: The files are big, these calls to matfile take time. Hopefully, the
+        % info might be saved within matlab for further calls?                  @warning
       inputFileDates = fileObj.theseDates;
+      thisDate = inputFileDates(end);
+      if thisDate ~= waterYearDate.thisDatetime
+        waterYearDate = waterYearDate.shortenToDate(thisDate);
+        theseDates = waterYearDate.getDailyDatetimeRange();
+        warning('Last date of file %s used to shorten waterYearDate.\n', ...
+          char(thisDate, 'yyyy-MM-dd'));
+      end
       for filePathIdx = 2:length(filePath)
         thisFilePath = filePath{filePathIdx};
         fprintf('Testing validity of %s...\n', thisFilePath);
         fileObj = matfile(thisFilePath);
-          % Raise an error if inexistent file or file corrupted (but don't 
+          % Raise an error if inexistent file or file corrupted (but don't
           % detect all corruption cases.                            @warning
         thoseDates = fileObj.theseDates;
         if ~isequal(thoseDates, inputFileDates)
@@ -149,15 +180,16 @@ classdef SpiresMosaicAlbedo < handle
       fprintf('%s-%s: Tested validity of input in %.2f mins.\n\n', ...
         thisFunctionCode, char(thisDate, 'yyyyMMdd'), ...
         toc / 60, varName);
-      
+
       % Get the wateryear data for each variable and save them in each spiresdaily file.
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       varDataGetAndSaveTimer = tic;
       data = struct();
       isData = 0;
 
-      outputFilePath = espEnv.getFilePathForWaterYearDate(objectName, ...
-        outputDataLabel, waterYearDate);
+      % @obsolete 20250125. outputFilePath = espEnv.getFilePathForWaterYearDate(objectName, ...
+      %  outputDataLabel, waterYearDate);
+      complementaryLabel = '';
 
       S.pool = gcp('nocreate');
       countOfDateBlocks = ceil(length(theseDates) / S.pool.NumWorkers);
@@ -177,7 +209,7 @@ classdef SpiresMosaicAlbedo < handle
           error([thisFunctionCode, ':noData'], 'Error No data for variable %s.\n', ...
             varName);
         end
-        
+
         tic
         % Small try by a pre-for loop to reduce size of matrix used by parallel workers.
         for dateBlockIdx = 1:countOfDateBlocks
@@ -185,9 +217,15 @@ classdef SpiresMosaicAlbedo < handle
             min((dateBlockIdx) * S.pool.NumWorkers, length(theseDates));
           thatData = varData(:, :, thoseDateIndices);
           thoseDates = theseDates(thoseDateIndices);
-          
+
           parfor dateIdx = 1:length(thoseDates)
             thisDate = thoseDates(dateIdx);
+            if (dateIdx == 1)
+              outputFilePath = espEnv.getFilePathForDateAndVarName(objectName, ...
+                outputDataLabel, thisDate, varName, complementaryLabel);
+              fprintf('Saving %s and %d following files...\n', outputFilePath, ...
+                length(thoseDates));
+            end
             espEnv.saveData(thatData(:, :, dateIdx), objectName, ...
                 outputDataLabel, theseDate = thisDate, varName = varName);
             % Metadata from the configuration file for this variable...
@@ -224,7 +262,7 @@ classdef SpiresMosaicAlbedo < handle
         fprintf('%s-%s: Data saved in %.2f mins, variable %s.\n\n', ...
           thisFunctionCode, char(thisDate, 'yyyyMMdd'), ...
           toc / 60, varName);
-          
+
         % Only keep the data necessary for calculation of radiative
         % forcing, deltavis and albedos.
         if ismember(varName, ...
@@ -236,21 +274,21 @@ classdef SpiresMosaicAlbedo < handle
               isData = isData & data.(varName) ~= intmax('uint16');
           end
           % NB: isData can be different for grain size and dust,
-          % mainly in summer and early fall. 
+          % mainly in summer and early fall.
         end
       end % for varIdx.
       varData = [];
       fprintf('%s-%s: Data got and saved in %.2f mins.\n\n', ...
         thisFunctionCode, char(thisDate, 'yyyyMMdd'), ...
         toc(varDataGetAndSaveTimer) / 60);
-      
+
       albedoCalculatorTimer = tic;
       % calculation of radiative forcing, deltavis and albedos.
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       % Dirty albedo and radiative forcing from Jeff lookup tables.
       albedoForcingCalculator = AlbedoForcingCalculator(obj.region);
       % solar zenith.
-      % Spatial interpolation method to rescale rasters at 1 km to 500m 
+      % Spatial interpolation method to rescale rasters at 1 km to 500m
       % with imresize.
       tic;
       data.grain_size_s = ...
@@ -273,7 +311,7 @@ classdef SpiresMosaicAlbedo < handle
         force = force);
       mu0 = cosd(single(data.solar_zenith(isData)));
       data.solar_zenith = [];
-      
+
       data.grain_size_s = sqrt(single(data.grain_size_s));
           % grain_size is converted to sqrt for AlbedoLookup.
       data.dust_concentration_s = single(data.dust_concentration_s) ...
@@ -283,7 +321,7 @@ classdef SpiresMosaicAlbedo < handle
       fprintf('%s-%s: Albedo step 1 in %.2f mins.\n\n', ...
           thisFunctionCode, char(thisDate, 'yyyyMMdd'), ...
           toc / 60);
-      
+
       tic
       varName = 'albedo_s';
       data.(varName) = intmax('uint8') * ones(size(isData), 'uint8');
@@ -303,7 +341,7 @@ classdef SpiresMosaicAlbedo < handle
           min((dateBlockIdx) * S.pool.NumWorkers, length(theseDates));
         thatData = data.(varName)(:, :, thoseDateIndices);
         thoseDates = theseDates(thoseDateIndices);
-        
+
         parfor dateIdx = 1:length(thoseDates)
           thisDate = thoseDates(dateIdx);
           espEnv.saveData(thatData(:, :, dateIdx), objectName, ...
@@ -331,7 +369,7 @@ classdef SpiresMosaicAlbedo < handle
           min((dateBlockIdx) * S.pool.NumWorkers, length(theseDates));
         thatData = data.(varName)(:, :, thoseDateIndices);
         thoseDates = theseDates(thoseDateIndices);
-        
+
         parfor dateIdx = 1:length(thoseDates)
           thisDate = thoseDates(dateIdx);
           espEnv.saveData(thatData(:, :, dateIdx), objectName, ...
@@ -342,7 +380,7 @@ classdef SpiresMosaicAlbedo < handle
       fprintf('%s-%s: Data saved in %.2f mins, variable %s.\n\n', ...
         thisFunctionCode, char(thisDate, 'yyyyMMdd'), ...
         toc / 60, varName);
-      
+
       tic
       varName = 'radiative_forcing_s';
       data.(varName) = intmax('uint16') * ones(size(isData), 'uint16');
@@ -359,7 +397,7 @@ classdef SpiresMosaicAlbedo < handle
           min((dateBlockIdx) * S.pool.NumWorkers, length(theseDates));
         thatData = data.(varName)(:, :, thoseDateIndices);
         thoseDates = theseDates(thoseDateIndices);
-        
+
         parfor dateIdx = 1:length(thoseDates)
           thisDate = thoseDates(dateIdx);
           espEnv.saveData(thatData(:, :, dateIdx), objectName, ...
@@ -378,7 +416,7 @@ classdef SpiresMosaicAlbedo < handle
       aspect = ...
         repmat(espEnv.getDataForObjectNameDataLabel(objectName, 'aspect'), ...
           [1, 1, size(isData, 3)]);
-      
+
       % solar azimuth.
       varName = 'solar_azimuth';
       data.(varName) = espEnv.getDataForWaterYearDateAndVarName( ...
@@ -393,14 +431,14 @@ classdef SpiresMosaicAlbedo < handle
       % Based on conversation with Dozier, Aug 2023:
       % N.B.: phi0 and aspect must be referenced to the same
       % angular convention for this function to work properly
-      muZ = Mosaic.sunslope(mu0, single(phi0), single(slope(isData)), ...
+      muZ = obj.sunslope(mu0, single(phi0), single(slope(isData)), ...
           single(aspect(isData)));
       mu0 = [];
       phi0 = [];
       muZ(muZ > 1.0) = 1.0; % 2024-01-05, occasionally ParBal.sunslope()
           % returns a few 10-16 higher than 1 (h24v05, 2011/01/08)
           % Patch should be inserted in ParBal.sunslope().
-      
+
       varName = 'albedo_muZ_s';
       data.(varName) = intmax('uint8') * ones(size(slope), 'uint8');
       data.(varName)(isData) = uint8( ...
@@ -418,7 +456,7 @@ classdef SpiresMosaicAlbedo < handle
           min((dateBlockIdx) * S.pool.NumWorkers, length(theseDates));
         thatData = data.(varName)(:, :, thoseDateIndices);
         thoseDates = theseDates(thoseDateIndices);
-        
+
         parfor dateIdx = 1:length(thoseDates)
           thisDate = thoseDates(dateIdx);
           espEnv.saveData(thatData(:, :, dateIdx), objectName, ...
@@ -429,7 +467,7 @@ classdef SpiresMosaicAlbedo < handle
       fprintf('%s-%s: Data saved in %.2f mins, variable %s.\n\n', ...
         thisFunctionCode, char(thisDate, 'yyyyMMdd'), ...
         toc / 60, varName);
-      
+
       fprintf(['%s-%s: Albedo/radiative forcing/deltavis ', ...
           'determined in %.2f mins.\n\n'], ...
           thisFunctionCode, char(thisDate, 'yyyyMMdd'), ...
