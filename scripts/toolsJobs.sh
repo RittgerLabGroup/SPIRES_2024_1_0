@@ -4,6 +4,8 @@
 
 slurmTerminatedStates=(BOOT_FAIL CANCELLED COMPLETED DEADLINE FAILED NODE_FAIL OUT_OF_MEMORY TIMEOUT)
 
+pStart() { date "+%m%dT%H:%M"; };
+
 # Functions.
 ########################################################################################
 # On Blanca, seff is not systematically found. We bypass this by a direct handling
