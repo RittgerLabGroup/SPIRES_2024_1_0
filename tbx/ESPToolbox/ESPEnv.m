@@ -603,19 +603,20 @@ classdef ESPEnv < handle
             if isempty(S.pool)
                 tic;
                 S.cluster = parcluster('local');
-                fprintf('Parallel cluster local instantiated in %.2f mins.\n', ...
-                    toc / 60);
+                fprintf('%s: Parallel cluster local instantiated in %.2f mins.\n', ...
+                    pStart(), toc / 60);
                 S.cluster.JobStorageLocation = jobStorageLocation;
-                fprintf('Job storage location: %s.\n', ...
-                    S.cluster.JobStorageLocation);
+                fprintf('%s: Job storage location: %s.\n', ...
+                    pStart(), S.cluster.JobStorageLocation);
                 if maxWorkers == 0 || maxWorkers > S.cluster.NumWorkers
                     maxWorkers = S.cluster.NumWorkers;
                 end
                 tic;
                 fprintf('%s: Parallel cluster local submitting...\n', ...
-                    char(datetime('now'), 'yyyyMMdd HH:mm:ss'));
+                    pStart());
                 S.pool = parpool(S.cluster, maxWorkers, IdleTimeout = 60 * 24); % 2024-07-14 no automatic shutdown of a pool before a day (spiresFill constraints)
-                fprintf('Parallel cluster local launched in %.2f mins.\n', toc / 60);
+                fprintf('%s: Parallel cluster local launched in %.2f mins.\n', ...
+                    pStart(), toc / 60);
                 S.cluster.disp();
             end
             S.pool.disp();
