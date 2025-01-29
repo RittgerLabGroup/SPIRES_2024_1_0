@@ -138,7 +138,7 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 6,20,spires,peakFixingStartDay,,,214,,,,,1st Apr for northern hemisphere
 6,21,spires,imresizeInterpolationMethod,,,3,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Neds code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
 6,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
-6,23,spires,spiresBackgroundReflectanceSourceForModis,,,1,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023."
+6,23,spires,spiresBackgroundReflectanceSourceForModis,,,1,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023. [not used in SpiresInversor]"
 6,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
 6,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
 6,26,spires,setToNoObservationBelowThisValueOfRawSnowFraction,,,10,,,,,"When raw_viewable_snow_fraction_s is equal or below this value, the observation is not taken into account in time interpolation"
@@ -225,8 +225,8 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 106,19,spires,peakFixingDayWithoutCorrection,,,7,,,,,Nd
 106,20,spires,peakFixingStartDay,,,214,,,,,1st Apr for northern hemisphere
 106,21,spires,imresizeInterpolationMethod,,,1,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Neds code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
-106,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
-106,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023."
+106,22,spires,spiresModelForModis,,,0,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow (?)"
+106,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023. [not used in SpiresInversor]"
 106,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
 106,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
 106,26,spires,setToNoObservationBelowThisValueOfRawSnowFraction,,,10,,,,,"When raw_viewable_snow_fraction_s is equal or below this value, the observation is not taken into account in time interpolation"
@@ -312,7 +312,7 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 206,20,spires,peakFixingStartDay,,,214,,,,,1st Apr for northern hemisphere
 206,21,spires,imresizeInterpolationMethod,,,1,,,,,"1: nearest, 2: bilinear, 3: bicubic. 3 for Neds code and v2024.0e. 1 for v2024.0f.  Spatial interpolation method to rescale rasters at 1 km to 500m with imresize."
 206,22,spires,spiresModelForModis,,,1,,,,,"0: default model (lookup table for spires inversion) by Jeff, 1: model lookup table created by Ned 2023. BEWARE Lookup table by Jeff makes inversion too slow"
-206,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023."
+206,23,spires,spiresBackgroundReflectanceSourceForModis,,,0,,,,,"0: default background reflectance calculated for 2019 with Neds code, 1: background reflectance supplied by Ned 2023. [not used in SpiresInversor]"
 206,24,spires,interpOverlapMonthWindow,,,3,,,,,"a period of x months from the previous year is added to the dataset to be used for interpolation, to avoid making interpolation on a too short period, potentially full of no data because of clouds."
 206,25,spires,interpMonthWindowBelowWhichOverlapIsRequired,,,6,,,,,"Below this number of months, an overlap with the previous waterYear is used for interpolation. NB: this can't work if we don't have data of at least a full first waterYear."
 206,26,spires,setToNoObservationBelowThisValueOfRawSnowFraction,,,10,,,,,"When raw_viewable_snow_fraction_s is equal or below this value, the observation is not taken into account in time interpolation"
