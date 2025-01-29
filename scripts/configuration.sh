@@ -46,7 +46,7 @@ thoseVersionsOfAncillary[5]=v3.1
 ########################################################################################
 
 pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daGeoBig daStatis webExpSn ftpExpor)
-pipeLineLabels1=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
+pipeLineLabels1=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.1.0 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
 pipeLineRegionTypes1=(0 0 0 0 0 0 1 1 1 10 10)
   # 0: tile, 1: big region, 10: all regions.
 pipeLineSequences1=(0 0 001-036 0 0 0 0 0 001-033 0 0)
@@ -149,7 +149,7 @@ printf -v pipeLineTimesString2 '%s ' ${pipeLineTimes2[@]}
 # Pipeline 3, for regions with implementation >= v2024.0f.
 ########################################################################################
 # pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daGeoBig daStatis webExpSn)
-thatLabel=v2025.nrt; # v2024.0f
+thatLabel=v2025.0.1; # v2024.0f
 pipeLineScriptIds3=(mod09gaI spiInver spiTimeI moSpires daNetCDF daGeoBig daStatis webExpSn)
 pipeLineLabels3=(v061 ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel})
 pipeLineRegionTypes3=(0 0 0 0 0 1 1 10)
