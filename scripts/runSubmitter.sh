@@ -64,6 +64,24 @@ EOM
   printf "$thisUsage\n" 1>&2
 }
 
+check_scancel_for_submitter() {
+  # Check if scancel is required for the ongoing runSubmitter job, based on a flag file
+  # on operator's scratch, espJobs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_scancel.txt
+  
+  scancelSubmitterFilePath=${espScratchDir}espJobs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_scancel.txt
+
+  if [[ -f ${scancelSubmitterFilePath} ]]; then
+    printf "\n\n\n\n"
+    printf "#############################################################################\n"
+    printf "Detected flag file ${scancelSubmitterFilePath}:\n"
+    printf "Cancelling job ...\n"
+    printf "#############################################################################\n"
+    printf "Submitter job cancelled. (Pipeline stopped).\n"
+    printf "\nend:ERROR.\n"
+    exit 1
+  fi
+}
+
 export SLURM_EXPORT_ENV=ALL
 
 # Core script.
@@ -78,10 +96,16 @@ if [ ! -v SLURM_JOB_ID ]; then
 fi
 
 source scripts/toolsJobs.sh
+  # Include $slurmTerminatedStates
 
 # Get info on the runSubmitter job.
 submitterSlurmFullJobId=${SLURM_JOB_ID}
 printf "Job ${SLURM_JOB_ID}.\n"
+
+pwd
+printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
+printf "$(bash --version | grep version | head -1)\n"
+printf "#############################################################################\n\n"
 
 printf "\n\n\n\n"
 printf "#############################################################################\n"
@@ -110,6 +134,7 @@ jobSynthesisFilePath=
 isFatalError=
 
 while [ ! -z $thatArrayJobId ]; do
+  check_scancel_for_submitter
   jobName=$(echo $submitLine | sed -E 's~[^@]+ --job-name=([/_%\.0-9a-zA-Z]+) [^@]+~\1~')
   printf "Track logs of ${jobName} ${thatArrayJobId}, for submitLine:\n"
   echo $(date '+%H:%M:%S')": ${submitLine}"
@@ -163,9 +188,11 @@ EOM
   # If first task in error, end of the loop and full resubmission (as if it was next
   # job in pipeline, but no record in synthesis).
   while [[ $countOfTaskIdDone -ne $countOfTaskId ]] && [[ firstTaskInError -ne 1 ]]; do
+    check_scancel_for_submitter
     #sleep $(( 30 * 1 ))
     sleep $(( 60 * 5 ))
       # wait 5 mins
+    check_scancel_for_submitter
     date '+%d/%m/%Y %H:%M:%S'
     updatedSynthesis="${updatedSynthesisHeader}\n"
     countOfTasksForArrayJobIds=${#tasksForArrayJobIds[@]}
@@ -204,7 +231,7 @@ EOM
         thisCurrentArrayJobIdForTaskId=${currentArrayJobIdForTaskIds[${thisTaskId}]}
         printf "currentArrayJobIdForTaskIds: ${thisCurrentArrayJobIdForTaskId}, thisArrayJobId: ${thisArrayJobId}.\n"
         if [[ $thisStatus == *"end:ERROR"* ]] && [[ ${currentArrayJobIdForTaskIds[${thisTaskId}]} -eq $thisArrayJobId ]]; then
-          if [[ $thisStatus == *"Exit=1"* ]] && [[ $thisStatus != *"MATLAB:load:couldNotReadFile"* ]] && [[ $thisStatus != *"MATLAB:MatFile:NoFile"* ]]; then
+          if [[ $thisStatus == *"Exit=1,"* ]] && [[ $thisStatus != *"MATLAB:load:couldNotReadFile"* ]] && [[ $thisStatus != *"MATLAB:MatFile:NoFile"* ]] && [[ $thisStatus != *"MATLAB:save:NotAMATFile"* ]] && [[ $thisStatus != *"MATLAB:whos:badVariableName"* ]] && [[ $thisStatus != *"MATLAB:imagesci:h5info:unableToFind"* ]]; then
             # MATLAB:load:couldNotReadFile and MATLAB:MatFile:NoFile can occur when
             # files were deleted from scratch and didnt have been synchronized from
             # archive to scratch.
@@ -234,12 +261,34 @@ EOM
       # If first task in error, we cancel the job and resubmit everything (it's because the first task is the one which will launch the next task in pipeline.
       if [[ ${theseTaskIdsToResubmit} == *"${tasksForArrayJobIds[0]}"* ]]; then
         firstTaskInError=1
-        printf "First task in error, scancel ${arrayJobIds[0]}.\n"
-        scancel ${arrayJobIds[0]}
+        printf "First task in error, stopping jobs for ${arrayJobIds[0]}.\n"
+        for ((idx = 0 ; idx < $countOfTasksForArrayJobIds ; idx++ )); do
+          thisTaskId=${tasksForArrayJobIds[$idx]}
+          thisArrayJobId=${arrayJobIds[$idx]}
+          touch ${espScratchDir}espJobs/${thisArrayJobId}_${thisTaskId}_scancel.txt
+        done
+        allAreTerminated=0
+        while [[ $allAreTerminated -ne 1 ]]; do
+          sleep $(( 30 * 1 ))
+          allAreTerminated=1
+          for ((idx = 0 ; idx < $countOfTasksForArrayJobIds ; idx++ )); do
+            thisTaskId=${tasksForArrayJobIds[$idx]}
+            thisArrayJobId=${arrayJobIds[$idx]}
+            state=$(sacct --format State -j ${thisArrayJobId}_${thisTaskId} | sed '3q;d' | tr -d ' ')
+            if [[ ! " ${slurmTerminatedStates[*]} " =~ [[:space:]]${state}[[:space:]] ]]; then
+              allAreTerminated=0
+              printf "$(date +'%H:%M:%S'): Jobs not terminated (e.g. ${thisArrayJobId}_${thisTaskId}).\n"
+              break
+            fi
+          done
+        done
+        # obsolete. 20241205. scancel ${arrayJobIds[0]}
       else
         reSubmitLine=$submitLine;
         theseTaskIdsToResubmit=$(echo $theseTaskIdsToResubmit | sed 's~,$~~')
         reSubmitLine=$(echo ${reSubmitLine} | sed -E "s~ -Z [0-9]+~ ~" | sed -E "s~ --dependency=[a-zA-Z0-9\:\,]+~~" | sed -E "s~( --array=)[0-9\,\-]+ ~\1${theseTaskIdsToResubmit} ~" | sed "s~ -R ~ ~" | sed -E "s~ -Z [0-9]+~ ~")
+          # We dont include the pipeline option -Z to prevent duplicate submission
+          # of next step  in the pipeline.
           # We also remove the dependency otherwise slurm raises an error (if the
           # dependent job is achieved).
         if [[ ! -z ${nodesToExclude} ]]; then
@@ -252,6 +301,7 @@ EOM
             reSubmitLine=$(echo ${reSubmitLine} | sed -E "s~ --array=~ --exclude=${nodesToExclude} --array=~")
           fi
         fi
+        check_scancel_for_submitter
         printf "Resubmission of taskIds in error:\n"
         echo "$reSubmitLine"
         resubmitArrayJobId=$($reSubmitLine)
