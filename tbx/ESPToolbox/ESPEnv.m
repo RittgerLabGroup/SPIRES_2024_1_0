@@ -424,10 +424,10 @@ classdef ESPEnv < handle
             fprintf('%s: Sorted filter configuration.\n', mfilename());
 
             % Restrict region to value of modisData versionOfAncillary.
-            % TEMPORARY PATCH TO REMOVE 20250127..........................................!!!!!!!
+            % TEMPORARY (?) PATCH TO REMOVE 20250127..........................................!!!!!!!
             if ismember(obj.modisData.versionOf.modisspiresfill, ...
                 {'v2024.0d', 'v2024.1.0'}) || ismember( ...
-                obj.modisData.versionOf.VariablesMatlab, {'v2024.0d', 'v2024.1.0'})
+                obj.modisData.versionOf.VariablesMatlab, {'v2024.0d', 'v2024.1.0', 'v2023.0e', 'v2023.0.1'})
                 t = ismember(obj.myConf.region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04', 'westernUS'});
                 obj.myConf.region{t, 'versionOfAncillary'} = {'v3.1'};
             end
