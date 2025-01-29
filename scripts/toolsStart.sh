@@ -197,9 +197,10 @@ if [ -v SLURM_JOB_ID ] && [ ! -v USER ]; then
 fi
 
 if [[ $SLURM_ARRAY_TASK_ID -ne $SLURM_ARRAY_TASK_MIN ]]; then
-  sleepingTime=$(echo "5 + $RANDOM % ${SLURM_ARRAY_TASK_COUNT} * 0.3" | bc)
+  sleepingTime=$(echo "60 + $RANDOM % ${SLURM_ARRAY_TASK_COUNT} * 1" | bc)
   printf "Not first task of the job. Waiting %.2f sec...\n" $sleepingTime
-  # Additional security against file locks.
+  # Additional security against file locks and to make first task able to created
+  # temporary directories for all tasks.
   sleep ${sleepingTime};
 fi
 ########################################################################################
@@ -313,6 +314,19 @@ if [[ ${mainBashSource} == *"slurm_script"* ]]; then
     sbatchSubmitLine=$(sacct -j ${SLURM_ARRAY_JOB_ID} --format SubmitLine%1000 | tr -s ' ' | sed '3p;d' | xargs)
 
     slurmArrayTaskIds=$(echo $sbatchSubmitLine | sed -E "s~[^@]+ --array=([0-9,\-]+) [^@]+~\1~")
+      # E.g. 292001-292036,293001-293036,328001-328036,329001-329036,364001-364036
+    
+    slurmArrayExpandedTaskIds=$(echo $sbatchSubmitLine | sed -E "s~[^@]+ \-\-array=([0-9,\-]+) [^@]+~\1~" | tr "," ";")
+      # NB: Unclear. When 292001-292036, the result doesn't have ";", but when only 292001,293010, with ,, result has ";"
+    if [[ $slurmArrayExpandedTaskIds == *"-"* ]]; then
+      slurmArrayExpandedTaskIds=( $(eval $(echo $slurmArrayExpandedTaskIds | sed -E "s~([0-9]+)-([0-9]+)~seq \1 \2~g") | tr "\n" " " ) )
+    else
+      slurmArrayExpandedTaskIds=( $(echo $slurmArrayExpandedTaskIds | tr ";" " ") )
+    fi
+      # E.g. ( 292001 292002 292003 [...] 364035 364036 )
+      
+    printf "\n\nExpanded array of task ids of the parent job:\n"
+    echo ${slurmArrayExpandedTaskIds[@]}
   fi
 
   printf "\nSubmit line kept:\n$(echo $sbatchSubmitLine | sed s~%~%%~g)\n\n"
@@ -324,13 +338,15 @@ if [[ ${mainBashSource} == *"slurm_script"* ]]; then
   # Submit sbatch script updating the efficiency statistics at the end of the log file.
   # NB: dependency should be afterany and not any, otherwise it would generate a killing
   # lock.
+  # NB: deactivated because transferred to runSubmitter.sh.
+: '
   achievedSbatch="sbatch --account=${slurmAccount} --export=NONE --qos=${slurmQos} --time 00:01:00 "\
 "-o ${slurmLogDir}endlog${scriptId}-%x-%j.out --dependency=afterany:${slurmFullJobId} ./scripts/toolsJobAchieved.sh "\
 "${slurmFullJobId} ${slurmStdOut}"
   printf "Submit performance statistic update job.\n$(echo ${achievedSbatch} | sed s~%~%%~g)\n"
   # the % are interpreted by printf, so we need sed to prevent that in the display.
   ${achievedSbatch}
-
+'
   # Next similar job submitted after getting the option isToBeRepeated.
 else
   printf "Not running as sbatch...\n"
@@ -599,7 +615,7 @@ inputFromArchive=${inputFromArchive}; inputLabel=${inputLabel};
 inputProductAndVersion=${inputProductAndVersion};
 outputToArchive=${outputToArchive}; outputLabel=${outputLabel}; thisMode=${thisMode};
 isToBeRepeated=${isToBeRepeated}; isToResubmitIfError=${isToResubmitIfError};
-verbosityLevel=${isToBeRepeated};
+verbosityLevel=${verbosityLevel};
 parallelWorkersNb=${parallelWorkersNb}; espWebExportConfId=${espWebExportConfId};
 scratchPath=${scratchPath}; archivePath=${archivePath};
 codePlatform=${codePlatform}; pipeLineId=${pipeLineId};
@@ -683,6 +699,36 @@ if [[ $(timeout 5 ls ${archivePath} 2>&1) == *"cannot access"* ]]; then
   printf "\n\n\n\n"
   error_exit "Exit=1, matlab=no, Defective node, archivePath inaccessible."
 fi
+
+# Creation of temporary directories on scratchPath.
+########################################################################################
+# the first task controls this.
+# Make a unique temporary directory for each job/task id for matlab job storage
+# Set TMPDIR/TMP to this location so job array uses it for tmp location
+
+if [[ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ]]; then
+  thatSecond1=$SECONDS
+  for taskId in ${slurmArrayExpandedTaskIds[@]}; do
+    thisTmpDir=${scratchPath}.matlabTmp/alpine-${SLURM_ARRAY_JOB_ID}_${taskId}
+    if [[ $(timeout 2 mkdir $thisTmpDir -p 2>&1) == *"cannot access"* ]]; then
+      error_exit "Exit=1, matlab=no, Defective node, scratchPath inaccessible (w)."
+    fi
+  done
+  printf "Created ${#slurmArrayExpandedTaskIds[@]} temporary directories for all tasks of the parent job on scratch in $(( $SECONDS - $thatSecond1 )) secs.\n"
+fi
+
+thisTmpDir=${scratchPath}.matlabTmp/alpine-$(date +%s)
+if [ ! -v ${slurmFullJobId} ]; then
+  tmpDir=${scratchPath}.matlabTmp/alpine-${slurmFullJobId}
+else
+  mkdir -p $tmpDir
+fi
+if [[ ! -d $tmpDir ]]; then 
+  error_exit "Exit=1, matlab=no, Defective node, scratchPath inaccessible (wi)."
+fi
+export TMPDIR=$tmpDir
+export TMP=$tmpDir
+printf "$(pStart): tmpDir=${tmpDir}.\n"
 
 ########################################################################################
 # 7. Arguments and parameters of the matlab script.
@@ -804,13 +850,14 @@ if [[ ${scriptId} == "webExpSn" ]]; then
 fi
 # Specific case when run westernUS with v3.2 of ancillary.
 westernUSRegionNames=(h08v04 h08v05 h09v04 h09v05 h10v04);
-if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]] \
+# obsolete. if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]]
+if [[ $(printf '%s' "${westernUSRegionNames[@]}" | grep $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
   inputForESPEnv=${inputForESPEnv}", filterMyConfByVersionOfAncillary = 0"
 fi
 
 espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); espEnv.slurmFullJobId = '${slurmFullJobId}';"
-if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]] \
+if [[ $(printf '%s' "${westernUSRegionNames[@]}" | grep $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
   espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region(strcmp(espEnv.myConf.region.name, '"${regionName}"'), :).versionOfAncillary = {'"${versionOfAncillary}"'};"
 fi
@@ -824,6 +871,11 @@ espEnvWOFilterInstantiation="espEnvWOFilter = ESPEnv(${inputForESPEnv}, filterMy
 printf "espEnvWOFilterInstantiation: ${espEnvWOFilterInstantiation}.\n"
 
 optimInstantiation="optim = struct(force = ${thisMode}); "
+countOfCellPerDimension=$(echo "sqrt($countOfCells)" | bc)
+optimInstantiation=${optimInstantiation}"optim.countOfCellPerDimension = [${countOfCellPerDimension}, ${countOfCellPerDimension}]; "
+rowIdx=$(echo "($cellIdx - 1) % ($countOfCellPerDimension) + 1"| bc)
+columnIdx=$((($cellIdx - 1) / $countOfCellPerDimension + 1))
+optimInstantiation=${optimInstantiation}"optim.cellIdx = [${rowIdx}, ${columnIdx}]; "
 printf "optimInstantiation: ${optimInstantiation}.\n"
 
 read -r -d '' catchExceptionAndExit << EOM
@@ -852,7 +904,7 @@ EOM
 
 # Repetition of job doesnt work correctly, I set to 0 until I have time to solve issue.
 isToBeRepeated=0
-# 
+#                                                                                  @todo
 if [[ -v isBatch ]] && [[ -v isToBeRepeated ]] && [[ $isToBeRepeated -eq 1 ]] && \
 [[ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ]]; then
 
@@ -913,6 +965,7 @@ if [ -v isBatch ] && [ -v pipeLineId ] && [ -v SLURM_ARRAY_TASK_ID ] && \
     nextOutputLabel=${pipeLineLabels[${nextIndexInPipeLine}]}
     nextRegionType=${pipeLineRegionTypes[${nextIndexInPipeLine}]}
     nextSequence=${pipeLineSequences[${nextIndexInPipeLine}]}
+    nextSequenceMultiplierToIndices=${pipeLineSequenceMultiplierToIndices[${nextIndexInPipeLine}]}
     nextMonthWindow=${pipeLineMonthWindows[${nextIndexInPipeLine}]}
     nextWaterYearDate=${thisYear}-${thisMonth}-${thisDay}-${nextMonthWindow}
     nextSlurmStdOutFileName="%x_%a_${nextWaterYearDate//-/_}_%A.out"
@@ -932,30 +985,55 @@ if [ -v isBatch ] && [ -v pipeLineId ] && [ -v SLURM_ARRAY_TASK_ID ] && \
 
     # Get the current regions and the next regions.
     # Currently only possible to transition to a bigger region e.g. from 292 to 5.
-    objectIds=$(echo ${slurmArrayTaskIds} | sed -E 's~[0-9]{3}-[0-9]+~~g')
-    nextObjectIdsArray=( ${objectIds//,/ })
-    if [ $thisRegionType -eq 0 ] && [ $nextRegionType  -gt 0 ]; then
+    objectIds=$(echo ${slurmArrayTaskIds} | sed -E 's~[0-9]{3}-[0-9]+~~g');
+    objectIdsArray=( ${objectIds//,/ })
+    nextObjectIds=$objectIds
+    if [ $thisRegionType -eq 0 ] && [ $nextRegionType -gt 0 ]; then
       nextObjectIds=""
-      for thisObject in $nextObjectIdsArray; do
+      for thisObject in ${objectIdsArray[@]}; do
         if ! [[ ${nextObjectIds} =~ (^|,)${bigRegionForTile[${thisObject}]}($|,) ]]; then
-          nextObjectIds="$nextObjectIds,${bigRegionForTile[${thisObject}]}"
+          nextObjectIds="$nextObjectIds,${bigRegionForTile[${thisObject}]}";
         fi
       done
-      objectIds=${nextObjectIds:1}
-      nextObjectIdsArray=(${objectIds//,/ })
-    elif [ $thisRegionType -gt 0 ] && [ $nextRegionType  -eq 0 ]; then
+      nextObjectIds=${nextObjectIds:1}
+    elif [ $thisRegionType -eq 1 ] && [ $nextRegionType -eq 1 ]; then
+      nextObjectIds=$objectIds
+    elif [ $thisRegionType -eq 1 ] && [ $nextRegionType -eq 10 ]; then
+      nextObjectIds=${objectIdsArray[0]}
+    elif [ $thisRegionType -gt 0 ] && [ $nextRegionType -eq 0 ]; then
       error_exit "Line $LINENO: Pipeline next script: going back to mosdisTiles not implemented."
     fi
-
+    nextObjectIdsArray=(${nextObjectIds//,/ });
+    
     # Add the sequences if required (e.g. 292001-292036,293001-293026).
     nextArray=
-    if [ "$nextSequence" != "0" ]; then
+      # nextArray is not an array but the parameter --array of the sbatch command.
+    nextCountOfCells=1
+    thatNextSequence=
+    if [ "$nextSequence" != "0" ] && [ $nextRegionType -ne 10 ]; then
+      if [[ $nextSequence == *"-"* ]]; then
+        nextCountOfCells=$((10#${nextSequence: -3}));
+          # We supply the next count of Cells in the submit line
+        thatNextSequence=$nextSequence
+      fi
       for thisObject in ${nextObjectIdsArray[@]}; do
-          nextArray=$nextArray,$(echo $nextSequence | sed -E "s~-([0-9]+)~-${thisObject}\1~" | sed -E "s~^([0-9]+)~${thisObject}\1~")
+        # Updating $nextSequence for the subdivisions, daStatis script.
+        if [ "$nextSequence" == "999" ]; then
+          maxOfSequence=$(echo "(${countOfSubdivisionsPerBigRegion[${thisObject}]} - 1) / ${nextSequenceMultiplierToIndices} + 1" | bc)
+            # Here we assume that $thisObject = $bigRegionId. And we round to the ceiling
+            # for the division using this bash way.
+            # $countOfSubdivisionsPerBigRegion defined in toolsRegions.sh.
+          patternOfSequence="001-%03d\n"
+          if [[ $maxOfSequence -eq 1 ]]; then
+            patternOfSequence="001"
+          fi
+          thatNextSequence=$(printf "${patternOfSequence}" ${maxOfSequence});
+        fi
+        nextArray=$nextArray,$(echo $thatNextSequence | sed -E "s~-([0-9]+)~-${thisObject}\1~" | sed -E "s~^([0-9]+)~${thisObject}\1~");
       done
-      nextArray=${nextArray:1}
+      nextArray=${nextArray:1};
     else
-      nextArray=${objectIds}
+      nextArray=${nextObjectIds}
     fi
 
     read -s -r -d '' nextScriptParameters << EOM
@@ -963,7 +1041,8 @@ Next script in the pipeline parameters.
 #############################################################################
 nextJobName=${nextJobName}; nextScript=${nextScript};
 nextRegionType=${nextRegionType}; nextSequence=${nextSequence};
-nextArray=${nextArray}; 
+nextArray=${nextArray}; nextCountOfCells=${nextCountOfCells};
+nextSequenceMultiplierToIndices=${nextSequenceMultiplierToIndices};
 nextVersionOfAncillary=${nextVersionOfAncillary}; nextMonthWindow=${nextMonthWindow};
 nextWaterYearDate=${nextWaterYearDate};
 nextSlurmStdOutFileName=${nextSlurmStdOutFileName//%/%%};
@@ -974,7 +1053,7 @@ EOM
     printf "\n${nextScriptParameters}\n\n"
 
     nextSubmitLine=${sbatchSubmitLine}
-    nextSubmitLine=$(echo ${nextSubmitLine} | sed -E 's~--begin=[0-9\:]+ ~~' | sed -E "s~/[a-zA-Z0-9\_\%]+\.out( --job-name)~/${nextSlurmStdOutFileName}\1~" | sed -E "s~( --job-name=)[a-zA-Z0-9\-]+ ~\1${nextJobName} ~" | sed -E "s~( --ntasks-per-node=)[0-9]+ ~\1${nextTasksPerNode} ~" | sed -E "s~( --mem=)[0-9]+G ~\1${nextMem} ~" | sed -E "s~( --time=)[0-9:]+ ~\1${nextTime} ~" | sed -E "s~( --array=)[0-9\,\-]+ ~\1${nextArray} ~" | sed -E "s~ \.\/scripts\/[a-zA-Z0-9]+\.sh ~ ${nextScript} ~" | sed -E "s~( -A )[a-zA-Z0-9\.]+ ~\1${nextVersionOfAncillary} ~" | sed -E "s~( -L )[a-zA-Z0-9\.\_\-]+ ~\1${nextInputLabel} ~" | sed -E "s~( -O )[a-zA-Z0-9\.\_\-]+ ~\1${nextOutputLabel} ~" | sed -E "s~( -w )[0-9]+ ~\1${nextParallelWorkersNb} ~" | sed "s~ -R ~ ~")
+    nextSubmitLine=$(echo ${nextSubmitLine} | sed -E 's~--begin=[0-9\:]+ ~~' | sed -E "s~/[a-zA-Z0-9\_\%]+\.out( --job-name)~/${nextSlurmStdOutFileName}\1~" | sed -E "s~( --job-name=)[a-zA-Z0-9\-]+ ~\1${nextJobName} ~" | sed -E "s~( --ntasks-per-node=)[0-9]+ ~\1${nextTasksPerNode} ~" | sed -E "s~( --mem=)[0-9]+G ~\1${nextMem} ~" | sed -E "s~( --time=)[0-9:]+ ~\1${nextTime} ~" | sed -E "s~( --array=)[0-9\,\-]+ ~\1${nextArray} ~" | sed -E "s~ \.\/scripts\/[a-zA-Z0-9]+\.sh ~ ${nextScript} ~" | sed -E "s~( -A )[a-zA-Z0-9\.]+ ~\1${nextVersionOfAncillary} ~" | sed -E "s~( -L )[a-zA-Z0-9\.\_\-]+ ~\1${nextInputLabel} ~" | sed -E "s~( -O )[a-zA-Z0-9\.\_\-]+ ~\1${nextOutputLabel} ~" | sed -E "s~( -Q )[0-9]+ ~\1${nextCountOfCells} ~" | sed -E "s~( -w )[0-9]+ ~\1${nextParallelWorkersNb} ~" | sed "s~ -R ~ ~")
 
     if [[ "${nextSubmitLine}" == *" -D "* ]]; then
       # Precaution, we force the waterYearDate to what the script decided, and not only
