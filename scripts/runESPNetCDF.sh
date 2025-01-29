@@ -61,8 +61,8 @@ export SLURM_EXPORT_ENV=ALL
 scriptId=daNetCDF
 defaultSlurmArrayTaskId=292
 expectedCountOfArguments=
-inputDataLabels=(VariablesMatlab)
-outputDataLabels=(VariablesNetCDF)
+inputDataLabels=(VariablesMatlab spiresdailytifsinu spiresdailymetadatajson)
+outputDataLabels=(VariablesNetCDF outputnetcdf daacnetcdfv20220 daacnetcdfv202301)
 filterConfLabel=
 mainBashSource=${BASH_SOURCE}
 mainProgramName=${BASH_SOURCE[0]}
@@ -93,6 +93,30 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  if (ismember('${regionName}', {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) && ismember(modisData.versionOf.VariablesMatlab, {'v2024.0', 'v2024.0d'})) || ismember(modisData.versionOf.VariablesMatlab, {'v2022.0', 'v2023.0d', 'v2023.0e', 'v2023.0f', 'v2023.0k', 'v2023.1'});
+    inputDataLabel = 'VariablesMatlab';
+  elseif strcmp(modisData.inputProduct, 'mod09ga');
+    inputDataLabel = 'modspiresdaily';
+  elseif strcmp(modisData.inputProduct, 'vnp09ga');
+    inputDataLabel = 'vnpspiresdaily';
+  end;
+  outputDataLabel = 'spiresdailynetcdf';
+  if strcmp(modisData.versionOf.(inputDataLabel), 'v2022.0');
+    outputDataLabel = 'daacnetcdfv20220';
+    modisData.versionOf.(inputDataLabel) = 'v03';
+    modisData.versionOf.(outputDataLabel) = 'v03';
+    modisData.algorithm = 'stc';
+  elseif ismember(modisData.versionOf.(inputDataLabel), {'v2023.0e', 'v2023.0.1'});
+    outputDataLabel = 'daacnetcdfv202301';
+    modisData.versionOf.(outputDataLabel) = 'v2023.0.1';
+    modisData.algorithm = 'stc';
+  elseif ismember(modisData.versionOf.(inputDataLabel), {'v2024.0d', 'v2024.1.0', 'v2025.0.1'})
+    outputDataLabel = 'outputnetcdf';
+    modisData.algorithm = 'spires';
+    modisData.nrtOrHist = 'nrt';
+  elseif ismember(modisData.versionOf.(inputDataLabel), {'v2023.0d', 'v2023.0f', 'v2023.0k', 'v2023.1', 'v2024.0'});
+    outputDataLabel = 'VariablesNetCDF';
+  end;
   ${espEnvInstantiation}
   espEnv.configParallelismPool(${parallelWorkersNb});
   region = Regions(${inputForRegion});
@@ -100,19 +124,10 @@ try;
   theseDates = waterYearDate.getDailyDatetimeRange();
   parfor dateIdx = 1:length(theseDates);
     thisDate = theseDates(dateIdx);
-    if ismember(region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) && ismember(modisData.versionOf.VariablesNetCDF, {'v2024.0', 'v2024.0d'});
-      matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
-      'VariablesMatlab', thisDate, '', '');
-    else;
-      matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
-      'modspiresdaily', thisDate, '', '');
-    end;
-    dataLabel = 'VariablesNetCDF';
-    if strcmp(modisData.versionOf.(dataLabel), 'v2022.0');
-      dataLabel = 'daacnetcdfv20220';
-    end;
+    matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
+      inputDataLabel, thisDate, '', '');
     netCDFFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
-      dataLabel, thisDate, '', '');
+      outputDataLabel, thisDate, '', '');
     ESPNetCDF.generateNetCDFFromRegionAndMatFile( ...
       region, thisDate, matFilePath, netCDFFilePath);
   end;

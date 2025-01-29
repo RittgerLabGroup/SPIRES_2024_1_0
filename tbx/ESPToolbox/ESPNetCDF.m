@@ -2,27 +2,51 @@ classdef ESPNetCDF < handle
     % ESPNetCDF - class for writing ESP data related to a region to NetCDF-CF files
     % Projection MODIS Sinusoidal only.
     % NB: only works with modis tiles 2023-08-31.
+    
+    % IMPORTANT: This class uses sample .nc files stored in tbx/templates. These files
+    %   need to be edited and generated following docs/source/user_guide/output_netcdf.md
     %
     % Use case
     % --------
 %{
-    label = 'v2023.1'; % or 'v2022.0' for v03 HMA ASHimalaya.
+    addpath(genpath([getenv('espDevProjectDir'), 'tbx/ESPToolbox']));
+    label = 'v2022.0'; versionOfAncillary = 'v3.2'; % for v03 HMA ASHimalaya.
+    label = 'v2024.0d'; versionOfAncillary = 'v3.1';
+    label = 'v2023.0e'; versionOfAncillary = 'v3.1'; % for STC western US v2023.hist.
+    inputProduct = 'mod09ga';
+    inputProductVersion = '061';
     if strcmp(label, 'v2023.0e')
-        modisData = MODISData(label = 'v2023.1', versionOfAncillary = 'v3.1');
+        %label = 'v2023.1';
+        % versionOfAncillary = 'v3.1';
         regionName = 'h08v05';
         thisDate = datetime(2023, 1, 1);
+        outputDataLabel = 'daacnetcdfv2023hist';
     elseif strcmp(label, 'v2022.0')
-        modisData = MODISData(label = 'v03', versionOfAncillary = 'v3.2');
+        label = 'v03';
+        versionOfAncillary = 'v3.2';
         modisData.versionOf.VariablesNetCDF = 'v2022.0';
-        regionName = 'h24v05';
-        thisDate = datetime(2022, 4, 1);
+        regionName = 'h23v05';
+        thisDate = datetime(2022, 4, 2);
+        outputDataLabel = 'daacnetcdfv20220';
+    elseif strcmp(label, 'v2024.0d')
+        label = 'v2024.0d'; versionOfAncillary = 'v3.1';
+        regionName = 'h08v05';
+        thisDate = datetime(2024, 1, 1);
+        outputDataLabel = 'VariablesNetCDF';
+    end
+    modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary, ...
+          inputProduct = inputProduct, inputProductVersion = inputProductVersion);
+    if strcmp(label, 'v03')
+        modisData.versionOf.(outputDataLabel) = 'v03'; %'v2022.0';
+    elseif strcmp(label, 'v2023.0e')
+      modisData.versionOf.(outputDataLabel) = 'v2023.hist';
     end
     espEnv = ESPEnv(modisData = modisData, scratchPath = getenv('espScratchDir'));
     region = Regions(regionName, [regionName, '_mask'], espEnv, modisData);
     matFilePath = espEnv.getFilePathForDateAndVarName(regionName, 'VariablesMatlab', ...
-        thisDate, '');
+        thisDate, '', '');
     netCDFFilePath = espEnv.getFilePathForDateAndVarName(regionName, ...
-        'VariablesNetCDF', thisDate, '');
+        outputDataLabel, thisDate, '', '');
     ESPNetCDF.generateNetCDFFromRegionAndMatFile(region, thisDate, matFilePath, ...
         netCDFFilePath);
 %}
@@ -30,8 +54,14 @@ classdef ESPNetCDF < handle
     % Snippet to dump the netcdf info
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     thisFileName = 'HMA2_MODSTC_h23v05_20220402_v01.0.nc';
-    thisFilePath = [getenv('espScratchDir'), 'modis_archive/hma2_modstc_v03/h23v05/2022/'];
-    text = jsonencode(ncinfo(filePath), "PrettyPrint", true);
+    thisFilePath = [getenv('espScratchDir'), ...
+      'modis_archive/hma2_modstc_v03/h23v05/2022/', thisFileName];
+    thisFilePath = [getenv('espScratchDir'), ...
+      'modis/variables/scagdrfs_netcdf_v2022.0/v006/h23v05/', ...
+      '2022/h23v05_Terra_20220402.v2022.0.nc'];
+    thisFileName = 'mod09ga_061_spi_h08v05_20240101.v2024.hist.nc';
+    thisFilePath = ['/scratch/alpine/sele7124/mod09ga.061/spires/v2024.hist/output/netcdf/h08v05/2024/', thisFileName];  
+    text = jsonencode(ncinfo(thisFilePath), "PrettyPrint", true);
     text = replace(text, {'%'}, {'%%'});
     fileID = fopen([thisFileName, '.json'], 'w');
     fprintf(fileID, text);
@@ -134,12 +164,7 @@ classdef ESPNetCDF < handle
             'University of Colorado Anschutz, and Colorado State ', ...
             'University. Data storage supported by the University ', ...
             'of Colorado Boulder PetaLibrary.'], ...
-            license = ['Access Constraint: These data are freely, ', ...
-            'openly, and fully accessible; ', ...
-            'Use Constraint: These data are freely, openly, and fully ', ...
-            'available to use without restrictions, provided that you ', ...
-            'cite the data according to the recommended citation ', ...
-            'included here.'], ...
+            license = ['Creative Commons BY 4.0. You are free to (1) share: copy and redistribute the material in any medium or format for any purpose, even commercially; (2) Adapt: remix, transform, and build upon the material for any purpose, even commercially; Under the following terms, (3) Attribution: You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use. https://creativecommons.org/licenses/by/4.0/.'], ...
             creator_name = 'Karl Rittger', ...
             creator_url = 'https://www.colorado.edu/instaar/karl-rittger', ...
             creator_email = 'karl.rittger@colorado.edu', ...
@@ -157,6 +182,15 @@ classdef ESPNetCDF < handle
                 ' INSTAAR, Boulder, CO, USA. Digital Media. ', ...
                 'https://github.com/sebastien-lenard/snow-today. ', ...
                 'ftp://dtn.rc.colorado.edu/shares/snow-today']);
+%{
+            % Before 20241126:
+            Was license = ['Access Constraint: These data are freely, ', ...
+            'openly, and fully accessible; ', ...
+            'Use Constraint: These data are freely, openly, and fully ', ...
+            'available to use without restrictions, provided that you ', ...
+            'cite the data according to the recommended citation ', ...
+            'included here.'], ...
+%}
             % NB: Citation included at the end :
             % 'ftp://dtn.rc.colorado.edu/shares/snow-today, doi:TO UPDATE'
             % but removed because ftp doesn't work and doi unavailable.
@@ -222,12 +256,12 @@ classdef ESPNetCDF < handle
                 ' SPIReS Snow Cover and Snow', ...
                 ' Surface Properties, Version 2024.0'], ...
             comment = ['Snow cover validated with 3 m airborne snow maps on ', ...
-              '116 days Stillinger et al. (2023); Snow albedo validated using ', ...
-              'terrain correct in-situ observations at 3 sites for ~20 site years', ...
+              '116 days (Stillinger et al., 2023); Snow albedo validated using ', ...
+              'terrain correct in-situ observations at 3 sites for ~20 years', ...
               'with spatial comparisons to 31 ASO Inc hyperspectral airborne ', ...
-              'flights Palomaki et al. (RSE, in review). Preliminary radiative', ...
-              'forcing evaluation performed at 1 site in the San Juan mountains', ...
-              'of Colorado.'], ...
+              'flights (Palomaki et al., RSE, in review). Preliminary radiative', ...
+              ' forcing evaluation performed at 1 site in the San Juan mountains', ...
+              ' of Colorado.'], ...
             contributor_name = ['Karl Rittger, ', ...
                 'Sebastien J. P. Lenard, Ross T. Palomaki'], ...
             contributor_role = ['principal_investigator, research_scientist, ', ...
@@ -250,12 +284,14 @@ classdef ESPNetCDF < handle
             'Snow Property Inversion from Remote Sensing (SPIReS): ', ...
             'A generalized multispectral unmixing approach with examples ', ...
             'from MODIS and Landsat 8 OLI. IEEE Transactions on Geoscience ', ...
-            'and Remote Sensing 59.9: 7270-7284, doi: 10.1109/TGRS.2020.3040328. ', ...
+            'and Remote Sensing 59.9: 7270-7284, doi: 10.1109/TGRS.2020.3040328. https://github.com/edwardbair/SPIRES. ', ...
             'Stillinger, T., K. Rittger, M.S. Raleigh, A. Michell, R.E. Davis, ', ...
             'and E.H. Bair. 2023. Landsat, MODIS, and VIIRS snow cover mapping ', ...
             'algorithm performance as validated by airborne lidar datasets. ', ...
-            'The Cryosphere 17: 567-590, doi: 10.5194/tc-17-567-2023.']);
-        defaultAttributeValues = struct(v2022_0 = struct(stcStruct = struct( ...
+            'The Cryosphere 17: 567-590, doi: 10.5194/tc-17-567-2023. ',...
+            'Bair, E. H., A. Abreu Calfa, K. Rittger, and J. Dozier. 2018. Using machine learning for real-time estimates of snow water equivalent in the watersheds of Afghanistan. The Cryosphere 12.5: 1579-1594, doi: 10.5194/tc-12-1579-2018. https://github.com/edwardbair/ParBal. Bair, E. H., K. Rittger, R. E. Davis, T. H. Painter, and Dozier, J. 2016. Validating reconstruction of snow water equivalent in California''s Sierra Nevada using measurements from the NASA Airborne Snow Observatory. Water Resources Research 52, doi: 10.1002/2016WR018704. Rittger, K., Bair, E.H., Kahl, A., and Dozier, J. 2016. Spatial estimates of snow water equivalent from reconstruction. Advances in Water Resources 94: 345-363, doi: 10.1016/j.advwatres.2016.05.015. Vermote, E., and R. Wolfe. 2021. MODIS/Terra Surface Reflectance Daily L2G Global 1km and 500m SIN Grid V061. Distributed by NASA EOSDIS Land Processes Distributed Active Archive Center, doi: 10.5067/MODIS/MOD09GA.061.MODIS.']);
+            % Top for spires, mid for Parbal, bottom for mod09ga.
+        defaultAttributeValues = struct(v03 = struct(stcStruct = struct( ...
             mindays = 10, zthresh = [800, 800], rawRovDV = [0, 100], ...
             rawRovRF = [0, 400], temporalRovDV = [0, 70], temporalRovRF = [0, 500], ...
             sthreshForGS = 0.3, sthreshForRF = 0.3, minZForNonForestedAdjust = 'n/a', ...
@@ -319,7 +355,7 @@ classdef ESPNetCDF < handle
             % obj:  ESPNetCDF Obj.
             obj.region = region;
             obj.thisDate = thisDate;
-            obj = obj.setGlobalAttributes();
+            % obj = obj.setGlobalAttributes();
         end
         function obj = addGlobalAttributes(obj, attribute)
             % Adds global attributes to currently open nc file
@@ -639,8 +675,8 @@ classdef ESPNetCDF < handle
                     obj.globalAttribute.(thisFieldName) = ...
                         obj.v2022_0Attribute.(thisFieldName);
                 end
-            elseif strcmp(obj.region.espEnv.modisData.versionOf.VariablesNetCDF, ...
-                'v2024.0')
+            elseif ismember(obj.region.espEnv.modisData.versionOf.VariablesNetCDF, ...
+                {'v2024.0', 'v2024.0d', 'v2024.0f', 'v2025.nrt'}) % TEMPORARY v2025 20241209.
                 theseFieldNames = fieldnames(obj.v2024_0Attribute);
                 for fieldIdx = 1:length(theseFieldNames)
                     thisFieldName = theseFieldNames{fieldIdx};
@@ -648,9 +684,8 @@ classdef ESPNetCDF < handle
                         obj.v2024_0Attribute.(thisFieldName);
                 end
             end
-
-            % Add runtime global attributes
-            obj.globalAttribute.product_version = ...
+            
+             obj.globalAttribute.product_version = ...
                 obj.region.espEnv.modisData.versionOf.VariablesNetCDF;
             if strcmp(obj.region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2022.0')
                 obj.globalAttribute.product_version = 'v1.0';
@@ -660,7 +695,45 @@ classdef ESPNetCDF < handle
                 '{product_version}', obj.globalAttribute.product_version);
             [~, currentGitHash] = system('git rev-parse --short HEAD');
             obj.globalAttribute.software_version_id = ...
-                erase(currentGitHash, newline);
+                erase(currentGitHash, newline);    
+
+            % Add runtime global attributes
+            if strcmp(obj.region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2024.0d')
+              obj.globalAttribute.product_version = 'v2024.hist';
+              obj.globalAttribute.title = 'MODIS/Terra L3 Daily 500m SIN Grid SPIReS Snow Cover and Snow Surface Properties, Version v2024.hist.';
+              obj.globalAttribute.summary = 'This dataset contains daily raster images of snow cover and snow surface properties. Snow cover, grain size and dust concentration were unmixed from the daily reflectance of the MOD09GA Terra Collection 6 v061 (Vermote and Wolfe, 2021) using an adapted version of the SPIReS algorithm (Bair et al., 2021), that we named SPIReS v2024.hist, with a removal of clouds and data errors. The data were then temporally interpolated to fill the cloudy days, and the snow cover duration was calculated from the start of the water year (October 1st for the northern hemisphere, April 1st for the southern one). Deltavis, radiative forcing, and albedos were calculated using an adaptation of the ParBal algorithm (Bair et al., 2018), that we included in SPIReS v2024.hist.';
+
+              obj.globalAttribute.references = ['Bair, E.H., T. Stillinger, and J. Dozier. 2021. ', ...
+            'Snow Property Inversion from Remote Sensing (SPIReS): ', ...
+            'A generalized multispectral unmixing approach with examples ', ...
+            'from MODIS and Landsat 8 OLI. IEEE Transactions on Geoscience ', ...
+            'and Remote Sensing 59.9: 7270-7284, doi: 10.1109/TGRS.2020.3040328. https://github.com/edwardbair/SPIRES. ', ...
+            'Stillinger, T., K. Rittger, M.S. Raleigh, A. Michell, R.E. Davis, ', ...
+            'and E.H. Bair. 2023. Landsat, MODIS, and VIIRS snow cover mapping ', ...
+            'algorithm performance as validated by airborne lidar datasets. ', ...
+            'The Cryosphere 17: 567-590, doi: 10.5194/tc-17-567-2023. ',...
+            'Bair, E. H., A. Abreu Calfa, K. Rittger, and J. Dozier. 2018. Using machine learning for real-time estimates of snow water equivalent in the watersheds of Afghanistan. The Cryosphere 12.5: 1579-1594, doi: 10.5194/tc-12-1579-2018. https://github.com/edwardbair/ParBal. Bair, E. H., K. Rittger, R. E. Davis, T. H. Painter, and Dozier, J. 2016. Validating reconstruction of snow water equivalent in California''s Sierra Nevada using measurements from the NASA Airborne Snow Observatory. Water Resources Research 52, doi: 10.1002/2016WR018704. Rittger, K., Bair, E.H., Kahl, A., and Dozier, J. 2016. Spatial estimates of snow water equivalent from reconstruction. Advances in Water Resources 94: 345-363, doi: 10.1016/j.advwatres.2016.05.015. Vermote, E., and R. Wolfe. 2021. MODIS/Terra Surface Reflectance Daily L2G Global 1km and 500m SIN Grid V061. Distributed by NASA EOSDIS Land Processes Distributed Active Archive Center, doi: 10.5067/MODIS/MOD09GA.061.MODIS.'];
+            % Top for spires, mid for Parbal, bottom for mod09ga.
+            
+              obj.globalAttribute.acknowledgement = ['These data are produced and supported by the Institute of Arctic and Alpine Research. The data products were produced with funding from NASA grants 80NSSC22K0703 (Rittger, TAS), 80NSSC20K1721 (Rittger, HMA), 80NSSC22K0929 (Rittger, WR), 80NSSC23K1456 (Rittger, Alps), 80NSSC24K1270 (Rittger, IDS). This work utilized the Alpine high performance computing resource at the University of Colorado Boulder. Alpine is jointly funded by the University of Colorado Boulder, the University of Colorado Anschutz, and Colorado State University. Data storage supported by the University of Colorado Boulder PetaLibrary.'];
+              
+              obj.globalAttribute.citation = ['Rittger, K., S. J. P. Lenard, ', ...
+                ' Ross T. Palomaki, E. H. Bair, and J. Dozier. 2024. ', ...
+                'MODIS/Terra L3 Daily 500m SIN Grid SPIReS Snow Cover and Snow Surface Properties, Version v2024.hist. ', ...
+                'INSTAAR, University of Colorado, Boulder, CO, USA. ', ...
+                ' Digital Media. ', ...
+                'https://github.com/sebastien-lenard/snow-today. ', ...
+                'ftp://dtn.rc.colorado.edu/shares/snow-today.'];
+                
+              obj.globalAttribute.comment = ['Snow cover validated with 3 m airborne snow maps on ', ...
+              '116 days (Stillinger et al., 2023); Snow albedo validated using ', ...
+              'terrain correct in-situ observations at 3 sites for ~20 years', ...
+              ' with spatial comparisons to 31 ASO Inc hyperspectral airborne ', ...
+              'flights (Palomaki et al., RSE, in review). Preliminary radiative', ...
+              ' forcing evaluation performed at 1 site in the San Juan mountains', ...
+              ' of Colorado.'];
+            end
+           
 
             % Box longitude/latitude coordinates for earthData Viewer.
             regionConf = obj.region.myConf.region;
@@ -868,123 +941,449 @@ classdef ESPNetCDF < handle
         end
 %}
         function generateNetCDFFromRegionAndMatFile(region, thisDate, ...
-            matFilePath, netCDFFilePath)
-            % Get information from a .mat file for a region and write them
-            % in a CF-compliant netCDF file (classic NetCDF-4) with the projection
-            % MODIS Sinusoidal correctly set (a tricky part!).
-            %
-            % Parameters
-            % ----------
-            % region: Region obj. Only tile.
-            % thisDate: datetime.
-            % matFilePath: char. Filepath of the .mat file to be published in netcdf.
-            % netCDFFilePath: char. Filepath of the generated .nc netcdf file.
+          matFilePath, netCDFFilePath)
+          % Get information from a .mat file for a region and write them
+          % in a CF-compliant netCDF file (classic NetCDF-4) with the projection
+          % MODIS Sinusoidal correctly set (a tricky part!).
+          %
+          % Parameters
+          % ----------
+          % region: Region obj. Only tile.
+          % thisDate: datetime.
+          % matFilePath: char. Filepath of the .mat 'VariablesMatlab' or .tif
+          %   'spiresdailytifsinu' file (version > v2025.nrt) to be published in
+          %   netcdf, for variable snow_fraction_s (for version > v2025).
+          % netCDFFilePath: char. Filepath of the generated .nc netcdf file.
+          %
+          % NB: Tile only, no big region.
 
-            % 1. Initialize the ESPNetCDF object and create the files with basics
-            %attributes.
-            logger = Logger('netcdf');
-            fprintf('%s: Start generating .nc %s from .mat %s.\n', mfilename(), ...
-                netCDFFilePath, matFilePath);
-            if ~isfile(matFilePath)
-                warning('%s: Inexistent %s.\n', mfilename(), matFilePath);
+          % 0. Initialize and check that the inputFile exist and has data.
+          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+          objectName = region.name;
+          espEnv = region.espEnv;
+          modisData = region.espEnv.modisData;
+          complementaryLabel = '';
+          
+          logger = Logger('netcdf');
+          fprintf('%s: Start generating .nc %s from .mat %s.\n', mfilename(), ...
+            netCDFFilePath, matFilePath);
+          if ~isfile(matFilePath)
+            warning('%s: Inexistent %s.\n', mfilename(), matFilePath);
+            return;
+          end
+          % TEMPORARY 20241209
+          if strcmp(matFilePath(end - 3:end), '.mat')
+            fileObj = matfile(matFilePath);
+            
+            % Check if data before generating the netcdf.
+            if ismember(espEnv.modisData.versionOf.VariablesNetCDF, {'v2024.0d', 'v2024.1.0'})
+              varName = 'snow_fraction_s';
+              dateToSkip = 1;
+              if ~isempty(who(fileObj, varName))
+                data = fileObj.(varName);
+                if min(unique(data)) ~= intmax('uint8')
+                  dateToSkip = 0;
+                end
+              end
+              if dateToSkip == 1
+                warning(['Skip %s: %s. No variable snow_fraction_s, or data only', ...
+                  'nodata.\n'], char(thisDate, 'yyyyMMdd'), matFilePath);
                 return;
+              end
             end
-            % Create/populate the NetCDF file metadata
-            thisNetCDF = ESPNetCDF(region, thisDate);
-            thisNetCDF = thisNetCDF.createFile(netCDFFilePath);
-            try
-                thisNetCDF = thisNetCDF.setCoordinateVars();
-                thisNetCDF = thisNetCDF.setDate(thisDate);
+          end
 
-                % 2. Add variables, their values and attributes.
-                writeNetCDFField = 'v2024_0';
-                  % NB: all this should be translated using configuration of
-                  % versionvariables rather than of variables.                     @todo
-                if ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, ...
-                  {'v2023.0e', 'v2023.1'})
-                    writeNetCDFField = 'v2023_1';
-                elseif strcmp(region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2022.0')
-                    writeNetCDFField = 'v2022_0';
-                end % Specific case for HMA ASHimalayas v2022.0. Otherwise we suppose
-                    % all available fields are same as v2023.1
-                writeNetCDFField = ['write_netCDF_', writeNetCDFField];
-                availableVariables = region.espEnv.myConf.variable(...
-                    find(region.espEnv.myConf.variable.(writeNetCDFField) == 1), :);
-                fileObj = matfile(matFilePath);
-                for varIdx = 1:size(availableVariables, 1)
-                    varConf = availableVariables(varIdx, :);
-                    varName = varConf.('output_name'){1};
+          % 1. Copy the template into a new netcdf file.
+          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+          % Each version has its own template.
+          if ismember(espEnv.modisData.versionOf.spiresdailytifsinu, ...
+              {'v2024.0d', 'v2024.1.0', 'v2023.0.1', 'v2023.0e', 'v03', 'v2022.0'}) 
+              % NB: temporary'v2024.0d' to be renamed by 'v2024.1.0'.
+              % NB: v2023.0.1 = v2023.0e + v2023.0
+              inputDataLabel = 'VariablesMatlab';
+          else % 'v2025.0.1+'
+              inputDataLabel = 'spiresdailytifsinu';
+          end
+          if ismember(espEnv.modisData.versionOf.daacnetcdfv20220, ...
+              {'v03', 'v2022.0'}) 
+              % NB: temporary'v2024.0d' to be renamed by 'v2024.1.0'.
+              outputDataLabel = 'daacnetcdfv20220';
+          elseif ismember(espEnv.modisData.versionOf.daacnetcdfv202301, ...
+              {'v2023.0.1'}) 
+              outputDataLabel = 'daacnetcdfv202301';
+          elseif ismember(espEnv.modisData.versionOf.VariablesNetCDF, {'v2023.0e'})
+              outputDataLabel = 'VariablesNetCDF';
+          else
+              % 'v2025.0.1 % 'v2025.0.1', 'v2024.0d', 'v2024.1.0',
+              outputDataLabel = 'outputnetcdf';
+          end
+          if isfile(netCDFFilePath)
+            delete(netCDFFilePath);
+          end
+          templateNetCdfFilePath = [getenv('thisEspProjectDir'), ...
+              'tbx/template/outputnetcdf.', ...
+              espEnv.modisData.versionOf.(outputDataLabel), '.nc'];
+          [status, message] = copyfile(templateNetCdfFilePath, ...
+              netCDFFilePath);
+          if status ~= 1
+            error('NetCDF:badcopy', ...
+              ['ESPNetCDF.generateNetCDFFromRegionAndMatFile(): unable to ', ...
+              'copy template %s to %s, %s.\n'], ...
+              templateNetCdfFilePath, netCDFFilePath, message)
+          end
+          
+          try
+            ncFileId = netcdf.open(netCDFFilePath, 'WRITE');
+            
+            % 2. Global, geospatial, time attributes/data.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+            % 2.1. GeoTransform  (Tile only, no big region).
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % A geotransform consists in a set of 6 coefficients:
+            %
+            % GT(0) x-coordinate of the upper-left corner
+            %       of the upper-left pixel.
+            % GT(1) w-e pixel resolution / pixel width.
+            % GT(2) row rotation (typically zero).
+            % GT(3) y-coordinate of the upper-left corner
+            %       of the upper-left pixel.
+            % GT(4) column rotation (typically zero).
+            % GT(5) n-s pixel resolution / pixel height
+            %       (negative value for a north-up image).
+            %
+            % See details:
+            % https://gdal.org/tutorials/geotransforms_tut.html
+            % After an e-mail exchange with Scott 2023-09-07, it appears that the
+            % Geotransform is a string separated by spaces and ended by a space.
+
+            myRR = region.getMapCellsReference();
+            GeoTransform = sprintf('%.20f %.20f 0.0 %.20f 0.0 %.20f ', ...
+              myRR.XWorldLimits(1), myRR.CellExtentInWorldX, myRR.YWorldLimits(2), ...
+              -1 * myRR.CellExtentInWorldY);
+              % don't use num2str here, since it rounds to 4 decimals, which might
+              % create a problem when cutting in comparison with other modis type tiles
+              % as mod10 2024-05-08 chat with Ross.
+            
+            % Define the crs variable. It is instantiated first with name 'sinusoidal'
+            % to be referable in the corresponding attributes of each variable,
+            % and then crs. I parametered the 'sinusoidal' with what works for QGIS 3.28
+            % and let the crs as parametered as Mary Jo did. Note that before 2023-08-31
+            % only crs was parametered and there was no sinusoidal var.
+            % Not sure if both 'crs' and 'sinusoidal' variables are
+            % necessary but it's better to let them as such for now.            @tocheck
+            %
+            % Projection CF netcdf doc:
+            % http://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#_sinusoidal
+            %
+            % It will be no data, just attributes
+            % Indicate that there is no dimid with []
+            % No need to call putVar since there's no data here
+            % Attributes will be written in closeFile
+
+            % Sinusoidal.
+            % Patch for matlab 2021. For matlab 2022 can use
+            % myRR.ProjectedCRS.GeographicCRS.Spheroid.Radius
+            % rather than
+            % modisData.projection.modisSinusoidal.geoKeyDirectoryTag.GeogSemiMajorAxisGeoKey   @todo
+            ncVarId = netcdf.inqVarID(ncFileId, 'crs');
+            netcdf.putAtt(ncFileId, ncVarId, 'GeoTransform', GeoTransform);
+            
+            % 2.2. x and y dimension variables (Tile only, no big region).
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+            % Get the reference and projection/geographic properties attached to the
+            % region.
+            nrows = myRR.RasterSize(1);
+            ncols = myRR.RasterSize(2);
+
+            % Calculate center of UL cell.
+            ULx_m = myRR.XWorldLimits(1) + (myRR.CellExtentInWorldX / 2.);
+            ULy_m = myRR.YWorldLimits(2) - (myRR.CellExtentInWorldY / 2.);
+
+            % Calculate the overall x and y projected range.
+            ntilecols = modisData.sensorProperties.tiling.columnCount;
+            ntilerows = modisData.sensorProperties.tiling.rowCount;
+            x_extent_m = ntilecols * ncols * myRR.CellExtentInWorldX;
+            y_extent_m = ntilerows * nrows * myRR.CellExtentInWorldY;
+            x_valid_range = [ -1 * x_extent_m / 2, x_extent_m / 2 ];
+            y_valid_range = [ -1 * y_extent_m / 2, y_extent_m / 2 ];
+            
+            % Define the x and y attributes.
+            ncVarId = netcdf.inqVarID(ncFileId, 'x');
+            netcdf.putAtt(ncFileId, ncVarId, 'valid_range', x_valid_range);
+            netcdf.putVar(ncFileId, ncVarId, ...
+              ULx_m + (myRR.CellExtentInWorldX * (0:(ncols - 1))));
+
+            ncVarId = netcdf.inqVarID(ncFileId, 'y');
+            netcdf.putAtt(ncFileId, ncVarId, 'valid_range', y_valid_range);
+            netcdf.putVar(ncFileId, ncVarId, ...
+                ULy_m - (myRR.CellExtentInWorldY * (0:(nrows - 1))));
+
+            % 2.3. Date of the dataset.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Convert thisDate to days since epoch.
+            ncVarId = netcdf.inqVarID(ncFileId, 'time');
+            netcdf.putAtt(ncFileId, ncVarId, 'valid_range', ...
+              [0., realmax]);
+            seconds_per_day = 24 * 60 * 60;
+            ncVarId = netcdf.inqVarID(ncFileId, 'time');
+            netcdf.putVar(ncFileId, ncVarId, 0, ...
+              double(convertTo(thisDate, 'epochtime', ...
+              'Epoch', string(ESPNetCDF.epochDt))) / seconds_per_day );
+            
+            ncVarId = netcdf.getConstant('GLOBAL');
+            netcdf.putAtt(ncFileId, ncVarId, 'time_coverage_start', string( ...
+              datetime(year(thisDate), month(thisDate), day(thisDate), ...
+              0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ'));
+            netcdf.putAtt(ncFileId, ncVarId, 'time_coverage_end', string( ...
+              datetime(year(thisDate), month(thisDate), day(thisDate) + 1, ...
+              0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ'));
+                
+            % 2.4. Box longitude/latitude coordinates for earthData Viewer.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            regionConf = region.myConf.region;
+            geospatialBounds = ['POLYGON((', ...
+              sprintf('%.8f', regionConf.boxLatitude1), ' ', ...
+              sprintf('%.8f', regionConf.boxLongitude1), ', ', ...
+              sprintf('%.8f', regionConf.boxLatitude2), ' ', ...
+              sprintf('%.8f', regionConf.boxLongitude2), ', ', ...
+              sprintf('%.8f', regionConf.boxLatitude3), ' ', ...
+              sprintf('%.8f', regionConf.boxLongitude3), ', ', ...
+              sprintf('%.8f', regionConf.boxLatitude4), ' ', ...
+              sprintf('%.8f', regionConf.boxLongitude4), ', ', ...
+              sprintf('%.8f', regionConf.boxLatitude1), ' ', ...
+              sprintf('%.8f', regionConf.boxLongitude1), '))'];
+            
+            netcdf.putAtt(ncFileId, ncVarId, 'geospatial_bounds', geospatialBounds);
+
+            % 2.5. Creation date.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            nowStr = datetime('now', 'TimeZone', 'UTC', 'Format', ...
+              'yyyy-MM-dd HH:mm:SSxxxxx');
+            nowStr = strrep(char(nowStr), ' ', 'T');
+            netcdf.putAtt(ncFileId, ncVarId, 'date_created', nowStr);
+            netcdf.putAtt(ncFileId, ncVarId, 'date_modified', nowStr);
+            
+            % 2.6. Other global attributes for some versions.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            if ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, ...
+              {'v03', 'v2022.0', 'v2023.0d'}) % obsolete, 'v2022.0', 'v2023.0', 'v2023.1', 'v2023.0a', 'v2023.0d'}) % TODO 20241211: check whether v2023.hist is v2023.0d or v2023.0e.
+              data = load(matFilePath, 'files').files;
+              [~, stcFileName, stcFileExt] = fileparts(data{1,2});
+              netcdf.putAtt(ncFileId, ncVarId, 'STC_file', ...
+                sprintf('%s%s', stcFileName, stcFileExt));
+            end
+            
+            % 3. variable snow data.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            writeNetCDFField = 'v2024_0';
+              % NB: all this should be translated using configuration of
+              % versionvariables rather than of variables.                     @todo
+            if ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, ...
+              {'v2023.0d', 'v2023.0e', 'v2023.1', 'v2023.0.1'})
+                writeNetCDFField = 'v2023_1';
+            elseif strcmp(region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2022.0')
+                writeNetCDFField = 'v2022_0';
+            end % Specific case for HMA ASHimalayas v2022.0. Otherwise we suppose
+                % all available fields are same as v2023.1
+            writeNetCDFField = ['write_netCDF_', writeNetCDFField];
+            availableVariables = region.espEnv.myConf.variable(...
+                find(region.espEnv.myConf.variable.(writeNetCDFField) == 1), :);
+            for varIdx = 1:size(availableVariables, 1)
+              varConf = availableVariables(varIdx, :);
+              varName = varConf.('output_name'){1};
+%{ 
+            % OBSOLETE?
+              if strcmp(varName, 'calculated_from_rare_observation')
+                data = zeros([2400, 2400], 'uint8');
+                ncVarId = netcdf.inqVarID(ncFileId, 'calculated_from_rare_observation');
+                netcdf.putVar(ncFileId, ncVarId, ...
+                  reshape(data', 1, size(data, 2), size(data, 1)));
+                continue;
+              end
+%}
+              outputVarName = varConf.('netCDF_varName'){1};
+              % TEMPORARY 20241209.
+              if ~strcmp(espEnv.modisData.versionOf.spiresdailytifsinu, 'v2025.0.1')
+                if isempty(who(fileObj, varName))
+                  warning('Skip absent variable %s in %s.\n', varName, ...
+                    matFilePath);
+                  continue;
+                end
+              end
+              % Dirty tweak for v2025.nrt 20241209.
+              if ismember(espEnv.modisData.versionOf.spiresdailytifsinu, {'v2025.0.1'})
+                inputDataLabel = 'spiresdailytifsinu';
+                complementaryLabel = '';
+                data = struct();
+                data.(varName) = espEnv.getDataForDateAndVarName(objectName, ...
+                    inputDataLabel, thisDate, varName, complementaryLabel);
+                divisor = 1;
+              else
+                data = load(matFilePath, varName, ...
+                    [varName '_divisor']);
+                divisor = data.([varName, '_divisor']);
+              end
+              
+              % Handle divisor that is not trivial (and adjust type)
+              % This is special case for v2022.0 albedo variable
+              if divisor ~= 1 && strcmp(writeNetCDFField, 'write_netCDF_v2022_0')
+                data = ...
+                  cast(...
+                  data.(varName) / double(divisor), ...
+                  ESPNetCDF.matClass(varConf.('netCDF_type'){1}));
+              else
+                data = data.(varName);
+              end
+
+              % NBL
+              %grid_mapping = 'crs'); %'sinusoidal'); % this grid_mapping references the
+                  % general grid_mapping and wasn't present in the first versions
+                  % of this script (before 2023-08-31).
+              % Before 20241126: description = varConf.('netCDF_description'){1}, ...
+              % Change asked by Kara.
+              
+              % scale_factor = varConf.('netCDF_scale_factor')(1), ...: We don't want
+              % this, since by default convert the data into float.
+
+              ncVarId = netcdf.inqVarID(ncFileId, outputVarName);
+
+              netcdf.putVar(ncFileId, ncVarId, ...
+                reshape(data', 1, size(data, 2), size(data, 1)));
+            end % for varIdx.
+            
+          % 4. Close file.
+          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+          catch e
+            if ncFileId
+                netcdf.close(ncFileId);
+            end
+            rethrow(e);
+          end
+          
+          netcdf.close(ncFileId);
+          fprintf('%s: wrote %s\n', mfilename(), netCDFFilePath);
+%{
+          % obsolete. 20241211.
+
+          % 2. Add variables, their values and attributes.
+          writeNetCDFField = 'v2024_0';
+            % NB: all this should be translated using configuration of
+            % versionvariables rather than of variables.                     @todo
+          if ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, ...
+            {'v2023.0e', 'v2023.1'})
+              writeNetCDFField = 'v2023_1';
+          elseif strcmp(region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2022.0')
+              writeNetCDFField = 'v2022_0';
+          end % Specific case for HMA ASHimalayas v2022.0. Otherwise we suppose
+              % all available fields are same as v2023.1
+          writeNetCDFField = ['write_netCDF_', writeNetCDFField];
+          availableVariables = region.espEnv.myConf.variable(...
+              find(region.espEnv.myConf.variable.(writeNetCDFField) == 1), :);
+          
+          % Create/populate the NetCDF file metadata
+          thisNetCDF = ESPNetCDF(region, thisDate);
+          thisNetCDF = thisNetCDF.createFile(netCDFFilePath);
+          try
+              thisNetCDF = thisNetCDF.setCoordinateVars();
+              thisNetCDF = thisNetCDF.setDate(thisDate);
+
+              for varIdx = 1:size(availableVariables, 1)
+                  varConf = availableVariables(varIdx, :);
+                  varName = varConf.('output_name'){1};
+                  % TEMPORARY 20241209.
+                  if ~strcmp(espEnv.modisData.versionOf.spiresdailytifsinu, 'v2025.nrt')
                     if isempty(who(fileObj, varName))
                         warning('Skip absent variable %s in %s.\n', varName, ...
                           matFilePath);
                         continue;
                     end
-                    data = load(matFilePath, varConf.('output_name'){1}, ...
-                        [varConf.('output_name'){1} '_divisor']);
-                    divisor = data.([varConf.('output_name'){1} '_divisor']);
-                    % Handle divisor that is not trivial (and adjust type)
-                    % This is special case for v2022.0 albedo variable
-                    if divisor ~= 1
-                        data.(varConf.('output_name'){1}) = ...
-                            cast(...
-                            data.(varConf.('output_name'){1}) / double(divisor), ...
-                            ESPNetCDF.matClass(varConf.('netCDF_type'){1}));
-                    end
+                  end
+                  % Dirty tweak for v2025.nrt 20241209.
+                  if ismember(espEnv.modisData.versionOf.spiresdailytifsinu, {'v2025.nrt'})
+                      inputDataLabel = 'spiresdailytifsinu';
+                      complementaryLabel = '';
+                      data = struct();
+                      data.(varName) = espEnv.getDataForDateAndVarName(objectName, ...
+                          inputDataLabel, thisDate, varName, complementaryLabel);
+                      divisor = 1;
+                  else
+                      data = load(matFilePath, varConf.('output_name'){1}, ...
+                          [varConf.('output_name'){1} '_divisor']);
+                      divisor = data.([varConf.('output_name'){1} '_divisor']);
+                  end
+                  
+                  % Handle divisor that is not trivial (and adjust type)
+                  % This is special case for v2022.0 albedo variable
+                  if divisor ~= 1 && strcmp(writeNetCDFField, 'v2022_0')
+                      data.(varConf.('output_name'){1}) = ...
+                          cast(...
+                          data.(varConf.('output_name'){1}) / double(divisor), ...
+                          ESPNetCDF.matClass(varConf.('netCDF_type'){1}));
+                  end
 
-                    % Attributes for this variable and the values.
-                    attribute = struct(...
-                        long_name = varConf.('netCDF_long_name'){1}, ...
-                        units = varConf.('netCDF_units'){1}, ...
-                        FillValue = ...
-                            cast(varConf.('nodata_value'), ...
-                            ESPNetCDF.matClass(varConf.('netCDF_type'){1})), ...
-                        valid_range = ...
-                            cast([varConf.('min') varConf.('max')], ...
-                            ESPNetCDF.matClass(varConf.('netCDF_type'){1})), ...
-                        description = varConf.('netCDF_description'){1}, ...
-                        grid_mapping = 'crs'); %'sinusoidal'); % this grid_mapping references the
-                            % general grid_mapping and wasn't present in the first versions
-                            % of this script (before 2023-08-31).
-                    if ~strcmp(varConf.('netCDF_standard_name'){1}, 'none')
-                        attribute.standard_name = varConf.('netCDF_standard_name'){1};
-                    end
-                    if strcmp(varConf.('output_name'){1}, ...
-                        'viewable_snow_fraction_status')
-                        attribute.flag_values = cast( ...
-                            cell2mat(struct2cell(Variables.dataStatus))', ...
-                            ESPNetCDF.matClass(varConf.('netCDF_type'){1}));
-                        attribute.flag_meanings = strjoin(fieldnames( ...
-                            Variables.dataStatus ));
-                    end
+                  % Attributes for this variable and the values.
+                  attribute = struct(...
+                      snowtoday_id = varConf.('id')(1), ...
+                      snowtoday_name = varConf.('output_name'){1}, ...
+                      long_name = varConf.('netCDF_long_name'){1}, ...
+                      units = replace(varConf.('netCDF_units'){1}, '"', ''), ...
+                      FillValue = ...
+                          cast(varConf.('nodata_value'), ...
+                          ESPNetCDF.matClass(varConf.('netCDF_type'){1})), ...
+                      valid_range = ...
+                          cast([varConf.('min') varConf.('max')], ...
+                          ESPNetCDF.matClass(varConf.('netCDF_type'){1})), ...
+                      comment = varConf.('netCDF_description'){1}, ...
+                      grid_mapping = 'crs'); %'sinusoidal'); % this grid_mapping references the
+                          % general grid_mapping and wasn't present in the first versions
+                          % of this script (before 2023-08-31).
+                      % Before 20241126: description = varConf.('netCDF_description'){1}, ...
+                      % Change asked by Kara.
+                      
+                      % scale_factor = varConf.('netCDF_scale_factor')(1), ...
+                  if ~strcmp(varConf.('netCDF_standard_name'){1}, 'none')
+                      attribute.standard_name = varConf.('netCDF_standard_name'){1};
+                  end
+                  if strcmp(varConf.('output_name'){1}, ...
+                      'viewable_snow_fraction_status')
+                      attribute.flag_values = cast( ...
+                          cell2mat(struct2cell(Variables.dataStatus))', ...
+                          ESPNetCDF.matClass(varConf.('netCDF_type'){1}));
+                      attribute.flag_meanings = strjoin(fieldnames( ...
+                          Variables.dataStatus ));
+                  end
 
-                    thisNetCDF = thisNetCDF.setVariable( ...
-                        data.(varConf.('output_name'){1}), ...
-                        varConf.('netCDF_varName'){1}, varConf.('netCDF_type'){1}, ...
-                        attribute);
-                end % for varIdx.
+                  thisNetCDF = thisNetCDF.setVariable( ...
+                      data.(varConf.('output_name'){1}), ...
+                      varConf.('netCDF_varName'){1}, varConf.('netCDF_type'){1}, ...
+                      attribute);
+              end % for varIdx.
 
-                % 3. Add a few more global attributes from the .mat file
-                % that we want to carry along into the .nc file.
-                attribute = struct();
-                % Dates and duration in ISO8601. We arbitrarily set the start time to
-                % UTC (Z) midnight although it's not, and duration to 1 day.
-                attribute.time_coverage_start = string( ...
-                    datetime(year(thisDate), month(thisDate), day(thisDate), ...
-                    0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ');
-                attribute.time_coverage_end = string( ...
-                    datetime(year(thisDate), month(thisDate), day(thisDate) + 1, ...
-                    0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ');
-                attribute.time_coverage_duration = 'P0Y0M1DT0H0M0S';
-
+              % 3. Add a few more global attributes from the .mat file
+              % that we want to carry along into the .nc file.
+              attribute = struct();
+              % Dates and duration in ISO8601. We arbitrarily set the start time to
+              % UTC (Z) midnight although it's not, and duration to 1 day.
+              attribute.time_coverage_start = string( ...
+                  datetime(year(thisDate), month(thisDate), day(thisDate), ...
+                  0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ');
+              attribute.time_coverage_end = string( ...
+                  datetime(year(thisDate), month(thisDate), day(thisDate) + 1, ...
+                  0, 0, 0, 0, 'TimeZone', 'Z'), 'yyyy-MM-dd''T''HH:mm:ss.SSSZ');
+              attribute.time_coverage_duration = 'P0Y0M1DT0H0M0S';
+              
+              if ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, ...
+                {'v2022.0', 'v2023.0', 'v2023.1', 'v2023.0a', 'v2023.0d'})
                 attribute.versionOf_SCAGDRFSSTC = ...
                     region.espEnv.modisData.versionOf.SCAGDRFSSTC;
                 attribute.versionOf_VariablesMatlab = ...
                     region.espEnv.modisData.versionOf.VariablesMatlab;
                 attribute.versionOf_VariablesNetCDF = ...
                     region.espEnv.modisData.versionOf.VariablesNetCDF;
-                fieldNamesInMat = fieldnames(matfile(matFilePath));
-                matWantedAttributeNames = {};
-                if ismember(attribute.versionOf_VariablesNetCDF, ...
+                    
+                 if ismember(attribute.versionOf_VariablesNetCDF, ...
                   {'v2022.0', 'v2023.1', 'v2023.0'})
                   matWantedAttributeNames = {'files', 'stcStruct'};
                     % I didn't put 'mindays', 'zthresh' wich are already in stcStruct.
@@ -995,57 +1394,60 @@ classdef ESPNetCDF < handle
                 % NB: it's probably required to have clearer names for metadata    @todo
                 versionNetCDFString = replace( ...
                     attribute.versionOf_VariablesNetCDF, '.', '_');
-                for matWantedAttributeNameIdx = 1:length(matWantedAttributeNames)
-                    matWantedAttributeName = ...
-                        matWantedAttributeNames{matWantedAttributeNameIdx};
-                    % We load the metadata only if there's no default value.
-                    if ismember(versionNetCDFString, ...
-                        fieldnames(thisNetCDF.defaultAttributeValues)) & ...
-                        ismember(matWantedAttributeName, ...
-                        fieldnames(thisNetCDF.defaultAttributeValues. ...
-                            (versionNetCDFString)))
-                        data = thisNetCDF.defaultAttributeValues. ...
-                            (versionNetCDFString).(matWantedAttributeName);
-                    else
-                        data = load(matFilePath, ...
-                            matWantedAttributeName).(matWantedAttributeName);
-                    end
-                    switch matWantedAttributeName
-                        case 'files'
-                            [~, stcFileName, stcFileExt] = fileparts(data{1,2});
-                            attribute.STC_file = sprintf('%s%s', stcFileName, stcFileExt);
-    %{
-                        case {'zthresh', 'mindays'}
-                            attribute.(['STC_', matWantedAttributeName])  = strjoin( ...
-                                string(data{1}));
-    %}
-                        case 'stcStruct'
-                            theseFieldNames = fieldnames(data);
-                            for fieldIdx = 1:length(theseFieldNames)
-                                if 1 == numel(data.(theseFieldNames{fieldIdx}))
-                                    attribute.(['STC_', theseFieldNames{fieldIdx}]) = ...
-                                        string(data.(theseFieldNames{fieldIdx}));
-                                else
-                                    attribute.(['STC_', theseFieldNames{fieldIdx}]) = ...
-                                        strjoin( ...
-                                            string(data.(theseFieldNames{fieldIdx})), ...
-                                            ', ');
-                                end
-                            end
-                    end
-                end
-                thisNetCDF.addGlobalAttributes(attribute);
+              end
+              if ~strcmp(espEnv.modisData.versionOf.spiresdailytifsinu, 'v2025.nrt') % TEMPORARY dirty 20241209.
+                  fieldNamesInMat = fieldnames(matfile(matFilePath));
+                  matWantedAttributeNames = {};
+                 
+                  for matWantedAttributeNameIdx = 1:length(matWantedAttributeNames)
+                      matWantedAttributeName = ...
+                          matWantedAttributeNames{matWantedAttributeNameIdx};
+                      % We load the metadata only if there's no default value.
+                      if ismember(versionNetCDFString, ...
+                          fieldnames(thisNetCDF.defaultAttributeValues)) & ...
+                          ismember(matWantedAttributeName, ...
+                          fieldnames(thisNetCDF.defaultAttributeValues. ...
+                              (versionNetCDFString)))
+                          data = thisNetCDF.defaultAttributeValues. ...
+                              (versionNetCDFString).(matWantedAttributeName);
+                      else
+                          data = load(matFilePath, ...
+                              matWantedAttributeName).(matWantedAttributeName);
+                      end
+                      switch matWantedAttributeName
+                          case 'files'
+                              [~, stcFileName, stcFileExt] = fileparts(data{1,2});
+                              attribute.STC_file = sprintf('%s%s', stcFileName, stcFileExt);
+      %{
+                          case {'zthresh', 'mindays'}
+                              attribute.(['STC_', matWantedAttributeName])  = strjoin( ...
+                                  string(data{1}));
+      %}
+                          case 'stcStruct'
+                              theseFieldNames = fieldnames(data);
+                              for fieldIdx = 1:length(theseFieldNames)
+                                  if 1 == numel(data.(theseFieldNames{fieldIdx}))
+                                      attribute.(['STC_', theseFieldNames{fieldIdx}]) = ...
+                                          string(data.(theseFieldNames{fieldIdx}));
+                                  else
+                                      attribute.(['STC_', theseFieldNames{fieldIdx}]) = ...
+                                          strjoin( ...
+                                              string(data.(theseFieldNames{fieldIdx})), ...
+                                              ', ');
+                                  end
+                              end
+                      end
+                  end
+              end
+              thisNetCDF.addGlobalAttributes(attribute);
 
-                % 5. Write it out.
-                thisNetCDF.closeFile();
-                logger.printDurationAndMemoryUse(dbstack);
-                fprintf('%s: Done generating .nc %s from .mat %s.\n', mfilename(), ...
-                    netCDFFilePath, matFilePath);
-            catch ME
-                netcdf.close(thisNetCDF.ncid);
-                rethrow(ME);
-            end
-        end
+              % 5. Write it out.
+              thisNetCDF.closeFile();
+%}             
+        logger.printDurationAndMemoryUse(dbstack);
+        fprintf('%s: Done generating .nc %s from .mat %s.\n', mfilename(), ...
+            netCDFFilePath, matFilePath);
+      end
 
 	% TBD: we need a function that will make an .nc file from
 	% input data instead of from one of the legacy .mat files
