@@ -137,22 +137,27 @@ fi
 # Argument setting.
 # None.
 
-if [[ $inputLabel == 'v2024.0d' ]]; then
+if [[ $inputLabel == 'v2024.0d' || $inputLabel == 'v2024.1.0' || $inputLabel == 'v2025.0.1' ]]; then
 
   # RSync of westernUS Netcdf to archive [hard-coded].
   ######################################################################################
   # No check that the rsync jobs are correctly achieved!
+  outputLabel=$inputLabel;
+  if [[ $inputLabel == 'v2024.0d' ]]; then
+    outputLabel='v2024.1.0';
+  fi
+
   printf "Submission of jobs to rsync netcdfs back to archive...\n"
   years=( {2025..2024..-1} );
-  regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04);
+  regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04 h29v13 h30v13);
   slurmAccount=${SLURM_JOB_ACCOUNT};
   scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/;
   slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
   exclude="";
   scriptPath=./scripts/runRsync.sh
 
-  sourceBasePath=${scratchPath}modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
-  targetBasePath=${archivePath}output/mod09ga.061/spires/v2024.1.0/netcdf/
+  sourceBasePath=${scratchPath}output/mod09ga.061/spires/${outputLabel}/netcdf/ #modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
+  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/netcdf/
     # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
 
   for year in ${years[@]}; do
@@ -161,14 +166,16 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
       jobName=$scriptId-${regionName};
       targetPath=${targetBasePath}${regionName}/
       sourcePath=${sourceBasePath}${regionName}/${year}
-      mkdir -p ${targetPath}
-      submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
-      printf "${submitLine}\n"
-      ${submitLine}
+      if [[ -d $sourcePath ]]; then
+        mkdir -p ${targetPath}
+        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+        printf "${submitLine}\n"
+        ${submitLine}
+      fi
     done
   done
   
-   # RSync of westernUS proj tif to archive [hard-coded].
+  # RSync of westernUS proj tif to archive [hard-coded].
   ######################################################################################
   # No check that the rsync jobs are correctly achieved!
   printf "Submission of jobs to rsync projected geotiff back to archive...\n"
@@ -178,7 +185,7 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
 
   sourceBasePath=${scratchPath}modis/variables/scagdrfs_geotiff_${inputLabel}/v006/;
   endSourceBasePath=EPSG_3857/LZW/
-  targetBasePath=${archivePath}output/mod09ga.061/spires/v2024.1.0/tif_EPSG3857/
+  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/
     # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
 
   for year in ${years[@]}; do
@@ -187,10 +194,39 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
       jobName=$scriptId-${regionName};
       targetPath=${targetBasePath}${regionName}/
       sourcePath=${sourceBasePath}${regionName}/${endSourceBasePath}${year}
-      mkdir -p ${targetPath}
-      submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
-      printf "${submitLine}\n"
-      ${submitLine}
+      if [[ -d $sourcePath ]]; then
+        mkdir -p ${targetPath}
+        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+        printf "${submitLine}\n"
+        ${submitLine}
+      fi
+    done
+  done
+  
+  # RSync of westernUS proj tif v2025.0.1 to archive [hard-coded].
+  ######################################################################################
+  # No check that the rsync jobs are correctly achieved!
+  printf "Submission of jobs to rsync projected geotiff back to archive...\n"
+  years=( {2025..2024..-1} );
+  regionNames=(westernUS OCNewZealand h08v04 h08v05 h09v04 h09v05 h10v04 h29v13 h30v13);
+  scriptPath=./scripts/runRsync.sh
+
+  sourceBasePath=${scratchPath}output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/;
+  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/;
+    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
+
+  for year in ${years[@]}; do
+    scriptId=sync${year};
+    for regionName in ${regionNames[@]}; do
+      jobName=$scriptId-${regionName};
+      targetPath=${targetBasePath}${regionName}/
+      sourcePath=${sourceBasePath}${regionName}/${year}
+      if [[ -d $sourcePath ]]; then
+        mkdir -p ${targetPath}
+        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+        printf "${submitLine}\n"
+        ${submitLine}
+      fi
     done
   done
   
