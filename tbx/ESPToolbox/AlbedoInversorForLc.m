@@ -62,7 +62,7 @@ classdef AlbedoInversorForLc < handle
         % Parameters
         % ----------
         % region: Regions obj. With name of the pathrow of the landsat scene.
-        %   E.g. for p042r034: '042034'.
+        %   E.g. 'p042r034'.
         %
         % Return
         % ------
@@ -94,10 +94,7 @@ classdef AlbedoInversorForLc < handle
       %
       % Parameters
       % ----------
-      % inputProductAndVersion: char. lc08.l2sp.02.t1 or lc09.l2sp.02.t1. Allows to
-      %   determine paths of input/output files.
-      
-      %
+      % thisDate: datetime. Date for which the calculation is done.
 
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       % 1. Deltavis.
@@ -216,7 +213,7 @@ classdef AlbedoInversorForLc < handle
         thisDate = thisDate, varName = varName, timestampAndNrt = timestampAndNrt);  
       geotiffwrite(filePath, data, mapCellsReference, ...
         CoordRefSysCode = coordRefSysCode, TiffTags = struct(Compression = 'LZW'));
-      return;
+      
       % Back DRFS Deltavis.
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
