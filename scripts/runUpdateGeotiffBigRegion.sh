@@ -160,7 +160,7 @@ conda install gdal
 '
   tileInputTifDirectoryPattern=${scratchPath}mod09ga.061/spires/${inputLabel}/int_day/{regionName}/{thisYear}/{thisYear}{thisMonthDay}/
   tileInputTifFileNamePattern=mod09ga_061_spi_{regionName}_{thisYear}{thisMonthDay}_{varName}.sinu.${inputLabel}.tif
-  tileOutputTifDirectoryPattern=${scratchPath}mod09ga.061/spires/${inputLabel}/out_tif/{regionName}/{thisYear}/{thisYear}{thisMonthDay}/
+  tileOutputTifDirectoryPattern=${scratchPath}output/mod09ga.061/spires/${inputLabel}/tif_EPSG3857/{regionName}/{thisYear}/{thisYear}{thisMonthDay}/
   tileOutputTifFileNamePattern=mod09ga_061_spi_{regionName}_{thisYear}{thisMonthDay}_{varName}.EPSG_3857.${inputLabel}.tif
 
   # Dynamic variables.
