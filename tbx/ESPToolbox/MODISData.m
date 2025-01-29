@@ -119,7 +119,7 @@ classdef MODISData < handle
             addParameter(p, 'inputProduct', 'mod09ga');
             addParameter(p, 'inputProductVersion', '061');
             addParameter(p, 'label', defaultLabel, checkLabel);
-            addParameter(p, 'nrtOrHist', 0); % Default nrt.
+            addParameter(p, 'nrtOrHist', 'nrt'); % Default nrt.
             addParameter(p, 'versionOfAncillary', obj.defaultVersionOf.ancillary);
 
             p.KeepUnmatched = false;
