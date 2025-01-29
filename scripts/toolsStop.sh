@@ -1,3 +1,5 @@
+#printf "$(pStart): Exit before execution"
+#exit 1
 #: '
 if [ $matlabLaunched ] && [ ${#matlabString} -gt 0 ]; then
   printf "\n\n\n\n"
