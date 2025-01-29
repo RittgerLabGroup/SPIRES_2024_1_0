@@ -7,7 +7,6 @@ classdef Mosaic
         region     % Regions object pointing to the upper-level region, e.g.
                     % westernUS
     end
-
     methods
         function obj = Mosaic(region)
             % Constructor
@@ -42,15 +41,15 @@ classdef Mosaic
             espEnv = obj.region.espEnv;
             espEnv.configParallelismPool(10);
             dateRange = waterYearDate.getDailyDatetimeRange();
-            
+
             objectName = obj.region.name;
             varName = '';
             complementaryLabel = '';
-            
+
             % 2. Build tileset for the big region for each day of waterYearDate,
             % with stop when a tile isn't available.
             parfor dateIdx = 1:length(dateRange)
-                % 2.1. Information on date, tile and region filepaths, 
+                % 2.1. Information on date, tile and region filepaths,
                 % mapCellsReferences.
                 thisDate = dateRange(dateIdx);
                 filePath = espEnv.getFilePathForDateAndVarName(objectName, ...
@@ -69,7 +68,7 @@ classdef Mosaic
                     % tileFilePaths{tileIdx} = espEnv.MosaicFile(tileRegion, thisDate); obsolete 20241008.
                     tileMapCellsReferences(tileIdx) = tileRegion.getMapCellsReference();
                 end
-                
+
                 % 2.2. Generation of the Mosaic tileset.
                 tileSetIsGenerated = Tools.buildTileSet(tileFilePaths, ...
                     tileMapCellsReferences, filePath, mapCellsReference);
@@ -117,9 +116,9 @@ classdef Mosaic
             fprintf(['%s: Starting solar data mosaic .mat generation/writing for ', ...
                 'region %s, date %s...\n'], ...
                 mfilename(), obj.region.name, waterYearDate.toChar());
-            
+
             espEnv = obj.region.espEnv;
-            
+
             % For solar_azimuth and zenith environment, we get the data from v2023.0e mosaics.
             modisData = MODISData(label = 'v2023.0e', versionOfAncillary = 'v3.1');
             espEnv2023 = ESPEnv(modisData = modisData, scratchPath = espEnv.scratchPath);
@@ -132,9 +131,9 @@ classdef Mosaic
             thisDate = '';
             varName = '';
             complementaryLabel = '';
-            
-            % espEnv.configParallelismPool(10); 
-            
+
+            % espEnv.configParallelismPool(10);
+
                 % NB: Uncomment above when you want to use parallelization
                 % using parfor loop below to launch several days in parallel.
                 % You can replace 10 by the number of days you want to have in
@@ -143,7 +142,7 @@ classdef Mosaic
                 % have concurrent access to files.
                 % NB: I'm not certain if this work for simultaneous read access to the
                 % same .h5 file.
-           
+
             % For each day of waterYearDate, we get the solar_azimuth and zenith
             % from v2023.0e mosaic .mat (only works for westernUS and 2000-2023/09),
             % then the variables in the spires water year output .h5 file,
@@ -152,7 +151,7 @@ classdef Mosaic
             %---------------------------------------------------------------------------
             theseDates = waterYearDate.getDailyDatetimeRange();
             try
-                parfor dateIdx = 1:length(theseDates) 
+                parfor dateIdx = 1:length(theseDates)
                     % Here we may replace for by parfor loop to benefit from matlab
                     % parallel computing
                     thisDate = theseDates(dateIdx);
@@ -165,7 +164,7 @@ classdef Mosaic
                     if ~fileExists
                         appendFlag = 'new_file';
                     end
-                    
+
                     % Get and save solar variables and metadata...
                     %-----------------------------------------------------------------------
                     [filePath, fileExists, ~] = espEnv2023.getFilePathForDateAndVarName( ...
@@ -219,7 +218,10 @@ classdef Mosaic
             % NB: 2023/07/11: I tried to reduce memory consumption through
             % a quick and dirty
             % @todo
-            
+            %
+            % NB: Generation restricted to a per tile basis and not full mosaic any
+            % more for v2023.0, because of the collect of gap files. 2025-01-17.
+
             % 1. Initialize
             %--------------
             tic;
@@ -312,6 +314,69 @@ classdef Mosaic
                 mstructData = matfile(mstructFile);
                 mosaicData.mstruct = mstructData.mstruct;
 
+                % 2.2b. Extract gap viewable_snow_fraction to get initial
+                % viewable_snow_fraction_status for 2000-2022 data v2023.0 -> v2023.0e.
+                % 2025-01-17.
+                if ismember(modisData.versionOf.VariablesMatlab, ...
+                    {'v2023.0e', 'v2023.0.1'}) && ...
+                    strcmp(modisData.versionOf.SCAGDRFSSTC, 'v2023.0')
+                    if length(tileRegionsArray) ~= 1
+                        error('Mosaic:gapFileOnlyForOneTile', ...
+                        ['Generation of .mat files with Mosaic.WriteFiles() has', ...
+                        'been restricted to single tiles.\n']);
+                    end
+                    objectName = regionName;
+                    dataLabel = 'SCAGDRFSGap';
+                    thisDate = monthDatetime;
+                    complementaryLabel = '';
+                    varName = 'viewable_snow_fraction';
+                    gapFilePath = espEnv.getFilePathForDateAndVarName( ...
+                        objectName, dataLabel, thisDate, varName,...
+                        complementaryLabel);
+                    gapIsNoData = isnan(espEnv.getDataForDateAndVarName( ...
+                        objectName, dataLabel, thisDate, varName,...
+                        complementaryLabel));
+                    gapDates = load(gapFilePath, 'datevals').datevals;
+                    gapDates = datetime(gapDates, ConvertFrom = 'datenum');
+                    gapIsNoData = ...
+                        gapIsNoData(:, :, ...
+                        month(gapDates) == month(monthDatetime));
+                    % Some gap files have missing days, we need to incorporate them...
+                    gapDates = gapDates(month(gapDates) == month(monthDatetime));
+                    expectedDates = monthDatetime:datetime(year(monthDatetime), ...
+                        month(monthDatetime), eomday(year(monthDatetime), ...
+                        month(monthDatetime)));
+                    if length(gapDates) ~= length(expectedDates)
+                        isNoData = ones([size(gapIsNoData, 1), ...
+                            size(gapIsNoData, 2), length(expectedDates)], 'logical');
+                        [expectedDateIsOK, idxInGapDates] = ...
+                            ismember(expectedDates, gapDates);
+                        firstDateIdx = -1;
+                            % this idx helps to handle start of record with missing day.
+                        for dateIdx = 1:length(expectedDates)
+                            if expectedDateIsOK(dateIdx) == 1
+                                if firstDateIdx == -1
+                                    firstDateIdx = dateIdx;
+                                end
+                            elseif firstDateIdx ~= -1
+                                isNoData(:, :, firstDateIdx:(dateIdx - 1)) = ...
+                                    gapIsNoData(:, :, ...
+                                    idxInGapDates(firstDateIdx:(dateIdx - 1)));
+                                firstDateIdx = -1;
+                            end
+                        end
+                        if firstDateIdx ~= -1
+                            isNoData(:, :, firstDateIdx:dateIdx) = ...
+                                gapIsNoData(:, :, ...
+                                idxInGapDates(firstDateIdx:dateIdx));
+                        end
+                    else
+                        isNoData = gapIsNoData;
+                        gapIsNoData = [];
+                    end
+                end % if strcmp(modisData.versionOf.VariablesMatlab, 'v2023.0e') && ...
+                    % (modisData.versionOf.SCAGDRFSSTC, 'v2023.0')
+
                 % 2.3. Collect individual tile information (RefMatrix, rowNb,
                 %  colNb) to construct the regional RefMatrix of the Mosaic
                 % (previously BigRMap).
@@ -333,14 +398,14 @@ classdef Mosaic
                         squeeze(tileData.RefMatrices(tileId, :, :));
 
                     % This indirection is due to matfile 7.3 limitation
-                    % It won't allow us to directly index into 
+                    % It won't allow us to directly index into
                     % structure fields
                     % thisSTC = tileRegionsArray(tileId).STC;                  @obsolete
                     if ismember('stcStruct', fieldnames(tileSTCData))
                         mosaicData.stcStruct(tileId) = tileSTCData.stcStruct; % new, 2023-11-09.
                     elseif ismember('STC', fieldnames(tileSTCData))
                         warning('off', 'MATLAB:structOnObject');
-                        mosaicData.stcStruct(tileId) = struct(tileSTCData.STC); 
+                        mosaicData.stcStruct(tileId) = struct(tileSTCData.STC);
                             % 2023-12-29, to use v2023.0 STC for westernUS v2023.0e
                             % for 2001-2022 waterYears.
                         warning('on', 'MATLAB:structOnObject');
@@ -352,7 +417,7 @@ classdef Mosaic
                     char(monthDatetime, 'yyyy-MM-dd'));
                 warning('off', 'MATLAB:structOnObject');
                 mosaicData.stcStruct = mosaicData.stcStruct(1); % 2023-11-09, was formerly struct(region.STC); % SIER_289
-                    % This changed after the inline possibility to override the stc conf 
+                    % This changed after the inline possibility to override the stc conf
                     % of the region in bash runUpdateSTCMonthCubes.sh
                 warning('on', 'MATLAB:structOnObject');
                 mosaicData.RefMatrix = zeros(3,2);
@@ -385,10 +450,31 @@ classdef Mosaic
                         varNameInfosForVarIdx.divisor;
                     mosaicData.([varName '_nodata_value']) = ...
                         varNameInfosForVarIdx.nodata_value;
+                    % Set mosaicDataForAllDays.viewable_snow_fraction_status for v2023.0.
+                    % 2023-12-29.
+                    % 2024-03-21. Replace initialization to unavailable by initialization to
+                    %   temporary (= unknown). These temporary should be not included in the
+                    %   count of days without observation
+                    if strcmp(varName, 'viewable_snow_fraction_status')
+                        thisDefaultValue = Variables.dataStatus.temporary;
+                    else
+                        thisDefaultValue = mosaicData.([varName '_nodata_value']);
+                    end
                     mosaicDataForAllDays.(varName) = ...
-                        mosaicData.([varName '_nodata_value']) * ...
-                        ones(round([mosaicRowNb mosaicColNb 31]), ...
+                        thisDefaultValue * ...
+                        ones(round([mosaicRowNb, mosaicColNb, ...
+                            eomday(year(monthDatetime), month(monthDatetime))]), ...
                             varNameInfosForVarIdx.type{1});
+                end
+                % Update viewable_snow_fraction_status for v2023.0 -> v2023.0e.
+                % 2025-01-17.
+                if ismember(modisData.versionOf.VariablesMatlab, ...
+                    {'v2023.0e', 'v2023.0.1'}) && ...
+                    strcmp(modisData.versionOf.SCAGDRFSSTC, 'v2023.0')
+                    mosaicDataForAllDays.('viewable_snow_fraction_status') = ...
+                        uint8(isNoData) * Variables.dataStatus.noObservation + ...
+                        uint8(~isNoData) * Variables.dataStatus.observed;
+                    isNoData = [];
                 end
                 fprintf('%s: Got variable metadata for %s\n', mfilename(), ...
                     char(monthDatetime, 'yyyy-MM-dd'));
@@ -428,21 +514,7 @@ classdef Mosaic
                 end
                 fprintf('%s: Got data for %s\n', mfilename(), ...
                     char(monthDatetime, 'yyyy-MM-dd'));
-                % Set mosaicDataForAllDays.viewable_snow_fraction_status for v2023.0.
-                % 2023-12-29.
-                % 2024-03-21. Replace initialization to unavailable by initialization to
-                %   temporary (= unknown). These temporary should be not included in the
-                %   count of days without observation
-                if ~ismember('viewable_snow_fraction_status', ...
-                    fieldnames(mosaicDataForAllDays))
-                    mosaicDataForAllDays.viewable_snow_fraction_status = ...
-                        Variables.dataStatus.temporary * ones(size( ...
-                        mosaicDataForAllDays.viewable_snow_fraction), ...
-                        mosaicData.(['viewable_snow_fraction', '_type']));
-                    fprintf(['%s: Initialized viewable_snow_fraction_status to ', ...
-                        'unavailable.\n'], mfilename());
-                end
-                
+
                 % 2.6. Thresholding
                 %------------------
                 % NB: Thresholds must be ordered with viewable_snow_fraction first.
@@ -458,7 +530,7 @@ classdef Mosaic
                     if isempty(valueForUnreliableData)
                         continue;
                     end
-                        % 2023-12-07: case when thresholded variable is not in the 
+                        % 2023-12-07: case when thresholded variable is not in the
                         % variables to be included in the mosaic (e.g. albedos).
                     isLow = mosaicDataForAllDays.(thresholdedVarname) ...
                         < thresholdValue & ...
@@ -477,16 +549,16 @@ classdef Mosaic
                 end
                 fprintf('%s: Filtered data for %s\n', mfilename(), ...
                     char(monthDatetime, 'yyyy-MM-dd'));
-                
+
                 % 2.7. Generate and write the daily Mosaic Files
                 %-----------------------------------------------
                 % Split loop in two loops to reduce memory consumption 2023/07/11.
-                % I did a quick and dirty                                          @todo 
+                % I did a quick and dirty                                          @todo
                 for dayIdx = 1:length(dayRange)
                     thisDatetime = dayRange(dayIdx);
                     mosaicFile = espEnv.MosaicFile(region, thisDatetime);
                     mosaicData.dateval = datenum(thisDatetime) + 0.5;
-                    % NB: Because of a 'Transparency violation error.' occuring 
+                    % NB: Because of a 'Transparency violation error.' occuring
                     % with the upper-level
                     % parfor loop, it is required to save the mosaic files using
                     % another function (in our Tools package).
@@ -494,18 +566,18 @@ classdef Mosaic
                         mosaicData, 'new_file');
                     fprintf('%s: Saved base mosaic data to %s\n', mfilename(), ...
                         mosaicFile);
-                end  
+                end
                 fprintf('%s: Saved minimal mosaic files for %s\n', mfilename(), ...
                     char(monthDatetime, 'yyyy-MM-dd'));
-                
+
                 % Add filter for high solar zenith angle 2023-12-28 v2023.0e, v2023.1a-d.
                 maxSolarZenithAngle = Tools.valueInTableForThisField( ...
                     obj.region.filter.mosaic, ...
                     'lineName', 'AngleAboveWhichToApplySolarZenithMask', ...
                     'minValue');
-                  
+
                 if maxSolarZenithAngle <= 90
-                    fprintf('%s: Set to no data if solar zenith above %0.1f...\n', ...
+                    fprintf('%s: Update status if solar zenith above %0.1f...\n', ...
                         mfilename(), maxSolarZenithAngle);
                     solarZenithIsNotOK = ...
                         (mosaicDataForAllDays.('solar_zenith') > maxSolarZenithAngle);
@@ -526,7 +598,7 @@ classdef Mosaic
                     for varIdx = varIndexes
                         varId = varIds(varIdx);
                         varName = varNames{varIdx};
-                        if ~ismember(varId, [13, 14, 46]) 
+                        if ~ismember(varId, [13, 14, 46])
                             % exclude solar zenith/azimuth and
                             % viewable_snow_fraction_status
                             mosaicDataForAllDays.(varName)(solarZenithIsNotOK) = ...
@@ -536,7 +608,7 @@ classdef Mosaic
 %}
                     solarZenithIsNotOK = []; % Cannot use clear in the parfor context.
                 end
-                
+
                 % Add filter for anomalous solar zenith angle = 0 on pixels without
                 % observed data.
                 % 2024-01-09 v2023.0e, v2023.1a-d.
@@ -545,7 +617,7 @@ classdef Mosaic
                         obj.region.filter.mosaic, 'lineName', ...
                         'ApplySolarZenithMaskWhenDiffZeroAngleAndNextMinimum', ...
                         'minValue');
-                
+
                 if minSolarZenithDiffBetweenZeroAndNextMin <= 90
                     fprintf(['%s: Set to no data if solar zenith = 0 and next ', ...
                         'minimum value above %0.1f...\n'], ...
@@ -561,25 +633,30 @@ classdef Mosaic
                             (mosaicDataForAllDays.('solar_zenith') == 0 & ...
                             ismember( ...
                             mosaicDataForAllDays.('viewable_snow_fraction_status'), ...
-                            [Variables.dataStatus.temporary, ...
+                            [Variables.dataStatus.observed, ...
+                                Variables.dataStatus.temporary, ...
                                 Variables.dataStatus.unavailable]));
                                 % NB: No use to filter the nodata values here.
                         mosaicDataForAllDays.('viewable_snow_fraction_status') ...
                             (solarZenithIsNotOK) = ...
                             Variables.dataStatus.unknownSolarZenith;
+%{
+                        % @obsolete. 2025/01/10. Set to no value when solar zenith is
+                        % not ok.
                         for varIdx = varIndexes
                             varId = varIds(varIdx);
                             varName = varNames{varIdx};
-                            if ~ismember(varId, [46]) 
+                            if ~ismember(varId, [46])
                                 % exclude viewable_snow_fraction_status
                                 mosaicDataForAllDays.(varName)(solarZenithIsNotOK) = ...
                                     mosaicData.([varName '_nodata_value']);
                             end
                         end
+%}
                         solarZenithIsNotOK = []; % Cannot use clear in the parfor context.
                     end % if (length(solarZenithUniques) == 1 & ...
                 end % if minSolarZenithDiffBetweenZeroAndNextMin <= 90
-                
+
                 % Add filter for false positives (dry lakes for low season).
                 % 2023-12-28 v2023.0e, v2023.1a-d.
                 firstMonthForFalsePositiveManualMaskInLowSeason = ...
@@ -624,25 +701,25 @@ classdef Mosaic
                         end
                         falsePositive = [];
                     end
-                end     
-                        
+                end
+
                 for dayIdx = 1:length(dayRange)
-                    mosaicData = struct(); % dirty way to reduce memory consumption 2023/07/11 @todo 
+                    mosaicData = struct(); % dirty way to reduce memory consumption 2023/07/11 @todo
                     thisDatetime = dayRange(dayIdx);
                     mosaicFile = espEnv.MosaicFile(region, thisDatetime);
-                    
-                    for varIdx = varIndexes                        
-                        mosaicData = struct(); % dirty way to reduce memory consumption 2023/07/11 @todo 
+
+                    for varIdx = varIndexes
+                        mosaicData = struct(); % dirty way to reduce memory consumption 2023/07/11 @todo
                         varName = varNames{varIdx};
                         mosaicData.(varName) = ...
                             mosaicDataForAllDays.(varName)(:, :, dayIdx);
-                        % NB: Because of a 'Transparency violation error.' occuring 
+                        % NB: Because of a 'Transparency violation error.' occuring
                         % with the upper-level
                         % parfor loop, it is required to save the mosaic files using
                         % another function (in our Tools package).
                         Tools.parforSaveFieldsOfStructInFile(mosaicFile, ...
                             mosaicData, 'append');
-                    end                   
+                    end
                     fprintf('%s: Saved variables in mosaic data to %s\n', mfilename(), ...
                         mosaicFile);
                 end
@@ -663,31 +740,31 @@ classdef Mosaic
             outputDataLabel)
             % inputDataLabel: char. E.g. modisspiressmoothbycell.
             % outputDataLabel: char. E.g. VariablesMatlab, modspiresdaily.
-      
+
             espEnv = obj.region.espEnv;
             fprintf(['%s: Starting mosaic .mat generation/writing for ', ...
                 'region %s, date %s...\n'], ...
-                mfilename(), obj.region.name, waterYearDate.toChar());   
+                mfilename(), obj.region.name, waterYearDate.toChar());
             % inputDataLabel = 'modisspiressmoothbycell';
             % outputDataLabel = 'VariablesMatlab';
             [outputVariable, ~] = espEnv.getVariable(outputDataLabel, ...
               inputDataLabel = inputDataLabel);
-            
+
             varMetadataNames = {'type', 'units', 'multiplicator_for_mosaics', ...
                 'divisor', 'min', 'max', 'nodata_value'};
             objectName = obj.region.name;
             thisDate = '';
             varName = '';
             complementaryLabel = '';
-            
+
             [elevation, ~, ~] = ...
                 espEnv.getDataForObjectNameDataLabel( ...
                 obj.region.name, 'elevation');
             % NB: if you need slope and aspect, you can use the same method replacing
             % 'elevation' by 'slope' or 'aspect'.
 
-            % espEnv.configParallelismPool(10); 
-            
+            % espEnv.configParallelismPool(10);
+
                 % NB: Uncomment above when you want to use parallelization
                 % using parfor loop below to launch several days in parallel.
                 % You can replace 10 by the number of days you want to have in
@@ -696,7 +773,7 @@ classdef Mosaic
                 % have concurrent access to files.
                 % NB: I'm not certain if this work for simultaneous read access to the
                 % same .h5 file.
-           
+
             % For each day of waterYearDate, we get the solar_azimuth and zenith
             % from v2023.0e mosaic .mat (only works for westernUS and 2000-2023/09),
             % then the variables in the spires water year output .h5 file,
@@ -704,7 +781,7 @@ classdef Mosaic
             % and similarly save it.
             %---------------------------------------------------------------------------
             theseDates = waterYearDate.getDailyDatetimeRange();
-            parfor dateIdx = 1:length(theseDates) 
+            parfor dateIdx = 1:length(theseDates)
                 % Here we may replace for by parfor loop to benefit from matlab
                 % parallel computing
                 dataLabel = outputDataLabel;
@@ -731,7 +808,7 @@ classdef Mosaic
                         appendFlag = 'new_file';
                     end
                 end
-%{                
+%{
                 % Get and save solar variables and metadata...
                 %-----------------------------------------------------------------------
                 [filePath, fileExists, ~] = espEnv2023.getFilePathForDateAndVarName( ...
@@ -761,7 +838,7 @@ classdef Mosaic
                 fprintf(['%s: Saved solar variables and metadata in %s.\n'], ...
                     mfilename(), outFilePath);
                 varData.solar_azimuth = [];
-%}                
+%}
                 % Get and save spires variables and metadata...
                 % NB: the spires smooth files are saved by chunks-cells split files
                 % and need to be combine/aggregate to form a full tile.         @warning
@@ -793,7 +870,7 @@ classdef Mosaic
                   thisFilePath = filePath{filePathIdx};
                   fprintf('Testing validity of %s...\n', thisFilePath);
                   h5info(thisFilePath);
-                    % Raise an error if inexistent file or file corrupted (but don't 
+                    % Raise an error if inexistent file or file corrupted (but don't
                     % detect all corruption cases.                              @warning
                 end
                 inputFileDates = datetime( ...
@@ -823,7 +900,7 @@ classdef Mosaic
                         end
                         espEnv.saveData(varData2.(varName), objectName, ...
                             outputDataLabel, theseDate = thisDate, varName = varName);
-                            
+
                         % Metadata from the configuration file for this variable...
                         %---------------------------------------------------------------
                         if espEnv.slurmEndDate <= ...
@@ -850,7 +927,7 @@ classdef Mosaic
                         thisMatfile.statusOfTimeSmoothing = 1;
                         thisMatfile = [];
                     end
-                    
+
                 else
                     dayIsNotToBeSaved = 0;
                     for varIdx = 1:size(outputVariable, 1)
@@ -866,7 +943,7 @@ classdef Mosaic
                             dayIsNotToBeSaved = 1;
                             break;
                         end
-                        
+
                         % Metadata from the configuration file for this variable...
                         %-------------------------------------------------------------------
                         varData2.([varName '_type']) = ...
@@ -899,24 +976,24 @@ classdef Mosaic
                     end
                 end
 
-                
-%{                
+
+%{
                 % Conversion of variables into double
                 % (necessary for albedo calculation)...
-                %-----------------------------------------------------------------------   
+                %-----------------------------------------------------------------------
                 varData.solar_zenith = cast( ...
                     varData.solar_zenith, 'double');
                 varData.solar_zenith( ...
                     varData.solar_zenith == intmax('uint8')) = NaN;
-                varData2.grain_size_s = cast(varData2.grain_size_s, 'double'); 
+                varData2.grain_size_s = cast(varData2.grain_size_s, 'double');
                     % initially uint16 / 65535. Divisor: 1.
                 varData2.grain_size_s(varData2.grain_size_s == intmax('uint16')) = NaN;
                 varData2.dust_concentration_s = ...
-                    cast(varData2.dust_concentration_s, 'double') / 10; 
+                    cast(varData2.dust_concentration_s, 'double') / 10;
                     % initially uint16 / 65535. Divisor: 10.
                 varData2.dust_concentration_s( ...
                     varData2.dust_concentration_s == intmax('uint16')) = NaN;
-                        
+
                 % Calculation albedo...
                 %-----------------------------------------------------------------------
                 varName = 'albedo_s';
@@ -929,7 +1006,7 @@ classdef Mosaic
                         cosd(varData.solar_zenith(indicesForNotNaN)), ...
                     [], elevation(indicesForNotNaN), LAPname = 'dust', ...
                     LAPconc = varData2.dust_concentration_s(indicesForNotNaN));
-                
+
                 % Metadata from the configuration file for albedo and save all...
                 %-----------------------------------------------------------------------
                 varIdx = find(strcmp(varConf.output_name, 'albedo_s'), :);
@@ -945,13 +1022,13 @@ classdef Mosaic
                 varData3.([varName '_max']) = varConf.max(varIdx); * ...
                     varConf.divisor(varIdx);
                 varData3.([varName '_nodata_value']) = ...
-                    varConf.nodata_value(varIdx);                if 
-              
+                    varConf.nodata_value(varIdx);                if
+
                 Tools.parforSaveFieldsOfStructInFile(outFilePath, ...
                     varData3, appendFlag);
                 fprintf(['%s: Saved albedo and metadata in %s.\n'], ...
-                    mfilename(), outFilePath); 
- %} 
+                    mfilename(), outFilePath);
+ %}
             end % parfor dateIdx.
             fprintf(['%s: Done mosaic .mat generation/writing for ', ...
                 'region %s, date %s...\n'], ...
@@ -982,20 +1059,20 @@ classdef Mosaic
             obj.writeFiles(waterYearDate, availableVariables);
         end
 
-    	function Dt = getMostRecentMosaicDt(obj, waterYearDate)
-    	    % Gets the datetime of the most recent mosaic file 
-	    % in this water year, or NaT if no mosaic file is found
+        function Dt = getMostRecentMosaicDt(obj, waterYearDate)
+            % Gets the datetime of the most recent mosaic file
+        % in this water year, or NaT if no mosaic file is found
 
-    	    Dt = NaT;
-    	    dateRange = waterYearDate.getDailyDatetimeRange();
-    	        for i=length(dateRange):-1:1
-        	    mosaicFilename = obj.region.espEnv.MosaicFile( ...
-                        obj.region, dateRange(i));
-        	    if isfile(mosaicFilename)
-        	        Dt = dateRange(i);
-        	        break;
-        	    end
-            end
-    	end
+            Dt = NaT;
+            dateRange = waterYearDate.getDailyDatetimeRange();
+              for i=length(dateRange):-1:1
+                mosaicFilename = obj.region.espEnv.MosaicFile( ...
+                          obj.region, dateRange(i));
+                if isfile(mosaicFilename)
+                    Dt = dateRange(i);
+                    break;
+                end
+              end
+        end
     end
-end 
+end
