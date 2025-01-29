@@ -22,15 +22,5 @@ if [ -z $(echo ${PATH} | grep "/curc/sw/matlab/R2021b/bin") ]; then
   error_exit "Exit=1, matlab=no, Failed to load matlab/R2021b."
 fi
 
-#Make a unique temporary directory for matlab job storage
-#Set TMPDIR/TMP to this location so job array uses it for tmp location
-#tmpDir=${scratchPath}.matlabTmp/alpine-$SLURM_JOB_ID
-tmpDir=${scratchPath}.matlabTmp/alpine-$(date +%s)
-if [ ! -v ${slurmFullJobId} ]; then
-  tmpDir=${scratchPath}.matlabTmp/alpine-${slurmFullJobId}
-fi
-mkdir -p $tmpDir
-export TMPDIR=$tmpDir
-export TMP=$tmpDir
 matlabLaunched=1
 printf "$(pStart): Matlab launched (?) with tmpDir=${tmpDir}\n"
