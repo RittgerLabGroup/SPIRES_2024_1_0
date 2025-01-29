@@ -198,8 +198,8 @@ fi
 
 if [[ $SLURM_ARRAY_TASK_ID -ne $SLURM_ARRAY_TASK_MIN ]]; then
   sleepingTime=$(echo "60 + $RANDOM % ${SLURM_ARRAY_TASK_COUNT} * 1" | bc)
-  printf "Not first task of the job. Waiting %.2f sec...\n" $sleepingTime
-  # Additional security against file locks and to make first task able to created
+  printf "Not min task of the job. Waiting %.2f sec...\n" $sleepingTime
+  # Additional security against file locks and to make min task able to created
   # temporary directories for all tasks.
   sleep ${sleepingTime};
 fi
@@ -316,13 +316,7 @@ if [[ ${mainBashSource} == *"slurm_script"* ]]; then
     slurmArrayTaskIds=$(echo $sbatchSubmitLine | sed -E "s~[^@]+ --array=([0-9,\-]+) [^@]+~\1~")
       # E.g. 292001-292036,293001-293036,328001-328036,329001-329036,364001-364036
     
-    slurmArrayExpandedTaskIds=$(echo $sbatchSubmitLine | sed -E "s~[^@]+ \-\-array=([0-9,\-]+) [^@]+~\1~" | tr "," ";")
-      # NB: Unclear. When 292001-292036, the result doesn't have ";", but when only 292001,293010, with ,, result has ";"
-    if [[ $slurmArrayExpandedTaskIds == *"-"* ]]; then
-      slurmArrayExpandedTaskIds=( $(eval $(echo $slurmArrayExpandedTaskIds | sed -E "s~([0-9]+)-([0-9]+)~seq \1 \2~g") | tr "\n" " " ) )
-    else
-      slurmArrayExpandedTaskIds=( $(echo $slurmArrayExpandedTaskIds | tr ";" " ") )
-    fi
+    slurmArrayExpandedTaskIds=( $(eval $(echo "echo "$sbatchSubmitLine | sed -E "s~echo [^@]+ \-\-array=([0-9,\-]+) [^@]+~echo \1~" | sed "s~,~; echo ~g" | sed -E "s~([0-9]+)-([0-9]+)~\$\(seq \1 \2\)~g")) )
       # E.g. ( 292001 292002 292003 [...] 364035 364036 )
       
     printf "\n\nExpanded array of task ids of the parent job:\n"
@@ -702,7 +696,7 @@ fi
 
 # Creation of temporary directories on scratchPath.
 ########################################################################################
-# the first task controls this.
+# the min task controls this.
 # Make a unique temporary directory for each job/task id for matlab job storage
 # Set TMPDIR/TMP to this location so job array uses it for tmp location
 
@@ -899,7 +893,7 @@ EOM
 ########################################################################################
 # 8. Submit the repeated similar job in the future.
 ########################################################################################
-# Limited to the first task id, = first object of the group which are tackled by
+# Limited to the min task id, = min object of the group which are tackled by
 # SLURM_ARRAY_JOB_ID.
 
 # Repetition of job doesnt work correctly, I set to 0 until I have time to solve issue.
@@ -942,7 +936,7 @@ fi
 # 9. Submit the next job of the pipeline in the future.
 ########################################################################################
 # Will launch only if all tasks of
-# the array job are achieved successfully. Limited to the first task id, = first
+# the array job are achieved successfully. Limited to the min task id, = min
 # object of the group which are tackled by SLURM_ARRAY_JOB_ID.
 
 # Update options for next script to submit in the pipeline.

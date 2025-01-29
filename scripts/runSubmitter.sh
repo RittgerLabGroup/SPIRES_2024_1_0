@@ -148,6 +148,18 @@ while [ ! -z $thatArrayJobId ]; do
   taskIds=$(eval $taskIds);
   countOfTaskId=$(echo $taskIds | wc -w)
   taskIds=($taskIds)
+  
+  # Get the minimal task_id (or SLURM_ARRAY_TASK_MIN of the job submitted).
+  IFS=$'\n' sortedTaskIds=($(sort <<<"${taskIds[*]}"))
+  unset IFS
+  minTaskId=${sortedTaskIds[0]}
+  idxForMinTaskId=0
+  for (( i=1; i<${#taskIds[@]}; i++ )); do
+    if [ "${taskIds[$i]}" -eq "$minTaskId" ]; then
+      idxForMinTaskId="$i"
+    fi
+  done
+  printf "Minimal task_id: ${minTaskId}, for subjob index ${idxForMinTaskId}.\n"
 
   if [ -z $jobSynthesisFilePath ]; then
     jobSynthesisFilePath="${slurmLogDir}${submitterSlurmFullJobId}_${jobName}_${thatArrayJobId}_job_synthesis.csv"
@@ -182,12 +194,12 @@ date%6s; dura.; script  ; job%5s; obj.; cell; date%9s; status%3s; hostname%7s; C
 EOM
 
   countOfTaskIdDone=0
-  firstTaskInError=0
+  minTaskInError=0
   # We check job status at regular intervals. If in error, possible resubmission. All
   # status are saved in a variable $updatedSynthesis.
-  # If first task in error, end of the loop and full resubmission (as if it was next
+  # If min task in error, end of the loop and full resubmission (as if it was next
   # job in pipeline, but no record in synthesis).
-  while [[ $countOfTaskIdDone -ne $countOfTaskId ]] && [[ firstTaskInError -ne 1 ]]; do
+  while [[ $countOfTaskIdDone -ne $countOfTaskId ]] && [[ minTaskInError -ne 1 ]]; do
     check_scancel_for_submitter
     #sleep $(( 30 * 1 ))
     sleep $(( 60 * 5 ))
@@ -258,9 +270,9 @@ EOM
 
     # Resubmission and update of $currentArrayJobIdForTaskIds.
     if [[ ! -z ${theseTaskIdsToResubmit} ]]; then
-      # If first task in error, we cancel the job and resubmit everything (it's because the first task is the one which will launch the next task in pipeline.
-      if [[ ${theseTaskIdsToResubmit} == *"${tasksForArrayJobIds[0]}"* ]]; then
-        firstTaskInError=1
+      # If min task in error, we cancel the job and resubmit everything (it's because the min task is the one which will launch the next task in pipeline.
+      if [[ ${theseTaskIdsToResubmit} == *"${minTaskId}"* ]]; then
+        minTaskInError=1
         printf "First task in error, stopping jobs for ${arrayJobIds[0]}.\n"
         for ((idx = 0 ; idx < $countOfTasksForArrayJobIds ; idx++ )); do
           thisTaskId=${tasksForArrayJobIds[$idx]}
@@ -330,8 +342,8 @@ EOM
     printf "Jobs done: ${countOfTaskIdDone}/${countOfTaskId}.\n\n"
   done
 
-  if [[ $firstTaskInError -ne 1 ]]; then
-    # We save the synthesis only if first task done.
+  if [[ $minTaskInError -ne 1 ]]; then
+    # We save the synthesis only if min task done.
     printf "$updatedSynthesis" >> $jobSynthesisFilePath
     printf "Synthesis for ${jobName} saved in ${jobSynthesisFilePath}\n"
   fi
@@ -344,8 +356,8 @@ EOM
   # Reset of dependency (necessary if some of tasks went on error exit=1).
   if [ -z $isFatal ]; then
 
-    if [[ $firstTaskInError -eq 1 ]]; then
-      # If first task in error we relaunch the full job, the first task in error may
+    if [[ $minTaskInError -eq 1 ]]; then
+      # If min task in error we relaunch the full job, the min task in error may
       # have not submitted the next job in pipeline. We also exclude the nodes which
       # failed
 
@@ -364,24 +376,16 @@ EOM
       submitLine=$(echo ${submitLine} | sed -E "s~ --dependency=[a-zA-Z0-9\:\,]+~~")
           # We also remove the dependency otherwise slurm raises an error (if the
           # dependent job is achieved).
-      printf "Full resubmission because first task in error, submitLine:\n"
+      printf "Full resubmission because min task in error, submitLine:\n"
       echo "${submitLine}"
       thatArrayJobId=$($submitLine)
       printf "$thatArrayJobId\n"
       thatArrayJobId=$(echo ${thatArrayJobId} | grep "Submitted batch job" | cut -d ' ' -f 4)
       printf "thatArrayJobId: $thatArrayJobId\n"
     else
-      # Otherwise, catch arrayJobId of next job in the pipeline, submitted in first task
-      # job.
-      
-      minTaskId=${tasksForArrayJobIds[0]}
-      idxForMinTaskId=0
-      for (( i=1; i<${#tasksForArrayJobIds[@]}; i++ )); do
-        if [ "${tasksForArrayJobIds[$i]}" -lt "$minTaskId" ]; then
-          minTaskId="${tasksForArrayJobIds[$i]}"
-          idxForMinTaskId="$i"
-        fi
-      done
+      # Otherwise, catch arrayJobId of next job in the pipeline, submitted in min task
+      # job (minimal task_id or SLURM_ARRAY_TASK_MIN of the job submitted).
+
       thisTaskId=${tasksForArrayJobIds[$idxForMinTaskId]}
       thisArrayJobId=${arrayJobIds[$idxForMinTaskId]}
       thisLogFilePath=$(echo $logFilePathPattern | sed -E "s~/%[a-zA-Z_]+%a_([0-9_\-]*)%A~/*${thisTaskId}_\1${thisArrayJobId}~")
