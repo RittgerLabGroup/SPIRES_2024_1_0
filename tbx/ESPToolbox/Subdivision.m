@@ -145,6 +145,7 @@ classdef Subdivision < handle
             % configuration_of_variables.csv, id and landSubdivisionStatId. If this
             % parametering of these 2 columns changes, it is required to regenerate
             % all statistics from scratch.                                       @beware
+            tic
             espEnv = obj.region.espEnv;
             dayRange = cast(1:WaterYearDate.maxDaysByYear, 'uint16');
 
@@ -181,7 +182,7 @@ classdef Subdivision < handle
             statValue = zeros(size(waterYear), 'single');
             fprintf( ...
                 ['%s: Initialized table fields for aggregates of ', ...
-                'subdivision %d.\n'], mfilename(), obj.id);
+                'subdivision %d in %.2f mins.\n'], mfilename(), obj.id, toc / 60);
 
             % Stat calculations.
             % NB: unfortunately, matlab still doesn't offer possibility of grpstats for
@@ -341,7 +342,7 @@ classdef Subdivision < handle
             %
             % NB: We should really store the real date of each daily stat, or a ref
             % to the first day of the waterYear.                                   @todo
-
+            tic
             fprintf('%s: Initializing parameters for subdivision %d ...\n', ...
                 mfilename(), obj.id);
             espEnv = obj.region.espEnv;
@@ -370,7 +371,8 @@ classdef Subdivision < handle
                 % and we need to access to the correct filePath (espEnv filters the
                 % filePath according to the versionOfAncillary of the modisData
                 % property.
-            inputDataLabel = SpiresInversor.dataLabels.(espEnv.modisData.inputProduct);
+            inputDataLabel = 'spiresdailytifsinu';
+                % SpiresMosaicAlbedo.dataLabels.(espEnv.modisData.inputProduct);
             % Specific case for former stc and spires westernUS handling 20241001.
             if isequal(espEnv.modisData.versionOf.ancillary, 'v3.1')
                 inputDataLabel = 'VariablesMatlab';
@@ -511,29 +513,16 @@ classdef Subdivision < handle
             fprintf('%s: Ordered variables based on snow_fraction(_s) filters.\n', ...
                 mfilename());
 
-            % Table fields.
-            % Ordered by waterYear (only one waterYear), thisDay, subdivisionId (only
-            % current one), varId, statId (here only 1 statId per varId).
-            waterYear = repelem(givenWaterYear, ...
-                length(dateRange) * size(varConf, 1))';
-            thisDay = repelem(dayRange, size(varConf, 1))';
-            subdivisionId = repmat(cast(obj.id, 'uint16'), size(waterYear));
-            varId = repmat( ...
-                cast(varConf.id, 'uint8'), [length(dateRange), 1]);
-            statId = repmat( ...
-                cast(varConf.landSubdivisionStatId, 'uint8'), [length(dateRange), 1]);
-            statValue = zeros(size(waterYear), 'single');
-            fprintf( ...
-                ['%s: Initialized daily stat columns for subdivision %d from %s ', ...
-                'to %s.\n'], mfilename(), obj.id, ...
-                string(dateRange(1), 'yyyy-MM-dd'), ...
-                string(dateRange(end), 'yyyy-MM-dd'));
+            statValue = single([]);
+              % NB: Not very performant, but since we don't know upfront if all dates
+              % are there... 2025-01-26.                                           @todo
 
             % Calculate the stats for each date and variable.
             for dateIdx = 1:length(dateRange)
                 % Parallelism not put here, because of memory usage linked to overhead
                 % by elevation and subdivision masks, which would be copied at each
                 % iteration?
+                tic
                 thisDate = dateRange(dateIdx);
 
                 % Calculate stats and save for each variable.
@@ -551,6 +540,7 @@ classdef Subdivision < handle
                     % Get filtered data for variable by tile.
                     % varData is the 3-D array storing the data for each tile (3rd dim).
                     varData = 0;
+                    tileFilesForThisDate = size(subdivisionPerTiles, 1);
                     for tileIdx = 1:size(subdivisionPerTiles, 1)
                         % Get varData for the current tile and subdivision
                         tmpEspEnv = tileEspEnv(tileIdx);
@@ -559,15 +549,18 @@ classdef Subdivision < handle
                             inputDataLabel, thisDate, varName, complementaryLabel);
                         if isempty(varTileData)
                             % Should occur only when data were not shuffled to scratch.
-                            % Or for spires when Alaska is not deployed.
+                            % Or for spires when Alaska is not deployed or last days
+                            % not generated.
                             % Important to set this here, because we can't use
                             % intmax(class(varTileData)).
                             [filePath, ~] = tmpEspEnv.getFilePathForDateAndVarName( ...
                             subdivisionPerTiles.regionName{tileIdx}, ...
                             inputDataLabel, thisDate, varName, complementaryLabel);
                             warning(['%s: Unavailable %s or unavailable file %s ', ...
-                                ' for subdivision %d.\n'], ...
-                                mfilename(), varName, filePath, obj.id);
+                                ' for subdivision %d, %s.\n'], ...
+                                mfilename(), varName, filePath, obj.id, ...
+                                char(thisDate, 'yyyy-MM-dd'));
+                            tileFilesForThisDate = tileFilesForThisDate - 1;
                             continue;
                         end
                         % Subdivision mask.
@@ -630,17 +623,12 @@ classdef Subdivision < handle
                         varData(:, :, tileIdx) = varTileData;
                     end % for tileIdx
                     clear varTileData;
-                    if size(varData, 1) == 1
-                        % Should occur only when data were not shuffled to scratch.
-                        warning(['%s: Unavailable %s or unavailable file for ', ...
-                            'all tiles of subdivision %d, date %s.\n'], ...
-                            mfilename(), varName, ...
-                            obj.id, string(thisDate, 'yyyy-MM-dd'));
-                        continue;
+                    if tileFilesForThisDate == 0
+                        break;
                     end
                     fprintf(['%s: Loaded and filtered data subdivision %d, ', ...
                         ' %s, %s.\n'], ...
-                        mfilename(), obj.id, varName, string(thisDate, 'yyyy-MM-dd'));
+                        mfilename(), obj.id, varName, char(thisDate, 'yyyy-MM-dd'));
 
                     % Calculate the stat based on the filtered varData.
                     dataForStat = varData(varData ~= intmax(class(varData)));
@@ -668,14 +656,47 @@ classdef Subdivision < handle
                                 length(find(dataForStat < tmpMedian))) / ...
                                 (length(find(dataForStat == tmpMedian)) + 0.1) ...
                                 + tmpMedian - 0.5;
-                    end
+                    end % switch
                     clear dataForStat;
-                    statValue((dateIdx - 1) * size(varConf, 1) + varIdx) = tmpStatValue;
+                    % obsolete. 2025--01-26. statValue((dateIdx - 1) * size(varConf, 1) + varIdx) = tmpStatValue;
+                    statValue = [statValue; tmpStatValue];
                     fprintf(['%s: Calculated stat subdivision %d, %s, %s.\n'], ...
                         mfilename(), obj.id, varName, ...
-                        string(dateRange(dateIdx), 'yyyy-MM-dd'));
+                        char(dateRange(dateIdx), 'yyyy-MM-dd'));
                 end % for varIdx
+                if tileFilesForThisDate > 0
+                    fprintf(['%s: Calculated stat subdivision %d, %s in %.2f mins.\n'], ...
+                        mfilename(), obj.id, ...
+                        char(dateRange(dateIdx), 'yyyy-MM-dd'), toc / 60);
+                else
+                    warning(['%s: Stopping stat subdivision %d, %s.\n'], ...
+                        mfilename(), obj.id, ...
+                        char(dateRange(dateIdx), 'yyyy-MM-dd'), toc / 60);
+                    if dateIdx > 1
+                      dateRange = dateRange(1:(dateIdx - 1));
+                      dayRange = dayRange(1:(dateIdx - 1));
+                    end
+                    break;
+                end
             end % for dateIdx
+            
+            % Table fields.
+            % Ordered by waterYear (only one waterYear), thisDay, subdivisionId (only
+            % current one), varId, statId (here only 1 statId per varId).
+            waterYear = repelem(givenWaterYear, ...
+                length(dateRange) * size(varConf, 1))';
+            thisDay = repelem(dayRange, size(varConf, 1))';
+            subdivisionId = repmat(cast(obj.id, 'uint16'), size(waterYear));
+            varId = repmat( ...
+                cast(varConf.id, 'uint8'), [length(dateRange), 1]);
+            statId = repmat( ...
+                cast(varConf.landSubdivisionStatId, 'uint8'), [length(dateRange), 1]);
+            % obsolete 2025-01-26. statValue = zeros(size(waterYear), 'single');
+            fprintf( ...
+                ['%s: Initialized daily stat columns for subdivision %d from %s ', ...
+                'to %s in %.2f mins.\n'], mfilename(), obj.id, ...
+                char(dateRange(1), 'yyyy-MM-dd'), ...
+                char(dateRange(end), 'yyyy-MM-dd'), toc / 60);
 
             % Construct the table of additional record, load the daily stat table, merge
             % and save in daily stat .csv file associated to subdivision.
@@ -694,8 +715,8 @@ classdef Subdivision < handle
             fprintf( ...
                 ['%s: Done and saved daily stats for subdivision %d, ', ...
                 'from %s to %s, %s.\n'], ...
-                mfilename(), obj.id, string(dateRange(1), 'yyyy-MM-dd'), ...
-                string(dateRange(end), 'yyyy-MM-dd'), dailyStatFilePath);
+                mfilename(), obj.id, char(dateRange(1), 'yyyy-MM-dd'), ...
+                char(dateRange(end), 'yyyy-MM-dd'), dailyStatFilePath);
         end
         function [statTable, statFilePath] = mergeDailyStatTables(obj)
             % Return
