@@ -1236,7 +1236,12 @@ classdef ESPNetCDF < handle
               else
                 data = data.(varName);
               end
-
+              
+              if strcmp(class(data), 'logical')
+                  data = uint8(data);
+              end
+              % for v2023.0.1 calculated_from_rare_observation.
+              
               % NBL
               %grid_mapping = 'crs'); %'sinusoidal'); % this grid_mapping references the
                   % general grid_mapping and wasn't present in the first versions
