@@ -150,8 +150,9 @@ while [ ! -z $thatArrayJobId ]; do
   taskIds=($taskIds)
   
   # Get the minimal task_id (or SLURM_ARRAY_TASK_MIN of the job submitted).
-  IFS=$'\n' sortedTaskIds=($(sort <<<"${taskIds[*]}"))
-  unset IFS
+  defaultIFS=$' \t\n'
+  IFS=$'\n' sortedTaskIds=($(sort -n <<<"${taskIds[*]}"))
+  IFS=$defaultIFS
   minTaskId=${sortedTaskIds[0]}
   idxForMinTaskId=0
   for (( i=1; i<${#taskIds[@]}; i++ )); do
