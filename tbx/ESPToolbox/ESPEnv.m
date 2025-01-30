@@ -357,6 +357,19 @@ classdef ESPEnv < handle
                 end
                 obj.myConf.(confLabel) = tmp;
             end
+            
+            % Verification of unique ids in regions.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            [~, firstIdx, allIdx] = unique(obj.myConf.region.id);
+            nonUniqueIdx = find(~ismember(allIdx, firstIdx));
+            if ~isempty(nonUniqueIdx)
+                error('ESPEnv:nonUniqueIdInConf', ...
+                    ['configuration_of_regions.csv contains non unique ids, ', ...
+                    'for instance %d - %s.\n'], ...
+                    obj.myConf.region.id(nonUniqueIdx(1)), ...
+                    obj.myConf.region.name(nonUniqueIdx(1)));
+            end
+            
             % Limit the table of file paths to the version of ancillary data.
             % obsolete: if obj.filterMyConfByVersionOfAncillary == 1 : we can't do that, due to implementation of getFile and getData.
             obj.myConf.filePath = obj.myConf.filePath(strcmp( ...
@@ -429,6 +442,7 @@ classdef ESPEnv < handle
                 {'v2024.0d', 'v2024.1.0'}) || ismember( ...
                 obj.modisData.versionOf.VariablesMatlab, {'v2024.0d', 'v2024.1.0', 'v2023.0e', 'v2023.0.1'})
                 t = ismember(obj.myConf.region.name, {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04', 'westernUS'});
+                fprintf('Set westernUS regions to versionOfAncillary = v3.1.\n');
                 obj.myConf.region{t, 'versionOfAncillary'} = {'v3.1'};
             end
             % END TEMPORARY PATCH TO REMOVE 20250127.
@@ -5940,6 +5954,20 @@ classdef ESPEnv < handle
                 if contains(thisFieldName, 'Date')
                     tmp.(thisFieldName) = arrayfun(@(x) datetime(x, ...
                         InputFormat = 'yyyy-MM-dd'), tmp.(thisFieldName));
+                end
+            end
+            
+            % Checking unicity of ids for landsubdivisions.
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            if strcmp(confLabel, 'landsubdivision')
+                [~, firstIdx, allIdx] = unique(tmp.id);
+                nonUniqueIdx = find(~ismember(allIdx, firstIdx));
+                if ~isempty(nonUniqueIdx)
+                    error('ESPEnv:nonUniqueIdInConf', ...
+                        ['configuration_of_landsubdivisions.csv contains non ', ...
+                        'unique ids, for instance %d - %s.\n'], ...
+                        tmp.id(nonUniqueIdx(1)), ...
+                        tmp.name(nonUniqueIdx(1)));
                 end
             end
 

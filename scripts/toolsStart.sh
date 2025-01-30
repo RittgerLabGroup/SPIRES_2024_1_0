@@ -842,14 +842,16 @@ inputForESPEnv="modisData = modisData, archivePath = '${archivePath}', scratchPa
 if [[ ${scriptId} == "webExpSn" ]]; then
   inputForESPEnv=${inputForESPEnv}", espWebExportConfId = ${espWebExportConfId}"
 fi
-# Specific case when run westernUS with v3.2 of ancillary.
+
+# obsolete. 2025-01-30. Specific case when run westernUS with v3.2 of ancillary.
+: '
 westernUSRegionNames=(h08v04 h08v05 h09v04 h09v05 h10v04);
 # obsolete. if [[ $(printf '%s\0' "${westernUSRegionNames[@]}" | grep -F -x -z -- $regionName) ]]
 if [[ $(printf '%s' "${westernUSRegionNames[@]}" | grep $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
   inputForESPEnv=${inputForESPEnv}", filterMyConfByVersionOfAncillary = 0"
 fi
-
+'
 espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); espEnv.slurmFullJobId = '${slurmFullJobId}';"
 if [[ $(printf '%s' "${westernUSRegionNames[@]}" | grep $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
