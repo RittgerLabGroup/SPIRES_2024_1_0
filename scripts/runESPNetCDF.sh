@@ -93,12 +93,12 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
-  if (ismember('${regionName}', {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) && ismember(modisData.versionOf.VariablesMatlab, {'v2024.0', 'v2024.0d'})) || ismember(modisData.versionOf.VariablesMatlab, {'v2022.0', 'v2023.0d', 'v2023.0e', 'v2023.0f', 'v2023.0k', 'v2023.1'});
+  if (ismember('${regionName}', {'h08v04', 'h08v05', 'h09v04', 'h09v05', 'h10v04'}) && ismember(modisData.versionOf.VariablesMatlab, {'v2024.0', 'v2024.0d', 'v2024.1.0'})) || ismember(modisData.versionOf.VariablesMatlab, {'v2022.0', 'v2023.0d', 'v2023.0e', 'v2023.0f', 'v2023.0k', 'v2023.1'});
     inputDataLabel = 'VariablesMatlab';
-  elseif strcmp(modisData.inputProduct, 'mod09ga');
-    inputDataLabel = 'modspiresdaily';
-  elseif strcmp(modisData.inputProduct, 'vnp09ga');
-    inputDataLabel = 'vnpspiresdaily';
+    varName = '';
+  else
+    inputDataLabel = 'spiresdailytifsinu';
+    varName = 'albedo_muZ_s';
   end;
   outputDataLabel = 'spiresdailynetcdf';
   if strcmp(modisData.versionOf.(inputDataLabel), 'v2022.0');
@@ -125,7 +125,7 @@ try;
   parfor dateIdx = 1:length(theseDates);
     thisDate = theseDates(dateIdx);
     matFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
-      inputDataLabel, thisDate, '', '');
+      inputDataLabel, thisDate, varName, '');
     netCDFFilePath = espEnv.getFilePathForDateAndVarName(region.name, ...
       outputDataLabel, thisDate, '', '');
     ESPNetCDF.generateNetCDFFromRegionAndMatFile( ...

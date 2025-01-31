@@ -965,7 +965,7 @@ classdef ESPNetCDF < handle
           complementaryLabel = '';
           
           logger = Logger('netcdf');
-          fprintf('%s: Start generating .nc %s from .mat %s.\n', mfilename(), ...
+          fprintf('%s: Start generating .nc %s from %s.\n', mfilename(), ...
             netCDFFilePath, matFilePath);
           if ~isfile(matFilePath)
             warning('%s: Inexistent %s.\n', mfilename(), matFilePath);
@@ -977,7 +977,7 @@ classdef ESPNetCDF < handle
             
             % Check if data before generating the netcdf.
             if ismember(espEnv.modisData.versionOf.VariablesNetCDF, {'v2024.0d', 'v2024.1.0'})
-              varName = 'snow_fraction_s';
+              varName = 'albedo_muZ_s';
               dateToSkip = 1;
               if ~isempty(who(fileObj, varName))
                 data = fileObj.(varName);
@@ -986,7 +986,7 @@ classdef ESPNetCDF < handle
                 end
               end
               if dateToSkip == 1
-                warning(['Skip %s: %s. No variable snow_fraction_s, or data only', ...
+                warning(['Skip %s: %s. No variable albedo_muZ_s, or data only', ...
                   'nodata.\n'], char(thisDate, 'yyyyMMdd'), matFilePath);
                 return;
               end
@@ -1450,7 +1450,7 @@ classdef ESPNetCDF < handle
               thisNetCDF.closeFile();
 %}             
         logger.printDurationAndMemoryUse(dbstack);
-        fprintf('%s: Done generating .nc %s from .mat %s.\n', mfilename(), ...
+        fprintf('%s: Done generating .nc %s from %s.\n', mfilename(), ...
             netCDFFilePath, matFilePath);
       end
 
