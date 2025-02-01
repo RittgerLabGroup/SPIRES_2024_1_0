@@ -66,7 +66,11 @@ classdef SpiresAncillary < handle
       % Dates of collection of reflectances for south hemisphere.
       thisYear = waterYear - 1;
       if contains(regionName, 'v1') | contains(regionName, 'v09')
-        theseDate = datetime(thisYear - 1, 12, 1, 12, 0 ,0): ...
+        thisFirstDate = datetime(thisYear - 1, 12, 1, 12, 0 ,0);
+        if thisYear == 2000
+          thisFirstDate = datetime(thisYear, 1, 1, 12, 0 ,0);
+        end
+        theseDate = thisFirstDate: ...
           datetime(thisYear, 3, 31, 12, 0 ,0);
         fprintf('South...\n');
       else
