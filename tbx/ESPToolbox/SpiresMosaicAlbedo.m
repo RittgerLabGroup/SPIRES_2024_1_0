@@ -299,12 +299,16 @@ classdef SpiresMosaicAlbedo < handle
       thoseImresizeMethod = {'nearest', 'bilinear', 'bicubic'};
       resamplingMethod = thoseImresizeMethod{parameterValue};
       force = struct( ...
-        resamplingFactor = 1, resamplingMethod = resamplingMethod);
+        resamplingFactor = 1, resamplingMethod = resamplingMethod, ...
+        type = 'single');
       varName = 'solar_zenith';
       data.(varName) = espEnv.getDataForWaterYearDateAndVarName( ...
         objectName, outputDataLabel, waterYearDate, varName,...
         force = force);
-      mu0 = cosd(single(data.solar_zenith(isData)));
+      data.(varName) = fillmissing(data.(varName), ...
+        linear = 3, EndValues = 'nearest');
+        % some days are without data, we linearly interpolate as for stc. 2025-02-03.
+      mu0 = cosd(data.solar_zenith(isData));
       data.solar_zenith = [];
 
       data.grain_size_s = sqrt(single(data.grain_size_s));
@@ -417,16 +421,18 @@ classdef SpiresMosaicAlbedo < handle
       data.(varName) = espEnv.getDataForWaterYearDateAndVarName( ...
         objectName, outputDataLabel, waterYearDate, varName,...
         force = force);
+      data.(varName) = fillmissing(data.(varName), ...
+        linear = 3, EndValues = 'nearest');
       % phi0: Normalize stored azimuths to expected azimuths
       % stored data is assumed to be -180 to 180 with 0 at North
       % expected data is assumed to be +ccw from South, -180 to 180
-      phi0 = int16(180) - data.solar_azimuth(isData);
+      phi0 = 180 - data.solar_azimuth(isData);
       data.solar_azimuth = [];
       phi0(phi0 > 180) = phi0(phi0 > 180) - 360;
       % Based on conversation with Dozier, Aug 2023:
       % N.B.: phi0 and aspect must be referenced to the same
       % angular convention for this function to work properly
-      muZ = obj.sunslope(mu0, single(phi0), single(slope(isData)), ...
+      muZ = obj.sunslope(mu0, phi0, single(slope(isData)), ...
           single(aspect(isData)));
       mu0 = [];
       phi0 = [];
