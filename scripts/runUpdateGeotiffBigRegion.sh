@@ -123,7 +123,7 @@ else
 # This alternative solution corrects the problem at the margins of the global modis
 # sinusoidal that rasterReprojection.m developed by Jeff cannot solve when reprojecting
 # into EPSG:3857.
-:'
+: '
 Testing data
 scratchPath=$espScratchDir
 objectId=7
@@ -203,7 +203,7 @@ conda install gdal
       # obsolete. thisMonthDay=${thisMonthDay##*_}
       thisMonthDay=${thisMonthDay:4:4}
       printf "${tile}-${regionName}: Tif last available day: $thisYear - $thisMonthDay.\n"
-:'
+: '
       @obsolete.
       # obsolete. countOfVars=$(gdalinfo NETCDF:"${tileNetCDFFilePath}" | grep SUBDATASET | grep _NAME | wc -l)
       inputVarNames=($(gdalinfo NETCDF:"${tileNetCDFFilePath}" | grep SUBDATASET.*NAME | cut -d : -f 3))
