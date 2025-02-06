@@ -166,7 +166,7 @@ pipeLineParallelWorkersNb3=(0 14 10 14 2 0 0 0) # moSpires temporarily to 14 rat
 # sbatch parameters
 pipeLineTasksPerNode3=(1 14 10 18 2 1 1 1) # moSpires temporarily to 18 rather than 10 
 pipeLineMems3=(1G 44G 60G 60G 5G 8G 8G 3G) # spiTimeI: set temporarily 60G rather than 30G. to confirm!! spiMo: set temporarily to 60G rather than 40G.
-pipeLineTimes3=(01:30:00 01:45:00 02:30:00 08:30:00 00:30:00 00:20:00 04:00:00 01:30:00) # mosaic temporarily to 4:30 rather than 0:30
+pipeLineTimes3=(01:30:00 01:45:00 02:30:00 04:30:00 00:30:00 00:20:00 04:00:00 01:30:00) # mosaic temporarily to 4:30 rather than 0:30
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
