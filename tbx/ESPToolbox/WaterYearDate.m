@@ -257,6 +257,17 @@ classdef WaterYearDate < handle
             % year for interpolation.
             waterYearDate.overlapOtherYear = 1;
         end
+        function waterYearDate = getWYDateForToday(firstMonthOfWaterYear)
+            % Parameters
+            % ----------
+            % firstMonthOfWaterYear: int, 1-12. 10 for north hemisphere, 4 for south.
+            %
+            % Return
+            % ------
+            % waterYearDate: WaterYearDate. Which has the last date the date of today.
+            waterYearDate = WaterYearDate(WaterYearDate.getDateForToday(), ...
+                firstMonthOfWaterYear, WaterYearDate.yearMonthWindow);
+        end
     end
 
     methods
@@ -537,6 +548,17 @@ classdef WaterYearDate < handle
             if monthWindow <= 0
                 monthWindow = monthWindow + 12;
             end
+        end
+        function nrtOrHist = getNrtOrHist(obj)
+          % Return
+          % ------
+          % nrtOrHist: char. Nrt if dateOfToday has same water year as the waterYearDate
+          %   object.
+          nrtOrHist = 'nrt';
+          if obj.getWaterYear() ~= obj.getWaterYearFromDate( ...
+              obj.dateOfToday, obj.firstMonth)
+              nrtOrHist = 'hist';
+          end
         end
         function waterYear = getWaterYear(obj)
             % Gets the WaterYear associated with the date
