@@ -230,6 +230,46 @@ if [[ $inputLabel == 'v2024.0d' || $inputLabel == 'v2024.1.0' || $inputLabel == 
     done
   done
   
+  # RSync of stats for users to archive [hard-coded].
+  ######################################################################################
+  # dataLabel: SubdivisionStatsWebCsvv20231
+  # No check that the rsync jobs are correctly achieved!
+  outputLabel=$inputLabel;
+  if [[ $inputLabel == 'v2024.0d' ]]; then
+    outputLabel='v2024.1.0';
+  fi
+
+  printf "Submission of jobs to rsync stats for users back to archive...\n"
+  years=( {2025..2024..-1} );
+  regionNames=(westernUS);
+  if [[ $outputLabel == 'v2025.0.1' ]]; then
+    regionNames=(westernUS OCNewZealand);
+  fi
+  slurmAccount=${SLURM_JOB_ACCOUNT};
+  scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/;
+  slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
+  exclude="";
+  scriptPath=./scripts/runRsync.sh
+
+  sourceBasePath=${scratchPath}modis/regional_stats/scagdrfs_csv_${inputLabel}/v006/ #modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
+  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/csv/
+    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
+
+  for year in ${years[@]}; do
+    scriptId=sync${year};
+    for regionName in ${regionNames[@]}; do
+      jobName=$scriptId-${regionName};
+      targetPath=${targetBasePath}${regionName}/
+      sourcePath=${sourceBasePath}${regionName}/WY${year}
+      if [[ -d $sourcePath ]]; then
+        mkdir -p ${targetPath}
+        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+        printf "${submitLine}\n"
+        ${submitLine}
+      fi
+    done
+  done
+  
   sleep $(( 60 * 10 ))
     # Suppose rsync sbatch jobs will last less than 10 mins, not really necessary...
 fi
