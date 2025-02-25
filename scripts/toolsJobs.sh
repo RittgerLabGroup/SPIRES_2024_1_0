@@ -4,31 +4,30 @@
 
 slurmTerminatedStates=(BOOT_FAIL CANCELLED COMPLETED DEADLINE FAILED NODE_FAIL OUT_OF_MEMORY TIMEOUT)
 
-pStart() { date "+%m%dT%H:%M"; };
-
 # Functions.
 ########################################################################################
-# On Blanca, seff is not systematically found. We bypass this by a direct handling
-# using sacct (2023-12-19).
-get_time_in_seconds(){
-  # Convert time string into seconds.
-  # NB: probably not all cases included...                                      warning
+
+get_log_status_for_submit_historics(){
+  # Get the status, that is if all jobs submitted were achieved for a main submitter
+  # job for historic generatio.
+  #
   # Parameters
   # ----------
-  # $1: char. Time string. 1-04:02:03 or 04:02:03 or 02:03.254 only
-  if [[ "$1" == *"-"* ]]; then
-    # The string contains a day (and we suppose hours, mins, and secs without
-    # decimals.
-    echo $1 | sed 's/-/:/' | awk -F: '{ print $1 * 86400 + $2 * 3600 + $3 * 60 + $4 }'
-  elif [[ "$1" == *"."* ]]; then
-    # The string contains secs with decimals (and we suppose no day and no hour).
-    echo $1 | awk -F: '{ print $1 * 60 + $2 }'
-  elif [ ! -z fullValue ]; then
-    #We suppose that it's 00:00:00, but maybe more complicated?               tocheck
-    echo $1 | awk -F: '{ print $1 * 3600 + $2 * 60 + $3 }'
-  else
-    echo ""
-  fi
+  # $1: char. part of the job name. E.g. sSIn
+  # $2: int. jobId or left part of jobId. E.g. 114068.
+  #
+  # Return
+  # ------
+  # status: char.
+  module list
+  logFileNames=$(ls ${espLogDir}*${1}*_${2}*.out)
+  for logFileName in ${logFileNames[@]}; do
+    jobId=$(echo $logFileName | sed -E 's~^[^@]+_([0-9]+)\.out~\1~')
+    state=$(sacct --format State -j ${jobId} | sed '3q;d' | tr -d ' ')
+    jobsDone=$(tail -n 20 ${logFileName} | grep "Jobs done")
+    #jobsDone=$(tail -n 20 *_${1}*.out | grep "Jobs done")
+    echo "${logFileName}; ${state}; ${jobsDone}"
+  done
 }
 
 get_mem_in_Gb(){
@@ -57,6 +56,31 @@ get_mem_in_Gb(){
     echo ""
   fi
 }
+
+# On Blanca, seff is not systematically found. We bypass this by a direct handling
+# using sacct (2023-12-19).
+get_time_in_seconds(){
+  # Convert time string into seconds.
+  # NB: probably not all cases included...                                      warning
+  # Parameters
+  # ----------
+  # $1: char. Time string. 1-04:02:03 or 04:02:03 or 02:03.254 only
+  if [[ "$1" == *"-"* ]]; then
+    # The string contains a day (and we suppose hours, mins, and secs without
+    # decimals.
+    echo $1 | sed 's/-/:/' | awk -F: '{ print $1 * 86400 + $2 * 3600 + $3 * 60 + $4 }'
+  elif [[ "$1" == *"."* ]]; then
+    # The string contains secs with decimals (and we suppose no day and no hour).
+    echo $1 | awk -F: '{ print $1 * 60 + $2 }'
+  elif [ ! -z fullValue ]; then
+    #We suppose that it's 00:00:00, but maybe more complicated?               tocheck
+    echo $1 | awk -F: '{ print $1 * 3600 + $2 * 60 + $3 }'
+  else
+    echo ""
+  fi
+}
+
+pStart() { date "+%m%dT%H:%M"; };
 
 validate_end_status(){
   # Update log with CPU and memory efficiency, once the slurm job is achieved
