@@ -24,7 +24,7 @@ ncdump -hcs $originalNetCdfFilePath > $cdlFilePath
 
 The .cdl template can be edited with any text editor to add variables or properties.
 
-The .nc sample file is generated from the .cdl on a node of the supercomputer with:
+The .nc sample file is generated from the .cdl on a compute node with:
 ```
 ml nco/4.8.1;
 cdlFilePath=${espDevProjectDir}/tbx/template/outputnetcdf.v03.cdl
@@ -43,6 +43,16 @@ cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2025.0.1.cdl
   # Previously dubbed v2024.0d, Global mod09ga SPIReS (v2 (?) for NSIDC).
 ```
 
+## Output data files
+
+The metadata of the .nc output files can be checked on a compute node with:
+```
+ml nco/4.8.1;
+ncFilePath=${espScratchDir}output/mod09ga.061/spires/v2025.0.1/netcdf/h07v03/2001/SPIRES_HIST_h07v03_MOD09GA061_20010101_V2.0.nc
+ncks -M $ncFilePath # Print global metadata
+ncks -m $ncFilePath # Print variable metadata
+```
+
 
 *More on nco library and the ncgen function:
 <https://nco.sourceforge.net/nco.html>
@@ -52,4 +62,4 @@ cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2025.0.1.cdl
 
 Author: Sebastien Lenard
 
-Date of modification: 2025/01/28
+Date of modification: 2025/02/26
