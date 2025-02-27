@@ -33,15 +33,21 @@ ncgen -o ${cdlFilePath/\.cdl/\.nc} -k 'netCDF-4' -x $cdlFilePath
 
 Current available templates:
 ```
-cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v03.cdl
+cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v03.hist.cdl
   # v03, also dubbed v2022.0 HMA mod09ga STC 2000-2022 (v1 for NSIDC).
-cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2023.0.1.cdl
+cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2023.0.1.hist.cdl
   # v2023.0.1, which combines v2023.0 2000-2022 and v2023.0e 2022-2023 Global mod09ga STC (v1 for NSIDC).
-cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2024.1.0.cdl
+cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2024.1.0.hist.cdl
   # Previously dubbed v2024.0d, Global mod09ga SPIReS (v1 (?) for NSIDC).
-cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2025.0.1.cdl
+cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2024.1.0.nrt.cdl
+  # Same as above, for near real time data.
+cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2025.0.1.hist.cdl
   # Previously dubbed v2024.0d, Global mod09ga SPIReS (v2 (?) for NSIDC).
+cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2025.0.1.cdl
+  # Same as above, for near real time data.
 ```
+
+Templates are slightly different for near real time vs historic data (distinct DOI and dataset identifiers).
 
 ## Output data files
 
