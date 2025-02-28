@@ -149,9 +149,12 @@ if [[ $inputLabel == 'v2024.0d' || $inputLabel == 'v2024.1.0' || $inputLabel == 
 
   printf "Submission of jobs to rsync netcdfs back to archive...\n"
   years=( {2025..2024..-1} );
-  regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04 h29v13 h30v13);
+  regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04 \
+h29v13 h30v13 \
+h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v02 h13v02 h10v05 h11v04); # h12v01 h13v01 
   slurmAccount=${SLURM_JOB_ACCOUNT};
-  scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/;
+  slurmLogDir=${projectDir}slurm_out/;
+  # scratchPath defined in toolsStart.sh.
   slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
   exclude="";
   scriptPath=./scripts/runRsync.sh
@@ -245,11 +248,6 @@ if [[ $inputLabel == 'v2024.0d' || $inputLabel == 'v2024.1.0' || $inputLabel == 
   if [[ $outputLabel == 'v2025.0.1' ]]; then
     regionNames=(westernUS OCNewZealand);
   fi
-  slurmAccount=${SLURM_JOB_ACCOUNT};
-  scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/;
-  slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
-  exclude="";
-  scriptPath=./scripts/runRsync.sh
 
   sourceBasePath=${scratchPath}modis/regional_stats/scagdrfs_csv_${inputLabel}/v006/ #modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
   targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/csv/
