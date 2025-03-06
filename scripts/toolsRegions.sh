@@ -60,6 +60,14 @@ get_tile_name_from_tile_id(){
 ########################################################################################
 # Definition of regions.
 ########################################################################################
+# If script submitted standalone for test.
+if [ ! -v workingDirectory ]; then 
+  workingDirectory=$(pwd)
+  printf "Working directory: ${workingDirectory}\n"
+  printf "#############################################################################\n"
+fi
+#
+
 tileGroups=(5 1 2 3 4)
 tileGroupNames=("westernUS" "USAlaska" "ASHimalaya" "EURAlps" "AMAndes")
 
@@ -94,6 +102,10 @@ tileArrayStringForTileGroup6="1057,1093"
 declare -A allRegionNames
 eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allRegionNames[" $19 "]=" $1 ";\n" }')
 # Probably a simpler way than accumulate the greps...                              @todo
+
+# First month of waterYear for tiles and big regions.
+declare -A allFirstMonthOfWaterYear
+eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allFirstMonthOfWaterYear[" $19 "]=" $39 ";\n" }')
 
 # Big regions for tiles.
 declare -A bigRegionForTile
