@@ -318,6 +318,13 @@ classdef Variables
                 varName = '';
                 complementaryLabel = '';
                 theseFieldNames = fieldnames(output);
+
+                % 2025-02-14. Warning for cases when all pixels having more than
+                % the threshold of observations are set to nodata.
+                if isCalculatedFromRareObservationIfDaysWithoutObsAbove < 366
+                    warning(['Rare observation mask applied, updating most ', ...
+                        'variables in daily files...']);
+                end
                 parfor(dateIdx = 1:length(theseDates), optim.parallelWorkersNb)
                     thisDate = theseDates(dateIdx);
 
@@ -339,19 +346,45 @@ classdef Variables
                             indices.columnStartId:indices.columnEndId) = ...
                             thisDayWithout(:, :, dateIdx);
 
-                        % Add mask of rare observations for v2023.0.1 = v2023.0e + v2023.0. 2025-01-17.
-                        if isCalculatedFromRareObservationIfDaysWithoutObsAbove < 366
-                            thisFileObj.(calculatedFromRareObservation.name{1})(...
-                                indices.rowStartId:indices.rowEndId, ...
-                                indices.columnStartId:indices.columnEndId) = ...
-                                thisDayWithout(:, :, dateIdx) > ...
-                                isCalculatedFromRareObservationIfDaysWithoutObsAbove;
-                        end
-
                         for fieldIdx = 1:length(theseFieldNames)
                             thisFieldName = theseFieldNames{fieldIdx};
                             thisFileObj.(thisFieldName) = output.(thisFieldName);
                         end % fieldIdx.
+
+                        % Add mask of rare observations for v2023.0.1 = v2023.0e + v2023.0. 2025-01-17.
+                        if isCalculatedFromRareObservationIfDaysWithoutObsAbove < 366
+                            thatCalculatedFromRareObservation = ...
+                                thisDayWithout(:, :, dateIdx) > ...
+                                isCalculatedFromRareObservationIfDaysWithoutObsAbove;
+                            thisFileObj.(calculatedFromRareObservation.name{1})(...
+                                indices.rowStartId:indices.rowEndId, ...
+                                indices.columnStartId:indices.columnEndId) = ...
+                                thatCalculatedFromRareObservation;
+
+                            % 2025-02-14. All pixels having more than the threshold
+                            % of observations should be set to nodata ("masked'),
+                            % except the layers expressed in unit days and angles and
+                            % flags.
+                            unitsOfUnmaskedVariables = {'day', 'degree', 'unitless'};
+                            thoseVariables = espEnv.getVariable( ...
+                                dataLabel, inputDataLabel = dataLabel);
+                            thoseVariables = thoseVariables( ...
+                                ~ismember(thoseVariables.unit, ...
+                                    unitsOfUnmaskedVariables), :);
+                            for varIdx = 1:height(thoseVariables)
+                                thoseData = ...
+                                    thisFileObj.(thoseVariables.name{varIdx}) ...
+                                    (indices.rowStartId:indices.rowEndId, ...
+                                    indices.columnStartId:indices.columnEndId);
+                                thoseData(thatCalculatedFromRareObservation) = ...
+                                    thoseVariables.nodata_value(varIdx);
+                                thisFileObj.(thoseVariables.name{varIdx}) ...
+                                    (indices.rowStartId:indices.rowEndId, ...
+                                    indices.columnStartId:indices.columnEndId) = ...
+                                    thoseData;
+                            end
+                        end % if isCalculatedFromRareObservationIfDaysWithoutObsAbove
+                        % < 366
                     end % thisFileExists.
                 end % dateIdx.
                 fprintf('%s: Done varId %d output...\n', thisFunction, ...
@@ -474,7 +507,7 @@ classdef Variables
             %   2024-03-23.
             tic;
             thisFunction = 'Variables.calcSnowCoverDays';
-            fprintf(['%s: Starting, region: %s, waterYearDate: %s... \n'], ...
+            fprintf(['%s: Starting, region: %s, waterYearDate: %s...\n'], ...
               thisFunction, obj.region.name, ...
                 waterYearDate.toChar());
 
@@ -505,7 +538,6 @@ classdef Variables
             for inputVarIdx = 1:length(inputVarId)
                 % 1. Loading status data...
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                data = struct();
                 thisInputVarId = inputVarId(inputVarIdx);
                 varName = thisInputVarId;
                 fprintf('%s: Starting varId %d...\n', thisFunction, thisInputVarId);
@@ -517,10 +549,14 @@ classdef Variables
 
                 snowFraction = inputVariable(inputVariable.id == thisInputVarId, :);
 
-                data.(nameOfSnowCoverDay) = ...
+                theseData = ...
                     espEnv.getDataForWaterYearDateAndVarName( ...
                         objectName, dataLabel, waterYearDate, varName);
-                isNoData = data.(nameOfSnowCoverDay) == ...
+                        % theseData is first the retrieved snow_fraction. After several
+                        % filters, theseData is converted in snow_cover_days.
+                theseData = cast(theseData, snowCoverDay.type{1});
+                  % Cast from uint8 to uint16.
+                isNoData = theseData == ...
                     snowFraction.nodata_value(1);
                 % snow_fraction, uint8 to uint16. 3rd dimension = temporal series of
                 % a pixel located in 1st + 2nd dim.
@@ -534,29 +570,32 @@ classdef Variables
                 snowThreshold = Tools.valueInTableForThisField( ...
                     mins, 'thresholdedVarId', thisInputVarId, 'minValue');
                 if length(snowThreshold) ~= 0 % 0 could be a threshold too.
-                    isLowSnow = data.(nameOfSnowCoverDay) < snowThreshold;
-                    data.(nameOfSnowCoverDay)(isLowSnow) = 0;
-                    data.(nameOfSnowCoverDay)(~isLowSnow) = 1;
+                    isLowSnow = theseData < snowThreshold;
+                    theseData(isLowSnow) = 0;
+                    theseData(~isLowSnow) = 1;
                     isLowSnow = [];
-                    data.(nameOfSnowCoverDay) = cast(data.(nameOfSnowCoverDay), ...
-                        snowCoverDay.type{1});
+                    
                 else
-                    data.(nameOfSnowCoverDay) = ones( ...
-                        size(data.(nameOfSnowCoverDay)), snowCoverDay.type{1});
+                    theseData = ones( ...
+                        size(theseData), snowCoverDay.type{1});
                 end
-                data.(nameOfSnowCoverDay)(isNoData) = snowCoverDay.nodata_value(1);
+                theseData(isNoData) = snowCoverDay.nodata_value(1);
                 isNoData = [];
                 elevationThreshold = Tools.valueInTableForThisField( ...
                     mins, 'thresholdedVarName', 'elevation', 'minValue');
                 if length(elevationThreshold) ~= 0 % 0 could be a threshold too.
-                    data.(nameOfSnowCoverDay)( ...
+                    theseData( ...
                         repmat(espEnv.getDataForObjectNameDataLabel( ...
                         obj.region.regionName, 'elevation') < elevationThreshold, ...
-                        [1, 1, size(data.(nameOfSnowCoverDay), 3)])) = ...
+                        [1, 1, size(theseData, 3)])) = ...
                         snowCoverDay.nodata_value(1);
                 end
 
-                data.(nameOfSnowCoverDay) = cumsum(data.(nameOfSnowCoverDay), 3);
+                theseData = cumsum(theseData, 3);
+                  % NB: If any nodata (created by the
+                  % calculated_from_rare_observation flag v2023.0.1 for instance), the
+                  % cumsum shift to no data starting the first day in water year when
+                  % there is no data.
 
                 % 4. Saving, collection of units and divisor...
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -591,7 +630,7 @@ classdef Variables
                         fprintf('Updating %s...\n', thisFilePath);
                         thisFileObj = matfile(thisFilePath, Writable = true);
                         thisFileObj.(nameOfSnowCoverDay) = ...
-                                data.(nameOfSnowCoverDay)(:, :, dateIdx);
+                                theseData(:, :, dateIdx);
                         for fieldIdx = 1:length(theseFieldNames)
                             thisFieldName = theseFieldNames{fieldIdx};
                             thisFileObj.(thisFieldName) = output.(thisFieldName);
