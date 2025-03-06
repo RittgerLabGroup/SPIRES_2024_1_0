@@ -537,6 +537,16 @@ classdef Mosaic
                         mosaicDataForAllDays.(thresholdedVarname) ~= 0;
                     mosaicDataForAllDays.(replacedVarname)(isLow) = ...
                         valueForUnreliableData;
+
+                    if thresholdValue > 0
+                        mosaicDataForAllDays.(replacedVarname) ...
+                            (mosaicDataForAllDays.(thresholdedVarname) == 0) = ...
+                            valueForUnreliableData;
+                    end
+                      % 2025-02-05. Added after observed differences in snow_fraction
+                      % between v2023.0 and v2023.0.1. But didn't change dynamics for
+                      % setting viewable_snow_fraction_status flag.
+                      
                     % SIER_151 viewable_snow_fraction_status
                     if strcmp(replacedVarname, 'viewable_snow_fraction')
                         mosaicDataForAllDays.viewable_snow_fraction_status ...
