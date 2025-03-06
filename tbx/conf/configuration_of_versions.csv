@@ -1,0 +1,5 @@
+id,algorithm,inputProductAndVersion,name,alternateName,daacName,doiForHist,doiForNrt,wasNrtProduced,Comment
+1,stc,mod09ga.061,v2022.0,v03,v1,10.5067/9FYZPP9AIV7G,10.5067/9FYZPP9AIV7G,0,"HMA STC, mix of v060 and v061."
+2,stc,mod09ga.061,v2023.0.1,v2023.0e,v1,10.7265/f6j3-f387,10.7265/f6j3-f387,0,"Global STC (only western US), mix of v060 and v061."
+3,spires,mod09ga.061,v2024.1.0,v2024.0d,v1.0,10.7265/a3vr-c014,10.7265/hs6b-zg21,1,Global Spires (only western US)
+4,spires,mod09ga.061,v2025.0.1,v2024.0f,v2.0,,,,Global Spires
