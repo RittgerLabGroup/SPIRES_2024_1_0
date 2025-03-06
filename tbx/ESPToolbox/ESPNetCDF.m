@@ -1022,7 +1022,8 @@ classdef ESPNetCDF < handle
           end
           templateNetCdfFilePath = [getenv('thisEspProjectDir'), ...
               'tbx/template/outputnetcdf.', ...
-              espEnv.modisData.versionOf.(outputDataLabel), '.nc'];
+              espEnv.modisData.versionOf.(outputDataLabel), ...
+              '.', espEnv.waterYearDate.getNrtOrHist(), '.nc'];
           [status, message] = copyfile(templateNetCdfFilePath, ...
               netCDFFilePath);
           if status ~= 1
@@ -1183,7 +1184,7 @@ classdef ESPNetCDF < handle
             if ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, ...
               {'v2023.0d', 'v2023.0e', 'v2023.1', 'v2023.0.1'})
                 writeNetCDFField = 'v2023_1';
-            elseif strcmp(region.espEnv.modisData.versionOf.VariablesNetCDF, 'v2022.0')
+            elseif ismember(region.espEnv.modisData.versionOf.VariablesNetCDF, {'v03', 'v2022.0'})
                 writeNetCDFField = 'v2022_0';
             end % Specific case for HMA ASHimalayas v2022.0. Otherwise we suppose
                 % all available fields are same as v2023.1
@@ -1213,13 +1214,16 @@ classdef ESPNetCDF < handle
                 end
               end
               % Dirty tweak for v2025.nrt 20241209.
-              if ismember(espEnv.modisData.versionOf.spiresdailytifsinu, {'v2025.0.1'})
-                inputDataLabel = 'spiresdailytifsinu';
+              divisor = 1;
+              if ismember(espEnv.modisData.versionOf.(outputDataLabel), ...
+                {'v2025.0.1', 'v2024.1.0'})
                 complementaryLabel = '';
                 data = struct();
+                force = struct(outputDataLabel = outputDataLabel); 
+                  % this force allows division for dust_concentration.
                 data.(varName) = espEnv.getDataForDateAndVarName(objectName, ...
-                    inputDataLabel, thisDate, varName, complementaryLabel);
-                divisor = 1;
+                    inputDataLabel, thisDate, varName, complementaryLabel, ...
+                    force = force);
               else
                 data = load(matFilePath, varName, ...
                     [varName '_divisor']);
