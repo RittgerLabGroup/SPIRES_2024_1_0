@@ -206,6 +206,8 @@ fi
 ########################################################################################
 # 2. Get the slurm variables.
 ########################################################################################
+module purge
+  # Unload all modules except slurm.
 sbatchCommand=
 isBatch=
 if [ -v SLURM_JOB_ID ]; then
@@ -518,7 +520,7 @@ if [ $(date +%H) -ge 19 ]; then dateOfToday=$(date -d "+1 days" +%Y-%m-%d); fi;
 # $thisMonthWindow can be earlier defined in main script constants and overriden by
 # pipeline configuration.
 if [ ! -v thisMonthWindow ]; then
-  $thisMonthWindow=12
+  thisMonthWindow=12
 fi
 waterYearDateString=$(echo $(date +"%Y-%m-%d")-${thisMonthWindow})
 # Option -i, rsync input files from archive to scratch. By default, no rsync.
@@ -704,20 +706,27 @@ if [[ $SLURM_ARRAY_TASK_ID -eq $SLURM_ARRAY_TASK_MIN ]]; then
   thatSecond1=$SECONDS
   for taskId in ${slurmArrayExpandedTaskIds[@]}; do
     thisTmpDir=${scratchPath}.matlabTmp/alpine-${SLURM_ARRAY_JOB_ID}_${taskId}
-    if [[ $(timeout 2 mkdir $thisTmpDir -p 2>&1) == *"cannot access"* ]]; then
+    mkDirOutput=$(timeout 2 mkdir $thisTmpDir -p 2>&1)
+    printf "${thisTmpDir}: ${mkDirOutput}.\n"
+    if [[ $mkDirOutput == *"cannot"* ]]; then
       error_exit "Exit=1, matlab=no, Defective node, scratchPath inaccessible (w)."
     fi
   done
   printf "Created ${#slurmArrayExpandedTaskIds[@]} temporary directories for all tasks of the parent job on scratch in $(( $SECONDS - $thatSecond1 )) secs.\n"
 fi
 
-thisTmpDir=${scratchPath}.matlabTmp/alpine-$(date +%s)
+tmpDir=${scratchPath}.matlabTmp/alpine-$(date +%s)
 if [ ! -v ${slurmFullJobId} ]; then
   tmpDir=${scratchPath}.matlabTmp/alpine-${slurmFullJobId}
 else
   mkdir -p $tmpDir
 fi
-if [[ ! -d $tmpDir ]]; then 
+thatSecond1=$SECONDS
+printf "$(pStart): Checking existence of tmpDir=${tmpDir}...\n"
+while [ ! -d $tmpDir ] && [ $(( $SECONDS - $thatSecond1 )) -lt $(( ${#slurmArrayExpandedTaskIds[@]} + 180)) ]; do
+  sleep 5
+done
+if [[ ! -d $tmpDir ]]; then
   error_exit "Exit=1, matlab=no, Defective node, scratchPath inaccessible (wi)."
 fi
 export TMPDIR=$tmpDir
@@ -748,7 +757,8 @@ lastIndex=${firstToLastIndexArray[1]}
 
 if [[ ! -v regionName ]] && [[ ${objectId} -lt 1300 ]]; then
   regionName=${allRegionNames[$objectId]}
-  # $allRegionNames defined in toolsRegions.sh.
+  firstMonthOfWaterYear=${allFirstMonthOfWaterYear[${objectId}]}
+  # $allRegionNames and $allFirstMonthOfWaterYear defined in toolsRegions.sh.
 fi
 # no modis tile can be of id >= 1300.
 inputForRegion="'"${regionName}"', '"${regionName}"_mask', espEnv, modisData"
@@ -777,15 +787,6 @@ else
   startDate=$(date +%Y-%m-01 -d "$endDate")
   startDate=$(date +%Y-%m-01 --date="$(date --date="$startDate") $(( -$monthWindow + 1 )) month 1 day")
 fi
-
-dateOfTodayArray=(${dateOfToday//-/ })
-dateOfTodayString="${dateOfTodayArray[0]}, "\
-"${dateOfTodayArray[1]}, ${dateOfTodayArray[2]}, WaterYearDate.dayStartTime.HH, "\
-"WaterYearDate.dayStartTime.MIN, WaterYearDate.dayStartTime.SS"
-inputForWaterYearDate="datetime(${thisYear}, ${thisMonth}, ${thisDay}), "\
-"region.myConf.region.firstMonthOfWaterYear, ${monthWindow}, "\
-"dateOfToday = datetime(${dateOfTodayString})"
-# NB: month and day can be input as 09 and 01 apparently with Matlab 2021b.
 
 read -r -d '' objectTimeVariable << EOM
 Object and time variable values:
@@ -826,18 +827,31 @@ version_of_ancillary_option=""
 # by this bash script (i.e. no call of scratchShuffleAncillary.sh to destination of
 # pl/archive).
 inputForModisData="label = '${inputLabel}', versionOfAncillary = '${versionOfAncillary}', "\
-"inputProduct = '${inputProduct}', inputProductVersion = '${inputProductVersion}'"
+"inputProduct = '${inputProduct}', inputProductVersion = '${inputProductVersion}', "\
+"firstMonthOfWaterYear = ${firstMonthOfWaterYear}"
 printf "inputForModisData: ${inputForModisData}\n"
 modisDataInstantiation="modisData = MODISData(${inputForModisData}); "
 if [[ ${inputLabel} != ${outputLabel} ]] & [ outputDataLabels ]; then
   for thisLabel in ${outputDataLabels[*]};
     do modisDataInstantiation=${modisDataInstantiation}""\
 "modisData.versionOf.${thisLabel}='${outputLabel}'; ";
-  done
-  printf "modisDataInstantiation: ${modisDataInstantiation}.\n"
+  done 
 fi
+printf "modisDataInstantiation: ${modisDataInstantiation}.\n"
 
-inputForESPEnv="modisData = modisData, archivePath = '${archivePath}', scratchPath = '${scratchPath}'"
+dateOfTodayArray=(${dateOfToday//-/ })
+dateOfTodayString="${dateOfTodayArray[0]}, "\
+"${dateOfTodayArray[1]}, ${dateOfTodayArray[2]}, WaterYearDate.dayStartTime.HH, "\
+"WaterYearDate.dayStartTime.MIN, WaterYearDate.dayStartTime.SS"
+inputForWaterYearDate="datetime(${thisYear}, ${thisMonth}, ${thisDay}), "\
+"${firstMonthOfWaterYear}, ${monthWindow}, "\
+"dateOfToday = datetime(${dateOfTodayString})"
+waterYearDateInstantiation="waterYearDate = WaterYearDate(${inputForWaterYearDate}); "
+printf "waterYearDateInstantiation: ${waterYearDateInstantiation}.\n"
+# NB: month and day can be input as 09 and 01 apparently with Matlab 2021b.
+
+inputForESPEnv="modisData, archivePath = '${archivePath}', scratchPath = '${scratchPath}', "\
+"waterYearDate = waterYearDate"
 # Only used in last step of pipeline. 
 if [[ ${scriptId} == "webExpSn" ]]; then
   inputForESPEnv=${inputForESPEnv}", espWebExportConfId = ${espWebExportConfId}"
@@ -851,12 +865,13 @@ if [[ $(printf '%s' "${westernUSRegionNames[@]}" | grep $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
   inputForESPEnv=${inputForESPEnv}", filterMyConfByVersionOfAncillary = 0"
 fi
-'
-espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); espEnv.slurmFullJobId = '${slurmFullJobId}';"
+
 if [[ $(printf '%s' "${westernUSRegionNames[@]}" | grep $regionName) ]] \
 && [[ $versionOfAncillary != "v3.1" ]]; then
   espEnvInstantiation=${espEnvInstantiation}" espEnv.myConf.region(strcmp(espEnv.myConf.region.name, '"${regionName}"'), :).versionOfAncillary = {'"${versionOfAncillary}"'};"
 fi
+'
+espEnvInstantiation="espEnv = ESPEnv(${inputForESPEnv}); espEnv.slurmEndDate = datetime('$slurmEndDate'); espEnv.slurmFullJobId = '${slurmFullJobId}';"
 
 if [[ ${filterConfId} -ne 0 ]]; then
   espEnvInstantiation=${espEnvInstantiation}" "\
@@ -865,6 +880,8 @@ fi
 printf "espEnvInstantiation: ${espEnvInstantiation}.\n"
 espEnvWOFilterInstantiation="espEnvWOFilter = ESPEnv(${inputForESPEnv}, filterMyConfByVersionOfAncillary = 0); "
 printf "espEnvWOFilterInstantiation: ${espEnvWOFilterInstantiation}.\n"
+
+instantiationForWYDateEspEnv=${waterYearDateInstantiation}${espEnvInstantiation}
 
 optimInstantiation="optim = struct(force = ${thisMode}); "
 countOfCellPerDimension=$(echo "sqrt($countOfCells)" | bc)
@@ -981,7 +998,7 @@ if [ -v isBatch ] && [ -v pipeLineId ] && [ -v SLURM_ARRAY_TASK_ID ] && \
 
     # Get the current regions and the next regions.
     # Currently only possible to transition to a bigger region e.g. from 292 to 5.
-    objectIds=$(echo ${slurmArrayTaskIds} | sed -E 's~[0-9]{3}-[0-9]+~~g');
+    objectIds=$(echo ${slurmArrayTaskIds} | sed -E 's~-[0-9]+~~g' | sed -E 's~([0-9]+)[0-9]{3}(,|$)~\1\2~g');
     objectIdsArray=( ${objectIds//,/ })
     nextObjectIds=$objectIds
     if [ $thisRegionType -eq 0 ] && [ $nextRegionType -gt 0 ]; then
