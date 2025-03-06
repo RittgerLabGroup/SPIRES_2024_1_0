@@ -82,6 +82,47 @@ check_scancel_for_submitter() {
   fi
 }
 
+get_submit_result() {
+  # Submit the submitLine to slurm and get the result. Handles slurm errors and
+  # resubmission in some cases, otherwise exit program with error.
+  #
+  # Parameters
+  # ----------
+  # $1: char. SubmitLine.
+  #
+  # Return
+  # ------
+  # status: char. Result of slurm submission, if submission successful.
+  # Check sbatch error.
+  submitSleepDuration=$((( 60 * 5 )))
+  submitLine=$1
+  submitResult=$($submitLine)
+    # We expect something like "Submitted batch job 19187635" if no error
+  submitErrorCode=$(echo "${submitResult}" | grep error | head -1 | cut -d ':' -f 3 | tr -d ' ')
+  [[ -z $submitErrorCode ]] || submitResultIsError=$?
+  if [[ $submitResultIsError ]]; then
+    if [[ ${submitErrorCode} == "QOSMaxSubmitJobPerUserLimit" || ${submitErrorCode} == "Invalid account or account/partition combination specified" ]]; then
+      while [ $submitResultIsError ] && [ ${submitErrorCode} == "QOSMaxSubmitJobPerUserLimit" || ${submitErrorCode} == "Invalid account or account/partition combination specified" ]; do
+        # This weird error Invalid account or account/partition combination specified happens on Blanca. Since accounts and partitions are the same for runSubmitter and associated jobs, we assume that this error is only temporary and we can make a retry.
+        printf "${submitResult}\n"
+        printf "Put job asleep for ${submitSleepDuration} secs...\n"
+        sleep 60 * 5
+        echo "${submitLine}"
+        submitResult=$($submitLine)
+        submitErrorCode=$(echo "${submitResult}" | grep error | head -1 | cut -d ':' -f 3 | tr -d ' ')
+        [[ -z $submitErrorCode ]] || submitResultIsError=$?
+      done
+    else
+      printf "${submitResult}\n"
+      printf "Jobs done: 0/N; end:ERROR; ${submitErrorCode}\n\n"
+      exit 1
+    fi
+  else
+    printf "${submitResult}\n"
+      # Return of the function.
+  fi
+}
+
 export SLURM_EXPORT_ENV=ALL
 
 # Core script.
@@ -123,9 +164,10 @@ slurmLogDir=$(dirname "${submitterSlurmStdOut}")${fileSeparator}
 # Get info on job and tasks (object ids) to submit and submit it.
 submitLine="$1"
 echo "${submitLine}"
-thatArrayJobId=$($submitLine)
-printf "$thatArrayJobId\n"
-thatArrayJobId=$(echo ${thatArrayJobId} | grep "Submitted batch job" | cut -d ' ' -f 4)
+submitResult=$(get_submit_result "$submitLine")
+
+printf "${submitResult}\n"
+thatArrayJobId=$(echo ${submitResult} | grep "Submitted batch job" | cut -d ' ' -f 4)
 printf "thatArrayJobId: $thatArrayJobId\n"
 # There's a set of jobs to log-track
 # There's one synthesis file per set of jobs (=step) for a pipeline, or if no pipeline,
@@ -136,7 +178,9 @@ isFatalError=
 while [ ! -z $thatArrayJobId ]; do
   check_scancel_for_submitter
   jobName=$(echo $submitLine | sed -E 's~[^@]+ --job-name=([/_%\.0-9a-zA-Z]+) [^@]+~\1~')
-  printf "Track logs of ${jobName} ${thatArrayJobId}, for submitLine:\n"
+  scriptFileName=$(echo $submitLine | sed -E 's~[^@]+ \.\/scripts\/([_\-\.0-9a-zA-Z]+)\.sh [^@]+~\1~').sh
+  scriptMode=$(echo $submitLine | sed -E 's~[^@]+ \-M ([0-9]+) [^@]+~\1~')
+  printf "Track logs of ${jobName} ${thatArrayJobId}, ${scriptFileName} mode ${scriptMode} for submitLine:\n"
   echo $(date '+%H:%M:%S')": ${submitLine}"
   logFilePathPattern=$(echo $submitLine | sed -E 's~[^@]+ -o ([/_%\.0-9a-zA-Z\-]+) [^@]+~\1~')
     # Nb: \- should always be at the end of a regexp pattern.
@@ -148,7 +192,7 @@ while [ ! -z $thatArrayJobId ]; do
   taskIds=$(eval $taskIds);
   countOfTaskId=$(echo $taskIds | wc -w)
   taskIds=($taskIds)
-  
+
   # Get the minimal task_id (or SLURM_ARRAY_TASK_MIN of the job submitted).
   defaultIFS=$' \t\n'
   IFS=$'\n' sortedTaskIds=($(sort -n <<<"${taskIds[*]}"))
@@ -243,6 +287,12 @@ EOM
 '
         thisCurrentArrayJobIdForTaskId=${currentArrayJobIdForTaskIds[${thisTaskId}]}
         printf "currentArrayJobIdForTaskIds: ${thisCurrentArrayJobIdForTaskId}, thisArrayJobId: ${thisArrayJobId}.\n"
+: '
+        # Unused conditions, track errors for future use:
+                  if [[ $thisStatus == *"Exit=1,"* && \
+( ( $thisStatus != *"MATLAB:load:couldNotReadFile"* && $thisStatus != *"MATLAB:MatFile:NoFile"* && $thisStatus != *"MATLAB:save:NotAMATFile"* && $thisStatus != *"MATLAB:whos:badVariableName"* && $thisStatus != *"MATLAB:imagesci:h5info:unableToFind"* ) || \
+( $thisStatus == *"matlab=ESPEnv:TimeLimit"* && $scriptFileName == runSpiresInversor.sh mode && $scriptMode -eq 1 ) ) ]]; then
+'
         if [[ $thisStatus == *"end:ERROR"* ]] && [[ ${currentArrayJobIdForTaskIds[${thisTaskId}]} -eq $thisArrayJobId ]]; then
           if [[ $thisStatus == *"Exit=1,"* ]] && [[ $thisStatus != *"MATLAB:load:couldNotReadFile"* ]] && [[ $thisStatus != *"MATLAB:MatFile:NoFile"* ]] && [[ $thisStatus != *"MATLAB:save:NotAMATFile"* ]] && [[ $thisStatus != *"MATLAB:whos:badVariableName"* ]] && [[ $thisStatus != *"MATLAB:imagesci:h5info:unableToFind"* ]]; then
             # MATLAB:load:couldNotReadFile and MATLAB:MatFile:NoFile can occur when
@@ -317,10 +367,11 @@ EOM
         check_scancel_for_submitter
         printf "Resubmission of taskIds in error:\n"
         echo "$reSubmitLine"
-        resubmitArrayJobId=$($reSubmitLine)
-        printf "$resubmitArrayJobId\n"
-        resubmitArrayJobId=$(echo ${resubmitArrayJobId} | grep "Submitted batch job" | cut -d ' ' -f 4)
-
+        submitResult=$(get_submit_result "${reSubmitLine}")
+        printf "${submitResult}\n"
+        resubmitArrayJobId=$(echo ${submitResult} | grep "Submitted batch job" | cut -d ' ' -f 4)
+        printf "${resubmitArrayJobId}\n"
+        
         theseTaskIdsToResubmit=($(echo ${theseTaskIdsToResubmit} | tr "," " "))
         for ((idx = 0 ; idx < ${#theseTaskIdsToResubmit[@]} ; idx++ )); do
           # Add in overall arrays
@@ -379,9 +430,9 @@ EOM
           # dependent job is achieved).
       printf "Full resubmission because min task in error, submitLine:\n"
       echo "${submitLine}"
-      thatArrayJobId=$($submitLine)
-      printf "$thatArrayJobId\n"
-      thatArrayJobId=$(echo ${thatArrayJobId} | grep "Submitted batch job" | cut -d ' ' -f 4)
+      submitResult=$(get_submit_result "$submitLine")
+      printf "$submitResult\n"
+      thatArrayJobId=$(echo ${submitResult} | grep "Submitted batch job" | cut -d ' ' -f 4)
       printf "thatArrayJobId: $thatArrayJobId\n"
     else
       # Otherwise, catch arrayJobId of next job in the pipeline, submitted in min task
