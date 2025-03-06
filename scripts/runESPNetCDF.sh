@@ -113,14 +113,13 @@ try;
   elseif ismember(modisData.versionOf.(inputDataLabel), {'v2024.0d', 'v2024.1.0', 'v2025.0.1'})
     outputDataLabel = 'outputnetcdf';
     modisData.algorithm = 'spires';
-    modisData.nrtOrHist = 'nrt';
   elseif ismember(modisData.versionOf.(inputDataLabel), {'v2023.0d', 'v2023.0f', 'v2023.0k', 'v2023.1', 'v2024.0'});
     outputDataLabel = 'VariablesNetCDF';
   end;
+  ${waterYearDateInstantiation}
   ${espEnvInstantiation}
   espEnv.configParallelismPool(${parallelWorkersNb});
   region = Regions(${inputForRegion});
-  waterYearDate = WaterYearDate(${inputForWaterYearDate});
   theseDates = waterYearDate.getDailyDatetimeRange();
   parfor dateIdx = 1:length(theseDates);
     thisDate = theseDates(dateIdx);

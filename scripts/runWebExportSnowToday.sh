@@ -143,6 +143,7 @@ try;
   includeSubdivisionTypeInJson = 0;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  ${waterYearDateInstantiation}
   ${espEnvWOFilterInstantiation}
   dateOfToday = datetime(${dateOfTodayString});
 

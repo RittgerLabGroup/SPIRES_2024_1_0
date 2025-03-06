@@ -102,9 +102,9 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  ${waterYearDateInstantiation}
   ${espEnvInstantiation}
   region = Regions(${inputForRegion});
-  waterYearDate = WaterYearDate(${inputForWaterYearDate});
   variables = Variables(region);
   variables.calcSnowCoverDays(waterYearDate);
 ${catchExceptionAndExit}

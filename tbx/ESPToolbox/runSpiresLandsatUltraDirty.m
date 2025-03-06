@@ -22,7 +22,7 @@ versionOfAncillary = 'v3.1'; % Only for initiating the exporter.
 scratchPath = '/rc_scratch/sele7124/'; % getenv('espArchiveDir');
 regionName = 'h08v04'; 
 modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
-espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
+espEnv = ESPEnv(modisData, scratchPath = scratchPath);
 region = Regions(regionName, [regionName, '_mask'], espEnv, modisData);
 
 inputDirectoryPath = '/rc_scratch/sele7124/landsat8/input_spires_from_Ned_202311/TCD_fSCA_validation_2022/';

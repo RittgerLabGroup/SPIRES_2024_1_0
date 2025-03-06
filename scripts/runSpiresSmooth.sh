@@ -127,6 +127,7 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  ${waterYearDateInstantiation}
   ${espEnvInstantiation}
   rng(${SLURM_ARRAY_TASK_ID});
   pauseTime = mtimes(rand(1), 120);
@@ -134,7 +135,6 @@ try;
   pause(pauseTime);
   espEnv.configParallelismPool(${parallelWorkersNb});
   region = Regions(${inputForRegion});
-  waterYearDate = WaterYearDate(${inputForWaterYearDate});
   smoothSPIREScube20240204(region, ${cellIdx}, waterYearDate, 0, ${thisMode});
 ${catchExceptionAndExit}
 

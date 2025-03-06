@@ -107,9 +107,9 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  ${waterYearDateInstantiation}
   ${espEnvInstantiation}
   region = Regions(${inputForRegion});
-  waterYearDate = WaterYearDate(${inputForWaterYearDate});
   inputDataLabel = 'modspiresdaily';
   if ismember(region.name, {'westernUS'});
     inputDataLabel = 'VariablesMatlab';

@@ -132,13 +132,13 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  ${waterYearDateInstantiation}
   ${espEnvWOFilterInstantiation}
   espEnvWOFilter.setAdditionalConf('landsubdivision');
   espEnvWOFilter.setAdditionalConf('variablestat');
   espEnvWOFilter.setAdditionalConf('webname');
   espEnv = espEnvWOFilter;
   region = Regions(${inputForRegion});
-  waterYearDate = WaterYearDate(${inputForWaterYearDate});
   if (${parallelWorkersNb} ~= 0);
     espEnvWOFilter.configParallelismPool(${parallelWorkersNb});
   end;

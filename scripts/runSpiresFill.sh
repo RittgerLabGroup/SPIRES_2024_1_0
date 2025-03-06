@@ -127,10 +127,10 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  ${waterYearDateInstantiation}
   ${espEnvInstantiation}
   espEnv.configParallelismPool(${parallelWorkersNb});
   region = Regions(${inputForRegion});
-  waterYearDate = WaterYearDate(${inputForWaterYearDate});
   theseDates = waterYearDate.getDailyDatetimeRange();
   matdates = arrayfun(@(x) datenum(x), theseDates);
   fill_and_run_modis20240204(region, matdates);

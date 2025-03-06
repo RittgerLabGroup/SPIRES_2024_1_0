@@ -102,9 +102,9 @@ clear;
 try;
   ${packagePathInstantiation}
   ${modisDataInstantiation}
+  ${waterYearDateInstantiation}
   ${espEnvInstantiation}
   region = Regions(${inputForRegion});
-  waterYearDate = WaterYearDate(${inputForWaterYearDate});
   mosaic = Mosaic(region);
   dataLabel = 'modspiresdaily';
   if ismember(region.name, {'westernUS'});
