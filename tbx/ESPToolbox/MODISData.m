@@ -14,6 +14,9 @@ classdef MODISData < handle
         % alternateDir  % top-level directory with tile data on scratch        @obsolete
         espEnv      % ESPEnv obj.
         fileNamePrefix % Struct(char).
+        firstMonthOfWaterYear = 10; % Int. First month of water year for the run.
+            % North hemisphere: 10, south: 4. Determined from
+            % configuration_of_regions.csv.
         inputProduct  % char. Input product currently the name of lpdaac products
             % (sensor, platform), for instance mod09ga or vnp09ga. For Landsat Oli,
             % concatenation of sensor/satellite and processing correction level:
@@ -36,7 +39,6 @@ classdef MODISData < handle
             y0 = 1.000778633335726e+07), tileInfo = struct(dx = 4.633127165279165e+02, ... %4.633127165279169e+02, ...
             dy = 4.633127165279165e+02, columnCount = 2400, rowCount = 2400));
 %}
-        nrtOrHist = 'nrt'; % nrt (default) or hist (historic).
         pixSize_500m = 2 * pi * 6.371007181e+06 / 36 / 2400; %4.633127165279165e+02; %463.31271653; % @deprecated.
         mstruct % mapping structure for MODIS sinusoidal projection
         cstruct % structure with units/fields for MOD09GA files
@@ -119,8 +121,9 @@ classdef MODISData < handle
             addParameter(p, 'inputProduct', 'mod09ga');
             addParameter(p, 'inputProductVersion', '061');
             addParameter(p, 'label', defaultLabel, checkLabel);
-            addParameter(p, 'nrtOrHist', 'nrt'); % Default nrt.
             addParameter(p, 'versionOfAncillary', obj.defaultVersionOf.ancillary);
+            addParameter(p, 'firstMonthOfWaterYear', ...
+                WaterYearDate.defaultFirstMonthForNorthTiles);
 
             p.KeepUnmatched = false;
             parse(p, varargin{:});
@@ -131,7 +134,7 @@ classdef MODISData < handle
             obj.inputProduct = p.Results.inputProduct;
 
             obj.inputProductVersion = p.Results.inputProductVersion;
-            obj.nrtOrHist = p.Results.nrtOrHist;
+            obj.firstMonthOfWaterYear = p.Results.firstMonthOfWaterYear;
 
             path = fileparts(mfilename('fullpath'));
             parts = split(path, filesep);
