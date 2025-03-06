@@ -13,7 +13,6 @@ log_level_1 "start"
 
 printf "$(pStart): Environment \$PATH: ${PATH}.\n"
 printf "$(pStart): Loading matlab/R2021b...\n"
-module purge
 ml matlab/R2021b
 printf "$(pStart): Environment \$PATH: ${PATH}.\n"
 
