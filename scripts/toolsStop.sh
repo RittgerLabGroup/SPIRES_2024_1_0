@@ -22,9 +22,19 @@ if [ $matlabLaunched ] && [ ${#matlabString} -gt 0 ]; then
     # To make sure that log was written in slurmStdOut
   matlabExitCode=
   if [ ! -v $slurmStdOut ]; then
-    matlabExitCode="$(tail -n 20 $slurmStdOut | grep "matlabExitCode=" | tail -1 | cut -d = -f 2)"
-    matlabExitCode=$(echo $matlabExitCode)
+    matlabExitWithError=$(tail -n 20 $slurmStdOut | grep "Error: ")
+    matlabExitWithExecutionError=$(tail -n 20 $slurmStdOut | grep -E "[a-zA-Z ]+Error: ")
+      # Wasn't able to discriminate by using grep -E "^Error: "
+    if [[ ! -z $matlabExitWithError && -z $matlabExitWithExecutionError ]]; then
+      # Matlab string incorrectly formulated, but exclude the cases when Matlab execution error.
+      exitCode=99;
+      printf "\nUpdated exitCode=${exitCode}\n"
+      matlabExitCode="no, Matlab not executed. $(echo $matlabExitWithError | cut -d ':' -f 2 | xargs)"
+    else 
+      matlabExitCode="$(tail -n 20 $slurmStdOut | grep "matlabExitCode=" | tail -1 | cut -d = -f 2)"
+      matlabExitCode=$(echo $matlabExitCode)
       # To remove newlines
+    fi
   fi
   printf "Bash got matlabExitCode=${matlabExitCode}\n"
   #Clean up temporary directory for matlab job storage
@@ -32,9 +42,9 @@ if [ $matlabLaunched ] && [ ${#matlabString} -gt 0 ]; then
   rm -rf $TMPDIR
   
   thisMessage="Exit=${exitCode}, matlab=";
-  if [ ! -v $matlabExitCode ]; then
+  if [ ! -v "$matlabExitCode" ]; then
     thisMessage="${thisMessage}${matlabExitCode}, "
-    if [ $matlabExitCode == "parallel:cluster:PoolRunValidation" ]; then
+    if [[ "$matlabExitCode" == "parallel:cluster:PoolRunValidation" ]]; then
       thisMessage="${thisMessage}Parallel pool did not start."
     elif [ $exitCode -ne 0 ]; then
       thisMessage="${thisMessage}Line $LINENO: Matlab."
@@ -45,7 +55,7 @@ if [ $matlabLaunched ] && [ ${#matlabString} -gt 0 ]; then
     matlabExitCode="no, Matlab not executed."
     thisMessage="${thisMessage}${matlabExitCode}"
   fi
-  if [ $exitCode -ne 0 ] || [ $matlabExitCode == "no" ]; then
+  if [ $exitCode -ne 0 ] || [ "$matlabExitCode" == "no" ]; then
     error_exit "$thisMessage"
   fi
 elif [ ${#matlabString} -gt 0 ]; then
