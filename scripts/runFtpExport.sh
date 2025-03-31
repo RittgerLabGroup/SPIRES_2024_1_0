@@ -138,16 +138,17 @@ fi
 # None.
 
 if [[ $inputLabel == 'v2024.0d' || $inputLabel == 'v2024.1.0' || $inputLabel == 'v2025.0.1' ]]; then
-
-  # RSync of westernUS Netcdf to archive [hard-coded].
-  ######################################################################################
-  # No check that the rsync jobs are correctly achieved!
   outputLabel=$inputLabel;
   if [[ $inputLabel == 'v2024.0d' ]]; then
     outputLabel='v2024.1.0';
   fi
 
-  printf "Submission of jobs to rsync netcdfs back to archive...\n"
+  # RSync of westernUS Netcdf to archive [hard-coded].
+  ######################################################################################
+  # No check that the rsync jobs are correctly achieved!
+
+  printf "\nSubmission of jobs to rsync netcdfs back to archive [all versions]...\n"
+  printf "%77s\n" | tr ' ' '#'
   years=( {2025..2024..-1} );
   regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04 \
 h29v13 h30v13 \
@@ -174,14 +175,18 @@ h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v02 h13v02 h10v05 h11
         submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
         printf "${submitLine}\n"
         ${submitLine}
+      else
+        printf "WARNING, absent ${sourcePath}.\n"
       fi
     done
   done
+  printf "%77s\n" | tr ' ' '#'
   
   # RSync of westernUS proj tif to archive [hard-coded].
   ######################################################################################
   # No check that the rsync jobs are correctly achieved!
-  printf "Submission of jobs to rsync projected geotiff back to archive...\n"
+  printf "\nSubmission of jobs to rsync projected geotiff back to archive [v2024.1.0]...\n"
+  printf "%77s\n" | tr ' ' '#'
   years=( {2025..2024..-1} );
   regionNames=(westernUS);
   scriptPath=./scripts/runRsync.sh
@@ -202,14 +207,18 @@ h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v02 h13v02 h10v05 h11
         submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
         printf "${submitLine}\n"
         ${submitLine}
+      else
+        printf "WARNING, absent ${sourcePath}.\n"
       fi
     done
   done
+  printf "%77s\n" | tr ' ' '#'
   
   # RSync of westernUS proj tif v2025.0.1 to archive [hard-coded].
   ######################################################################################
   # No check that the rsync jobs are correctly achieved!
-  printf "Submission of jobs to rsync projected geotiff back to archive...\n"
+  printf "\nSubmission of jobs to rsync projected geotiff back to archive [v2025.0.1+]...\n"
+  printf "%77s\n" | tr ' ' '#'
   years=( {2025..2024..-1} );
   regionNames=(westernUS OCNewZealand h08v04 h08v05 h09v04 h09v05 h10v04 h29v13 h30v13);
   scriptPath=./scripts/runRsync.sh
@@ -229,20 +238,54 @@ h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v02 h13v02 h10v05 h11
         submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
         printf "${submitLine}\n"
         ${submitLine}
+      else
+        printf "WARNING, absent ${sourcePath}.\n"
       fi
     done
   done
+  printf "%77s\n" | tr ' ' '#'
+  
+  # RSync of westernUS mat v2024.1.0 to archive [hard-coded].
+  ######################################################################################
+  # Used for snow-today website monthly report.
+  # NB: For v2025.0.1, those files are not produced any more and the routine for the
+  # monthly report would need to be updated.                                    @warning
+  # No check that the rsync jobs are correctly achieved!
+  printf "\nSubmission of jobs to rsync western US mat back to archive  [v2024.1.0]...\n"
+  printf "%77s\n" | tr ' ' '#'
+  years=( {2025..2024..-1} );
+  regionNames=(westernUS);
+  scriptPath=./scripts/runRsync.sh
+
+  sourceBasePath=${scratchPath}modis/variables/scagdrfs_mat_${inputLabel}/v006/;
+  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/mat/
+    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
+
+  for year in ${years[@]}; do
+    scriptId=sync${year};
+    for regionName in ${regionNames[@]}; do
+      jobName=$scriptId-${regionName};
+      targetPath=${targetBasePath}${regionName}/
+      sourcePath=${sourceBasePath}${regionName}/${year}
+      if [[ -d $sourcePath ]]; then
+        mkdir -p ${targetPath}
+        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+        printf "${submitLine}\n"
+        ${submitLine}
+      else
+        printf "WARNING, absent ${sourcePath}.\n"
+      fi
+    done
+  done
+  printf "%77s\n" | tr ' ' '#'
   
   # RSync of stats for users to archive [hard-coded].
   ######################################################################################
   # dataLabel: SubdivisionStatsWebCsvv20231
   # No check that the rsync jobs are correctly achieved!
-  outputLabel=$inputLabel;
-  if [[ $inputLabel == 'v2024.0d' ]]; then
-    outputLabel='v2024.1.0';
-  fi
 
-  printf "Submission of jobs to rsync stats for users back to archive...\n"
+  printf "\nSubmission of jobs to rsync stats for users back to archive  [all versions]...\n"
+  printf "%77s\n" | tr ' ' '#'
   years=( {2025..2024..-1} );
   regionNames=(westernUS);
   if [[ $outputLabel == 'v2025.0.1' ]]; then
@@ -264,10 +307,43 @@ h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v02 h13v02 h10v05 h11
         submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
         printf "${submitLine}\n"
         ${submitLine}
+      else
+        printf "WARNING, absent ${sourcePath}.\n"
       fi
     done
   done
+  printf "%77s\n" | tr ' ' '#'
   
+  # RSync of aggreg stats for monthly article to archive [hard-coded].
+  ######################################################################################
+  # Used for snow-today website monthly report.
+  # dataLabel: SubdivisionStatsAggregCsv
+  # No check that the rsync jobs are correctly achieved!
+
+  printf "\nSubmission of jobs to rsync aggreg stats for users back to archive [all versions]...\n"
+  printf "%77s\n" | tr ' ' '#'
+  sourceBasePath=${scratchPath}modis/subdivisionstats/scagdrfs_aggregcsv_${inputLabel}/v006/
+  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/aggregcsv/
+    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
+    
+  sourceFilePaths=($(find ${sourceBasePath}* | grep "\.csv"))
+  targetFilePaths=${sourceFilePaths[@]//${sourceBasePath}/${targetBasePath}}
+  targetFilePaths=(${targetFilePaths//${inputLabel}/${outputLabel}})
+  if [[ ${#sourceFilePaths[@]} -eq 0 ]]; then
+    printf "WARNING, no aggreg stat csv files.\n"
+  else
+    for (( fileIdx=0; fileIdx<${#sourceFilePaths[@]}; fileIdx++ )); do
+      sourceFilePath=${sourceFilePaths[fileIdx]}
+      targetFilePath=${targetFilePaths[fileIdx]}
+      targetDirectory=${targetFilePath%/*}
+      if [[ ! -d $targetDirectory ]]; then
+        mkdir -p ${targetDirectory}
+      fi
+      echo "rsync $sourceFilePath $targetFilePath"
+      rsync $sourceFilePath $targetFilePath
+    done
+  fi
+  printf "%77s\n" | tr ' ' '#'
   sleep $(( 60 * 10 ))
     # Suppose rsync sbatch jobs will last less than 10 mins, not really necessary...
 fi
