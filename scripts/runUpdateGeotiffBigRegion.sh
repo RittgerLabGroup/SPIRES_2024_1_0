@@ -139,8 +139,8 @@ create --name myqgis.3.36.0 --clone qgis.3.36.0
 conda activate myqgis.3.36.0
 conda install gdal
 '
-  printf "ml mambaforge; ml gcc/11.2.0; ml gdal/3.5.0; conda env list; conda activate myqgis.3.36.0"
-  ml mambaforge; ml gcc/11.2.0; ml gdal/3.5.0; conda env list; conda activate myqgis.3.36.0
+  printf "ml miniforge; ml gcc/11.2.0; ml gdal/3.5.0; conda env list; conda activate myqgis.3.36.0"
+  ml miniforge; ml gcc/11.2.0; ml gdal/3.5.0; conda env list; conda activate myqgis.3.36.0
 
   # Gdal library Path
   osgeoUtilsPath=/projects/${USER}/software/anaconda/envs/myqgis.3.36.0/lib/python3.12/site-packages/osgeo_utils/
