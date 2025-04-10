@@ -2702,7 +2702,7 @@ classdef ESPEnv < handle
             tmpFiles = struct2table(dir(filePath));
             tmpFiles = sortrows(tmpFiles(tmpFiles.isdir == 0, :), 'datenum', ...
                 'descend');
-             
+
             if ~isempty(tmpFiles)
                 filePath = table2cell(rowfun(@(x, y) fullfile(x, y), tmpFiles, ...
                     InputVariables = {'folder', 'name'}));
@@ -2784,7 +2784,7 @@ classdef ESPEnv < handle
                 % Copy the file from the archive if present in archive ...
                 archiveFilePath = strrep( ...
                     thatFilePath, obj.scratchPath, obj.archivePath);
-                if isdir(archiveFilePath)
+                if isdir(archiveFilePath) || isfile(archiveFilePath)
                   cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
                   fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
                   [status, cmdout] = system(cmd);
@@ -2960,7 +2960,7 @@ classdef ESPEnv < handle
               % Copy the file from the archive if present in archive ...
               archiveFilePath = strrep( ...
                   thatFilePath, obj.scratchPath, obj.archivePath);
-              if isdir(archiveFilePath)
+              if isdir(archiveFilePath) || isfile(archiveFilePath)
                 cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', thatFilePath];
                 fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
                 [status, cmdout] = system(cmd);
@@ -3137,7 +3137,7 @@ classdef ESPEnv < handle
             if ~fileExists && ~ismember(dataLabel, {'espjobforscancel'})
                 % Copy the file from the archive if present in archive ...
                 archiveFilePath = strrep(filePath, obj.scratchPath, obj.archivePath);
-                if isdir(archiveFilePath) | isfile(archiveFilePath)
+                if isdir(archiveFilePath) || isfile(archiveFilePath)
                   cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', filePath];
                   fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
                   [status, cmdout] = system(cmd);
@@ -3428,7 +3428,6 @@ classdef ESPEnv < handle
                 if dateIdx == 1
                     metaData = thatMetaData;
                 end
-
                 % Determine existence of file and last date in file (for daily file,
                 % if present, the last date is automatically the date in the filename):
                 % We first make sure the file was copied from archive.
@@ -3436,11 +3435,14 @@ classdef ESPEnv < handle
                     % Copy the file from the archive if present in archive ...
                     archiveFilePath = strrep(filePath{dateIdx}, obj.scratchPath, ...
                         obj.archivePath);
-                    if isdir(archiveFilePath)
+                    if isdir(archiveFilePath) || isfile(archiveFilePath)
                       cmd = [obj.rsyncAlias, ' ', archiveFilePath, ' ', ...
                           filePath{dateIdx}];
                       fprintf('%s: Rsync cmd %s ...\n', mfilename(), cmd);
                       [status, cmdout] = system(cmd);
+                    else
+                      warning('%s: Absent file in archive: %s.', ...
+                          mfilename(), archiveFilePath);
                     end
                 end   
                 if isfile(filePath{dateIdx})
@@ -4665,7 +4667,7 @@ classdef ESPEnv < handle
             [theseVariable, ~] = obj.getVariable(dataLabel);
             thisVariable = theseVariable(strcmp(theseVariable.name, varName), :);
             thisType = thisVariable.type{1};
-            thisNoDataValue = thisVariable.nodata_value;
+            thisNoDataValue = thisVariable.nodata_value(1);
             if ismember('type', fieldnames(force))
                 thisType = force.type;
             end
