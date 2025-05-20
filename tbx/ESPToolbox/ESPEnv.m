@@ -1477,7 +1477,46 @@ classdef ESPEnv < handle
                         end
                     end % fileIdx = 1:size(filePath).
                 end % if iscell(filePath) & size(filePath, 1) > 1.
-                
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % .nc files Netcdf 4, classic format (CDF-1).
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
+            elseif strcmp(fileExtension, '.nc')
+
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % a. Case with a classic file consisting in 1 cell only, =full modis
+                %   tile with time as depth dimension = 1 day.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                if ischar(filePath)
+                    % In regular process, a proper
+                    % handling of thisDate and of the generation of files (potentially
+                    % with nodata/NaN-filled variables) should make all files present &
+                    % the last condition useless.
+                    if ~strcmp(varNameWithinFile, '')
+                        switch inputFileConf.dimensionInfo
+                            case 20
+                                % 20: 2 dim: pixel row x pixel column (only one day
+                                % here).
+                                % NB: prefer not using classic matlab functions which
+                                % convert data in double rather than keeping them
+                                % in their type.
+                                ncId = netcdf.open(filePath, 'NC_NOWRITE');
+                                varId = netcdf.inqVarID(ncId, varNameWithinFile);
+                                varData = netcdf.getVar(ncId, varId);
+                                netcdf.close(ncId);
+                                varData = varData(startIdx(1):endIdx(1), ...
+                                    startIdx(2):endIdx(2));
+                        end
+                    end
+
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % b. Case with a set of cell-split files to combine to form a tile,
+                %   NOT IMPLEMENTED.
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                elseif iscell(filePath) & size(filePath, 1) > 1
+                    %
+                end % if iscell(filePath) & size(filePath, 1) > 1.
+    
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % .tif files.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
@@ -1542,7 +1581,7 @@ classdef ESPEnv < handle
             % Reshape, conversion, fillmissing (NaN), resampling, min/max, divisor,
             % type, nodata.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            if ismember(fileExtension, {'.hdf', '.h5', '.mat', '.tif'}) & ...
+            if ismember(fileExtension, {'.hdf', '.h5', '.mat', '.nc', '.tif'}) & ...
                 ~strcmp(varName, 'metaData') & isnumeric(varData) & ~isempty(varData)
 
                 % Reshaping.
@@ -5531,7 +5570,7 @@ classdef ESPEnv < handle
             % Here, we copy a bit the code of getDataForDateAndVarName().
             % Would need mutualization...                                          @todo
 
-            if ismember(fileExtension, {'.hdf', '.h5', '.mat', '.tif'}) & ...
+            if ismember(fileExtension, {'.hdf', '.h5', '.mat', '.nc', '.tif'}) & ...
                 ~strcmp(varName, 'metaData') & isnumeric(varData)
                 % Configuration of output (what we want).
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
