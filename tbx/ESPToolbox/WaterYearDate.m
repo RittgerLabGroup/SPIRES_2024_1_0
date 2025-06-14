@@ -360,6 +360,15 @@ classdef WaterYearDate < handle
                     calendarMonthlagBetweenDates = split(between( ...
                         thatDateOfTodayToFirst, thatDatetimeToFirst, 'months'), ...
                         'months');
+%{
+                    % If dateOfToday and thisDatetime are not of the same month/year,
+                    % we add the month of dateOfToday to the difference. 20250401.
+                    % 20250521: Warning: works for stcmodscagdrfs but not for spires,
+                    % why? ...
+                    if calendarMonthlagBetweenDates ~= 0
+                      calendarMonthlagBetweenDates = calendarMonthlagBetweenDates + 1;
+                    end
+%}
                     monthWindow = max(monthWindow - calendarMonthlagBetweenDates, 1);
                 end
             end
