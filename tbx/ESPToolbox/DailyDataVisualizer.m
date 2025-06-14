@@ -10,10 +10,10 @@ classdef DailyDataVisualizer
   % output visualization files are in the same directory tree, with folder visualization
   % instead of output.
   addpath(genpath(getenv('matlabPathForESPToolbox')));
-  regionShortName = '042034'; % '194027';
-  regionName = 'p042r034';
+  regionShortName = '068014'; %'042034'; % '194027';
+  regionName = 'p068r014'; %'p042r034';
   varName = 'snow';
-  years = 2013:2024;
+  years = 2020:2023;
   archivePath = getenv('espArchiveDirNrt');
   scratchPath = getenv('slurmScratchDir1');
   inputProducts = {'lc08.l2sp', 'lc09.l2sp'};
@@ -26,7 +26,7 @@ classdef DailyDataVisualizer
 
   modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary, ...
         inputProduct = inputProduct, inputProductVersion = inputProductVersion);
-  espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
+  espEnv = ESPEnv(modisData, scratchPath = scratchPath, ...
     archivePath = archivePath);
   region = Regions(regionName, '', espEnv, modisData);
 
