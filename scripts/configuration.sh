@@ -148,25 +148,25 @@ printf -v pipeLineTimesString2 '%s ' ${pipeLineTimes2[@]}
 ########################################################################################
 # Pipeline 3, for regions with implementation >= v2024.0f.
 ########################################################################################
-# pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daGeoBig daStatis webExpSn)
+# pipeLineScriptIds3=(mod09gaI spiInver spiSmooC moSpires daNetCDF daGeoBig daStatis webExpSn ftpExpor)
 thatLabel=v2025.0.1; # v2024.0f
-pipeLineScriptIds3=(mod09gaI spiInver spiTimeI moSpires daNetCDF daGeoBig daStatis webExpSn)
-pipeLineLabels3=(v061 ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel})
-pipeLineRegionTypes3=(0 0 0 0 0 1 1 10)
+pipeLineScriptIds3=(mod09gaI spiInver spiTimeI moSpires daNetCDF daGeoBig daStatis webExpSn ftpExpor)
+pipeLineLabels3=(v061 ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel} ${thatLabel}) 
+pipeLineRegionTypes3=(0 0 0 0 0 1 1 10 10)
   # 0: tile, 1: big region, 10: all regions.
-pipeLineSequences3=(0 0 001-036 0 0 0 999 0)
+pipeLineSequences3=(0 0 001-036 0 0 0 999 0 0)
   # NB: probably need to adapt the number of sequences for daStatis dynamically as a
   # function of the nb of subdivisions. Chose 001 for New Zealand.                 @todo
   # 999 indicates that the sequence will be updated during the run by toolStart.sh as
   # a function of landsubdivisions available per bigRegion.
-pipeLineSequenceMultiplierToIndices3=(1 1 1 1 1 1 3 1)
-pipeLineMonthWindows3=(2 2 12 12 12 0 12 12)
-pipeLineParallelWorkersNb3=(0 14 10 14 2 0 0 0) # moSpires temporarily to 14 rather than 10 
+pipeLineSequenceMultiplierToIndices3=(1 1 1 1 1 1 3 1 1)
+pipeLineMonthWindows3=(2 2 12 12 12 0 12 12 12)
+pipeLineParallelWorkersNb3=(0 14 10 14 2 0 0 0 0) # moSpires temporarily to 14 rather than 10 
 
 # sbatch parameters
-pipeLineTasksPerNode3=(1 14 10 18 2 1 1 1) # moSpires temporarily to 18 rather than 10 
-pipeLineMems3=(1G 44G 60G 60G 5G 8G 8G 3G) # spiTimeI: set temporarily 60G rather than 30G. to confirm!! spiMo: set temporarily to 60G rather than 40G.
-pipeLineTimes3=(01:30:00 01:45:00 02:30:00 04:30:00 00:30:00 00:20:00 04:00:00 01:30:00) # mosaic temporarily to 4:30 rather than 0:30
+pipeLineTasksPerNode3=(1 14 10 18 2 1 1 1 1) # moSpires temporarily to 18 rather than 10 
+pipeLineMems3=(1G 44G 60G 60G 5G 8G 8G 3G 1G) # spiTimeI: set temporarily 60G rather than 30G. to confirm!! spiMo: set temporarily to 60G rather than 40G.
+pipeLineTimes3=(01:30:00 01:45:00 02:30:00 04:30:00 00:30:00 00:20:00 04:00:00 01:30:00 01:30:00) # mosaic temporarily to 4:30 rather than 0:30
 # NB: daGeoBig: time for generation of the last day only.
 # NB: daStatis: time for 3 subdivisions only.
 
