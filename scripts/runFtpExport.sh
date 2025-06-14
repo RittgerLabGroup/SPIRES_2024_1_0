@@ -289,7 +289,7 @@ h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v02 h13v02 h10v05 h11
   years=( {2025..2024..-1} );
   regionNames=(westernUS);
   if [[ $outputLabel == 'v2025.0.1' ]]; then
-    regionNames=(westernUS OCNewZealand);
+    regionNames=(OCNewZealand); #(westernUS OCNewZealand);
   fi
 
   sourceBasePath=${scratchPath}modis/regional_stats/scagdrfs_csv_${inputLabel}/v006/ #modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
