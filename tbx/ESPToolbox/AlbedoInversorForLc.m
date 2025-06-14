@@ -10,10 +10,13 @@ classdef AlbedoInversorForLc < handle
 %{
   % Use case to generate deltavis and albedo for p042r034 lc08.l2sp.02.t1 and
   % julian year 2023.
-  regionName = 'p042r034';
+  addpath(genpath(getenv('matlabPathForESPToolbox'));
+  addpath(genpath([getenv('projectDir'), 'MATLAB/ParBal']));
+
+  regionName = 'p068r015'; %'p068r014'; 'p042r034';
   objectName = regionName;
 
-  theseYears = 2013:2024;
+  theseYears = 2020:2023;
   archivePath = getenv('espArchiveDirNrt');
   scratchPath = getenv('slurmScratchDir1');
   label = 'v2024.0';
@@ -29,7 +32,7 @@ classdef AlbedoInversorForLc < handle
         inputProductVersion, regionName);
       modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary, ...
         inputProduct = inputProduct, inputProductVersion = inputProductVersion);
-      espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
+      espEnv = ESPEnv(modisData, scratchPath = scratchPath, ...
         archivePath = archivePath);
       region = Regions(regionName, '', espEnv, modisData);
 
