@@ -3,3 +3,4 @@ id,algorithm,inputProductAndVersion,name,alternateName,daacName,doiForHist,doiFo
 2,stc,mod09ga.061,v2023.0.1,v2023.0e,v1,10.7265/f6j3-f387,10.7265/f6j3-f387,0,"Global STC (only western US), mix of v060 and v061."
 3,spires,mod09ga.061,v2024.1.0,v2024.0d,v1.0,10.7265/a3vr-c014,10.7265/hs6b-zg21,1,Global Spires (only western US)
 4,spires,mod09ga.061,v2025.0.1,v2024.0f,v2.0,,,,Global Spires
+5,stc,mod09ga.061,v2025.0.1,v2025.0.1,v1,10.7265/f6j3-f387,10.7265/f6j3-f387,0,"Global STC (only western US), v061."
