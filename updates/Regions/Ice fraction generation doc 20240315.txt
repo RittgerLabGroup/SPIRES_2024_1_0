@@ -1,0 +1,137 @@
+
+
+h10v05 h11v04 h11v05 h12v03 h12v05 h12v04 h13v03 h13v04 h14v03 h14v04 h17v04 h18v04 h19v04 h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v04 h25v05 h25v06 h26v04 h26v05 h26v06 h27v04 h27v05 h27v06
+
+for year in {2024..2024..1}; do for month in {3..3}; do for tile in h10v05 h11v04 h11v05 h12v03 h12v05 h12v04 h13v03 h13v04 h14v03 h14v04 h17v04 h18v04 h19v04 h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v04 h25v05 h25v06 h26v04 h26v05 h26v06 h27v04 h27v05 h27v06; do sbatch --export=NONE --constraint=spsc --account=blanca-rittger --qos=preemptable  -o /rc_scratch/%u/slurm_out/%x-%A_%a.out --job-name mod09ga-${tile}-${year}-${month} --ntasks-per-node=1 --mem 1G --time 23:59:00 --array ${year} ./scripts/runGetMod09gaFiles.sh -A v3.1 -d 20240309 -L v2024.0 -O v2024.0  -x /pl/active/rittger_nrt/ ${tile} ${month} 31 6; done; done; done 
+16486087-16486116
+
+tail -n 7 /rc_scratch/sele7124/slurm_out/*mod09ga*16486087* | grep -e DONE -e ERROR -e "==>" -e CANCEL | sed ':a;N;$!ba;s/<==\n/;/g' 
+
+
+
+wget -c -t 20 --random-wait --no-proxy --progress=dot:giga --server-response -P /pl/active/rittger_nrt/modis/input/mod09ga/v006/h10v05/2023/ MOD09GA.A2023295.h10v05.061.2023298213720.hdf.xml...
+A--2024-03-08 03:22:39--  http://mod09ga.a2023295.h10v05.061.2023298213720.hdf.xml/
+Resolving mod09ga.a2023295.h10v05.061.2023298213720.hdf.xml (mod09ga.a2023295.h10v05.061.2023298213720.hdf.xml)... failed: Name or service not known.
+wget: unable to resolve host address \u2018mod09ga.a2023295.h10v05.061.2023298213720.hdf.xml\u2019
+
+FAILED.
+
+
+replace(@rgi_region_ice_shp, '.shp', '_diss_modissinu.shp')
+
+replace(replace(@modis_land_tile_2400, 'land_mod44_50', 'ice_rgi60_202309_01'), 'v3.2/land', 'ice_tmp/RGI/intermediary/modis_ice')
+
+
+ replace(replace(@modis_land_tile_2400tif, '_mod44_50.tif', '_pixel_mod44_50.shp'), '/land/', '/modispixelpolygon/')
+ 
+
+Ice:
+1. Add a modis tile (to have a project set to modis sinusoidal), then Take each ice rgi, fix geom, simplify with distance 100m, multipart to single part, reproject modis sinusoidal.
+    replace(@rgi60_regionshp, '.shp', '_simpl100m_single_modissinu.shp')
+2. Merge these simple modissinu in 1 file only (not dissolving and keeping single part), fix geometry, spatial index.
+
+
+
+1. After fix geom, dissolve, and reproject into modis sinusoidal the ice rgi polygons (with qgis model).
+2. Merging most rgi layers, except greenland, alaska, sw asia and central asia.
+4. simplifying the modis-sinusoidal projected rgi layes, with distance 100m. It would have been probably better before dissolving and reprojecting rgi!!
+5. Merging all simpl100m layers, except greenland, but including antarctica (small islands, incl. Kerguelen?), fix geometry, but dissolve doesnt work dont know why. And create spatial index.
+    - the merge create a big polygon layer, and cutting it its' rather long duration ...
+    - it was actually an error see https://gis.stackexchange.com/questions/474667/processing-performance-singlepart-vs-multipart-polygon
+    Clipping, intersection etc are performed two steps
+    Identify which features should be processed
+    Process each feature found in the previous step.
+    For step #1, the bounding box of each feature is typically used first, ideally stored in a spatial index. If using a layer with a single giant (multi)polygon, then the feature will be typically returned. If using a layer with many small (single)polygons, only the features truly intersecting will be found.
+    For step #2, the number of vertices in each feature to be process matters a lot. If a single giant (multi)polygon is to be processed, the computation becomes very complex and slow. If many small features were to be processed, the clipping/intersection becomes very fast.
+    Overall, it is faster to process many small polygons rather than bigger ones.
+
+6. Greenland.
+    -warp/reproject in modissinu using nearest neighbor, no data =255, resolution 463.3127165693846905, output data type byte
+10. Generate the polygons rounding each modis tile (from land raster, using qgis model).
+ replace(replace(@modis_tile_2400tif, '.tif', '.shp'), '/land/', '/modispolygon/').
+   10.1. create spatial index (that updates the file)
+11. Generate 1 modis tile h00v08 covered by pixel-size polygons (raster pixels to polygons).
+
+20. Cut the rgi all simpl in each polygon modis tile
+    replace(replace(@modis_2400_polygonshp, '_land_mod44_50.shp', '_ice_rgi60_202309.shp'), '/modispolygon/', '/icepolygon/')
+21. Rasterize to a modis tile raster of resolution 38400 (16*2400), and grass resample stats to obtain the ice cover of each pixel of a modis tile.    
+    replace(replace(@modis_tile_ice_rgi_xshp, '.shp', '.tif'), '/icepolygon/', '/icefloat/')
+     replace(replace(@modis_polygonshp, '_land_mod44_50.shp', '_ice_rgi60_202309.shp'), '/modispolygon/', '/icepolygon/')
+    463.3127165693846905
+22. x 100 and convert to uint8. Apparently, it's impossible to combine 21 and 22 in qgis modeler (weird errors)
+    replace(@hxxvxx_ice_rgi60_202309tif,'/icefloat/', '/ice/')
+    
+    C:\Users\user\AppData\Local\Temp ?) and while QGIS is closed, delete all processing_* directories
+    
+    
+    , then rasterize
+ 
+NB: Greenland: we don't use the rgi, which only contains peripheral glaciers, but rather we take the NSIDC 0714 product, mask tif, dated back to 2015 (uncertain if updated).
+
+
+https://earth.gsfc.nasa.gov/cryo/data/greenland-landice-mask
+
+antarctica 2022.
+https://usicecenter.gov/Resources/AntarcticShelf
+Medium resolution vector polygons of the Antarctic coastline (2014) [Data set]. UK Polar Data Centre, Natural Environment Research Council, UK Research & Innovation. https://doi.org/10.5285/ed0a7b70-5adc-4c1e-8d8a-0bb5ee659d18. Generalized to a 800 meter tolerance using a Bend Simplify algorithm based on Wang, Zeshen and Müller, Jean-Claude, "Line Generalization Based on Analysis of Shape Characteristics," Cartography and Geographic Information Systems 25(1), 3–15 (1998). 
+
+Greenland, 2011?
+https://www.sciencebase.gov/catalog/item/4fb69683e4b03ad19d64b454
+
+Took this one:
+https://nsidc.org/data/nsidc-0714/versions/1#anchor-1
+https://n5eil01u.ecs.nsidc.org/MEASURES/NSIDC-0714.001/2013.03.26/
+The edges of ice are close to the glims peripheral glaciers and qgreenland v3.0.
+
+ (https://qgreenland.org/ (NSIDC))
+h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v04 h25v05 h25v06 h26v04 h26v05 h26v06 h27v04 h27v05 h27v06
+
+########################################################################################
+
+Bash snippets.
+
+# To reload bashrc:
+source ~/.bashrc
+
+# To sync
+/bin/rsync -HpvxrltoDu --chmod=ug+rw,o-w,+X,Dg+s
+
+########################################################################################
+
+
+Retrieve the missing .hdf.xml? for h10v05....
+
+
+Ned's: h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v04 h25v05 h25v06 h26v05 h26v06 
+
+JPL STC: h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v05 h25v06 h26v05 h26v06
+
+########################################################################################
+
+Ned snippet get data:
+for year in {2021..2001..-1}; do mkdir -p /pl/active/rittger_nrt/modis/input_spires_from_Ned_202311/Inputs/MODIS/HIMAT/${year}; done
+
+for year in {2021..2001..-1}; do for tile in h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v04 h25v05 h25v06 h26v05 h26v06; do 
+wget -c -t 20 --random-wait --no-proxy --progress=dot:giga --server-response -P /pl/active/rittger_nrt/modis/input_spires_from_Ned_202311/Inputs/MODIS/HIMAT/${year}/ https://snow.ucsb.edu/products/SPIRES/MODIS/HIMAT/${year}/${tile}${year}.h5
+
+########################################################################################
+
+Geojsons
+
+Sebastien Lenard
+  1:08 PM
+@mattf
+ 
+@annw
+ 
+@Karl Rittger
+ Right-hand rule for .geoson. I worked yesterday to better understand the problems we had for supercomputer .geojsons.
+geojsons can have two formats: 2008 or RFC7946 (released in 2016).
+The geojsons generated by the supercomputer and validated by the web-app follow the 2008 format, https://geojson.org/geojson-spec.
+This format is considered deprecated and is has compatibility problems. This suggests that if one day in a future we decide to design and implement a smartphone app, these .geojsons might not be compatible and in that case, the supercomputer would need to generate RFC7946 geojson in parallel. But in general, there are plenty of deprecated exchange formats which are still used today and this is not a fundamental problem for the website.
+The interest of 2008 format is that you can encapsulate a projection, and the web-app can passively display the geojson as such. RFC7946 is geographic-only and only accept lat-long coordinates. This suggests that if an app receives this RFC7946 geojson, the app might have to take in charge the reprojection.
+Note that 2008 format doesn't enforce right-hand rule. And effectively the supercomputer geojson as well as the validated geojson by the web-app are not right-hand. I'm not sure about the application for the snow-today web-app. Currently, all the detected problems were caused by the supercomputer side by:
+the choice of RFC7946 rather than 2008
+a poorly implemented (by me) individualisation of shapefiles per subregion.
+Both problems have been corrected. I suspect that the Canada problem is related to the hierarchy, which is in a configuration file on the side of the supercomputer.
+The next steps would be to generate/find a basemap for poles having a polar projection, generate geojsons in that projection, and test whether the web-app can project in another projection than EPSG 3857 (NB: EPSG is hard-coded in the web-app, but that might be corrected). There is an esri basemap for arctic, but i didn't find one for antarctic. (edited) 
