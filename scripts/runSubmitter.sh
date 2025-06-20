@@ -260,9 +260,40 @@ EOM
     for ((idx = 0 ; idx < $countOfTasksForArrayJobIds ; idx++ )); do
       thisTaskId=${tasksForArrayJobIds[$idx]}
       thisArrayJobId=${arrayJobIds[$idx]}
+
+      # Check first status in queue.
+      jobStatusInSlurmQueue=$(squeue -j${thisArrayJobId}_${thisTaskId} --noheader -o "%3t; %8M; %15N; %25r; %7A; %25E")
+        # -o %15i; would add ${thisArrayJobId}_${thisTaskId} in the output.
+        # Output: state, time used, nodes used, reason of state, jobId, dependencies.
+      if [[ ! -z ${jobStatusInSlurmQueue} ]]; then
+        printf "${thisArrayJobId}_${thisTaskId}; status (SJ); ${jobStatusInSlurmQueue}\n"
+      else
+        # Check the array Job Id, in case the job hasn't launched or is over.
+        arrayJobStatusInSlurmQueue=$(squeue -j${thisArrayJobId} --noheader -o "%3t; %8M; %15N; %25r; %7A; %25E")
+        if [[ ! -z ${arrayJobStatusInSlurmQueue} ]]; then
+          printf "${thisArrayJobId}_${thisTaskId}; status (SA); ${arrayJobStatusInSlurmQueue}\n"
+        
+        # If job not in queue, check job status in jobs ended.
+        else
+          jobStatusInSacct=$(sacct -j ${thisArrayJobId}_${thisTaskId} --noheader -o "State%3,Elapsed%8,NodeList%-15,Reason%-25" | head -1 | sed -E "s~([A-Za-z0-9])([ ]+)([A-Za-z0-9])~\1\2; \3~g")
+          if [[ ! -z ${jobStatusInSacct} ]]; then
+            printf "${thisArrayJobId}_${thisTaskId}; status (EJ); ${jobStatusInSacct}\n"
+            jobInfoInSacct=$(sacct -j ${thisArrayJobId}_${thisTaskId} --noheader -o "State%-50,ExitCode" | head -1 | sed -E "s~([A-Za-z0-9+])([ ]+)([A-Za-z0-9])~\1\2; \3~g")
+            printf "${jobInfoInSacct}\n"
+          # Job hasn't been even submitted, issue in parent job submission.
+          else
+            arrayJobStatusInSacct=$(sacct -j ${thisArrayJobId} --noheader -o "State%3,Elapsed%8,NodeList%-15,Reason%-25" | head -1 | sed -E "s~ ([A-Za-z0-9])~ ;\1~g")
+            printf "${thisArrayJobId}_${thisTaskId}; status (EA); ${arrayJobStatusInSacct}\n"
+            arrayJobInfoInSacct=$(sacct -j ${thisArrayJobId} --noheader -o "State%-50,ExitCode" | head -1 | sed -E "s~([A-Za-z0-9+])([ ]+)([A-Za-z0-9])~\1\2; \3~g")
+            printf "${arrayJobInfoInSacct}\n"
+          fi
+        fi
+      fi
+
       thisLogFilePath=$(echo $logFilePathPattern | sed -E "s~/%[a-zA-Z_]+%a_([0-9_\-]*)%A~/*${thisTaskId}_\1${thisArrayJobId}~")
       echo ${thisLogFilePath}
       thisStatus=""
+      # Case #1, the job has started and generated a log file.
       if [ -f ${thisLogFilePath} ]; then
         # Check job state and potentially update log with efficiency stats.
         if [[ ${arrayJobIdsStatus[$idx]} -eq 0 ]]; then
@@ -315,9 +346,11 @@ EOM
             currentArrayJobIdForTaskIds[${thisTaskId}]=0
           fi
         fi
+      # Case 2. No log file and job achieved.
+      # No specific handling right now, happened a few times, wait more occurrences before implementing automatic resubmission (2025-05-30).
       fi
       updatedSynthesis="${updatedSynthesis}${thisStatus}\n"
-    done
+    done # End of Scan the job status.
 
     # Resubmission and update of $currentArrayJobIdForTaskIds.
     if [[ ! -z ${theseTaskIdsToResubmit} ]]; then
