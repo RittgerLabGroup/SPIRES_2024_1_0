@@ -118,7 +118,7 @@ classdef TileRegionAncillaryDataSetup
             % and then calculate aspect and slopes. the bits of tile for each elevation source.
             % NB: Given live memory limits, it's better no to combine the source data
             % together in 1 matrix only.
-            for elevationSourceIdx = 73:96 %1:length(elevationSourcePaths)
+            for elevationSourceIdx = 1:length(elevationSourcePaths)
                 % We check is there are pixels surrounding this sourceIdx
                 % in the other source files
                 sourceGeographicCellsReference = geotiffinfo( ...
@@ -464,6 +464,8 @@ classdef TileRegionAncillaryDataSetup
             % NB: Given live memory limits, it's better no to combine the source data
             % together in 1 matrix only.
             for topographicSourceIdx = 1:length(topographicSourcePaths)
+                fprintf('Reading %s...\n', ...
+                    topographicSourcePaths{topographicSourceIdx});
                 [sourceTopographics, sourceGeographicCellsReference] = ...
                     readgeoraster(topographicSourcePaths{topographicSourceIdx});
                 sourceTopographics(isnan(sourceTopographics) | ...
