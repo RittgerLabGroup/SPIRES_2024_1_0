@@ -264,7 +264,7 @@ id,orderInGroup,groupType,lineName,thresholdedVarId,thresholdedVarName,minValue,
 201,18,mosaic,,54,viewable_snow_fraction_s,0,,,61,snow_cover_days_s,
 201,19,mosaic,,54,viewable_snow_fraction_s,5,,,55,snow_fraction_s,
 201,20,mosaic,isCalculatedFromRareObservationIfDaysWithoutObsAbove,,,10,,,,,"Introduced for v2023.0.1 (v2023.0e + v2023.0) in 2025/1/10 to generate a mask “calculated_from_rare_observation” in netcdfs. If days without observation are > this value, calculated_from_rare_observation = 1, otherwise 0."
-205,1,stc,mindays,,,10,,,,,"Gap/Stc filtering. This filter set #205 corresponds to v2023.0b, v2023.0e and v2023.1b, westernUS"
+205,1,stc,mindays,,,10,,,,,"Gap/Stc filtering. This filter set #205 corresponds to v2023.0b, v2023.0e/v2023.0.1 and v2023.1b, westernUS"
 205,2,stc,sthreshForGS,,,0.3,,,,,Gap/Stc filtering
 205,3,stc,sthreshForRF,,,0.3,,,,,Gap/Stc filtering
 205,4,stc,zthresh,,,800,800,,,,Gap/Stc filtering
