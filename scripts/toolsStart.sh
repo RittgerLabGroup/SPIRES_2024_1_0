@@ -143,6 +143,7 @@ error_exit() {
 ########################################################################################
 # Script core.
 ########################################################################################
+printf "User: $USER.\n"
 printf "Github branch: $(git rev-parse --abbrev-ref HEAD)\n"
 printf "$(bash --version | grep version | head -1)\n"
 printf "#############################################################################\n\n"
@@ -261,7 +262,10 @@ if [ -v SLURM_JOB_ID ]; then
   slurmConstraints=$(sacct -j ${slurmFullJobId} -o Constraints | tr -d " " | tr "\n" "," | cut -d , -f 3);
   slurmExport=$(sacct -j ${slurmFullJobId} --env-vars | tr -d " " | tr "\n" "," | cut -d , -f 3)
 
-  read -s -r -d '' slurmVariable << EOM
+  {
+    printf "\n"; while read line; do
+      printf "${line}\n";
+    done << EOM
 Slurm variable values.
 #############################################################################
 isBatch=${isBatch}
@@ -276,9 +280,13 @@ slurmTime=${slurmTime}; slurmEndDate=${slurmEndDate};
 slurmWorkingDir=${slurmWorkingDir};
 programName=${programName}; slurmMem=${slurmMem}; slurmNodeList=${slurmNodeList};
 slurmNTasksPerNode=${slurmNTasksPerNode}; slurmConstraints=${slurmConstraints};
-slurmExport=${slurmExport};
+slurmExport=${slurmExport}; 
 EOM
-  printf "\n${slurmVariable}\n\n"
+  } || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
+  # NB: here, we cant use read -s -r -d '' slurmVariable << EOM, because it returns exit
+  # code of 1 rather than 0. An issue here can be that scratch become unreachable,
+  # which makes heredoc creation in error, and we need to catch this error to exclude
+  # the node and resubmit the job.
 fi
 ########################################################################################
 # 3. Determine the SubmitLine which is reused in repeating jobs or submitting the next
@@ -373,7 +381,11 @@ printf "\n"
 if [ ! -v thisSequence ]; then
   thisSequence=0
 fi
-  read -s -r -d '' mainScriptDefaultConstant << EOM
+
+{
+  printf "\n"; while read line; do
+    printf "${line}\n";
+  done << EOM
 Main script default constant values.
 #############################################################################
 scriptId=${scriptId}; defaultSlurmArrayTaskId=${defaultSlurmArrayTaskId};
@@ -388,7 +400,7 @@ mainProgramName=${mainProgramName}; beginTime=${beginTime[*]};
 thisRegionType=${thisRegionType}; thisSequence=${thisSequence}
 thisSequenceMultiplierToIndices=${thisSequenceMultiplierToIndices}; thisMonthWindow=${thisMonthWindow};
 EOM
-  printf "\n${mainScriptDefaultConstant}\n\n"
+} || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
   # Variables defined in main .sh script.
 
 ########################################################################################
@@ -442,7 +454,10 @@ if [ -v isBatch ] && [ -v pipeLineId ]; then
     thisMonthWindow=${pipeLineMonthWindows[${indexInPipeLine}]}
     parallelWorkersNb=${pipeLineParallelWorkersNb[${indexInPipeLine}]}
 
-    read -s -r -d '' pipeLineConstant << EOM
+    {
+      printf "\n"; while read line; do
+        printf "${line}\n";
+      done << EOM
 Pipeline default constant values.
 #############################################################################
 inputLabel=${inputLabel}; outputLabel=${outputLabel};
@@ -451,7 +466,7 @@ thisSequenceMultiplierToIndices=${thisSequenceMultiplierToIndices}; thisMonthWin
 parallelWorkersNb=${parallelWorkersNb};
 
 EOM
-printf "\n${pipeLineConstant}\n\n"
+    } || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
   fi
 fi
 
@@ -600,7 +615,10 @@ THISSBATCH_OUTPUT="${slurmLogDir}${SLURM_JOB_NAME}-${SLURM_ARRAY_JOB_ID}_"\
 # Matlablaunched, used to remove the tmp directories in toolsEnd.sh.
 matlabLaunched=
 
-read -s -r -d '' defaultOption << EOM
+{
+  printf "\n"; while read line; do
+    printf "${line}\n";
+  done << EOM
 Option default values.
 #############################################################################
 objectId=${objectId}; cellIdx=${cellIdx}; countOfCells=${countOfCells};
@@ -616,7 +634,7 @@ parallelWorkersNb=${parallelWorkersNb}; espWebExportConfId=${espWebExportConfId}
 scratchPath=${scratchPath}; archivePath=${archivePath};
 codePlatform=${codePlatform}; pipeLineId=${pipeLineId};
 EOM
-printf "\n${defaultOption}\n\n"
+} || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
 
 # Second parsing of options.
 OPTIND=1
@@ -667,7 +685,10 @@ do
   esac
 done
 
-read -r -d '' actualOption << EOM
+{
+  printf "\n"; while read line; do
+    printf "${line}\n";
+  done << EOM
 Option actual values.
 #############################################################################
 objectId=${objectId}; cellIdx=${cellIdx}; countOfCells=${countOfCells};
@@ -683,7 +704,7 @@ parallelWorkersNb=${parallelWorkersNb}; espWebExportConfId=${espWebExportConfId}
 scratchPath=${scratchPath}; archivePath=${archivePath};
 codePlatform=${codePlatform}; pipeLineId=${pipeLineId};
 EOM
-printf "\n${actualOption}\n\n"
+} || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
 
 # Defective node cannot access scratchPath or archive.
 ########################################################################################
@@ -736,11 +757,12 @@ printf "$(pStart): tmpDir=${tmpDir}.\n"
 ########################################################################################
 # 7. Arguments and parameters of the matlab script.
 ########################################################################################
-# Platform environment variables/parameters.
-if [[ codePlatform -eq 0 ]]; then
+# Platform environment variables/parameters, if not already loaded, for instance by
+# .projectEnvironmentVariables.
+if [[ $codePlatform -eq 0 && -z $thisEspProjectDir ]]; then
   printf "source ~/.matlabEnvironmentVariables\n"
   source ~/.matlabEnvironmentVariables
-else
+elif [[ -z $thisEspProjectDir ]]; then
   printf "source ~/.matlabDevEnvironmentVariables\n"
   source ~/.matlabDevEnvironmentVariables
 fi
@@ -788,7 +810,10 @@ else
   startDate=$(date +%Y-%m-01 --date="$(date --date="$startDate") $(( -$monthWindow + 1 )) month 1 day")
 fi
 
-read -r -d '' objectTimeVariable << EOM
+{
+  printf "\n"; while read line; do
+    printf "${line}\n";
+  done << EOM
 Object and time variable values:
 #############################################################################
 inputProduct=${inputProduct}; inputProductVersion=${inputProductVersion}
@@ -799,7 +824,7 @@ startDate=${startDate}; endDate=${endDate};
 # Process work on data for this object from startDate or beginning of waterYear
 # to endDate included.
 EOM
-printf "\n${objectTimeVariable}\n\n"
+} || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
 
 #set_slurm_array_task_id. NB: shouldnt be useful                               @obsolete
 
@@ -908,6 +933,8 @@ fprintf('\nmatlabExitCode=0\n');
 exit(0);
 
 EOM
+# NB: Impossible to catch heredoc error on this one, because read line used above erase
+# the \n in the heredoc string.
 
 ########################################################################################
 # 8. Submit the repeated similar job in the future.
@@ -998,7 +1025,11 @@ if [ -v isBatch ] && [ -v pipeLineId ] && [ -v SLURM_ARRAY_TASK_ID ] && \
 
     # Get the current regions and the next regions.
     # Currently only possible to transition to a bigger region e.g. from 292 to 5.
-    objectIds=$(echo ${slurmArrayTaskIds} | sed -E 's~-[0-9]+~~g' | sed -E 's~([0-9]+)[0-9]{3}(,|$)~\1\2~g');
+    if [[ "$thisSequence" == *"-"* || "$thisSequence" == "999" ]]; then
+      objectIds=$(echo ${slurmArrayTaskIds} | sed -E 's~-[0-9]+~~g' | sed -E 's~(,|^)([0-9]+)[0-9]{3}~\1\2~g');
+    else
+      objectIds=$(echo ${slurmArrayTaskIds} | sed -E 's~-[0-9]+~~g');
+    fi
     objectIdsArray=( ${objectIds//,/ })
     nextObjectIds=$objectIds
     if [ $thisRegionType -eq 0 ] && [ $nextRegionType -gt 0 ]; then
@@ -1049,7 +1080,10 @@ if [ -v isBatch ] && [ -v pipeLineId ] && [ -v SLURM_ARRAY_TASK_ID ] && \
       nextArray=${nextObjectIds}
     fi
 
-    read -s -r -d '' nextScriptParameters << EOM
+    {
+      printf "\n"; while read line; do
+        printf "${line}\n";
+      done << EOM
 Next script in the pipeline parameters.
 #############################################################################
 nextJobName=${nextJobName}; nextScript=${nextScript};
@@ -1063,7 +1097,7 @@ nextInputLabel=${nextInputLabel}; nextOutputLabel=${nextOutputLabel};
 nextParallelWorkersNb=${nextParallelWorkersNb};
 nextTasksPerNode=${nextTasksPerNode}; nextMem=${nextMem}; nextTime=${nextTime};
 EOM
-    printf "\n${nextScriptParameters}\n\n"
+    } || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
 
     nextSubmitLine=${sbatchSubmitLine}
     nextSubmitLine=$(echo ${nextSubmitLine} | sed -E 's~--begin=[0-9\:]+ ~~' | sed -E "s~/[a-zA-Z0-9\_\%]+\.out( --job-name)~/${nextSlurmStdOutFileName}\1~" | sed -E "s~( --job-name=)[a-zA-Z0-9\-]+ ~\1${nextJobName} ~" | sed -E "s~( --ntasks-per-node=)[0-9]+ ~\1${nextTasksPerNode} ~" | sed -E "s~( --mem=)[0-9]+G ~\1${nextMem} ~" | sed -E "s~( --time=)[0-9:]+ ~\1${nextTime} ~" | sed -E "s~( --array=)[0-9\,\-]+ ~\1${nextArray} ~" | sed -E "s~ \.\/scripts\/[a-zA-Z0-9]+\.sh ~ ${nextScript} ~" | sed -E "s~( -A )[a-zA-Z0-9\.]+ ~\1${nextVersionOfAncillary} ~" | sed -E "s~( -L )[a-zA-Z0-9\.\_\-]+ ~\1${nextInputLabel} ~" | sed -E "s~( -O )[a-zA-Z0-9\.\_\-]+ ~\1${nextOutputLabel} ~" | sed -E "s~( -Q )[0-9]+ ~\1${nextCountOfCells} ~" | sed -E "s~( -w )[0-9]+ ~\1${nextParallelWorkersNb} ~" | sed "s~ -R ~ ~")
