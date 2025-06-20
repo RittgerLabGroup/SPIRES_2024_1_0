@@ -18,3 +18,4 @@ scripts/output/
 # These are Matlab "autosave" files that started
 # showing up on upgrade from R2019b to R2021b
 *.asv
+*.nc
