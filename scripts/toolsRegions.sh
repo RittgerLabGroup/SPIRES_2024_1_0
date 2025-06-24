@@ -94,6 +94,19 @@ tileArrayStringForTileGroup4="369,370,406,407,408,444,445,481,482"
 tileArrayForTileGroup6=(h29v13 h30v13)
 tileArrayStringForTileGroup6="1057,1093"
 
+# Definition of objectIds by big region.
+# NB: should be better if linked to configuration_of_regions.csv, risk of mismatch here.
+#                                                                               @warning
+declare -A regionIdsPerBigRegion
+regionIdsPerBigRegion[0]=0
+regionIdsPerBigRegion[1]=255,291,326,327,362,363,365,398,399,400,433,434,469,470
+regionIdsPerBigRegion[2]=796,797,832,833,834,868,869,870,905,906,941,942
+regionIdsPerBigRegion[3]=616,652,688
+regionIdsPerBigRegion[4]=369,370,406,407,408,444,445,481,482,443,518
+regionIdsPerBigRegion[5]=292,293,328,329,364
+regionIdsPerBigRegion[6]=397,401,435,436,437,471,472,505,506,507,508
+regionIdsPerBigRegion[7]=1057,1093
+
 # Defined in toolStart.sh.
 # workingDirectory=$(pwd) 
 # defaultIFS=$' \t\n'
