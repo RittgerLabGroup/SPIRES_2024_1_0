@@ -6,7 +6,9 @@ The code has been developed within what I called the snow-today application and 
 
 ## Code methodological approach.
 
-### Diversity of code files. {#approach-diversity-of-code-files}
+This section develops the theoretical approach that I carried out to organize the code while the section [Code directories](#code-directories) give specific indications about the location of the code and names of some specific scripts or group of scripts.
+
+### Diversity of code files.
 
 Initially, the code for this project v2024.1.0 was developed as a large set of matlab function scripts in a project [SPIReS](https://github.com/edwardbair/SPIRES/releases/tag/v1.3) and mainly focused on runs on a individual machine.
 
@@ -29,10 +31,9 @@ The new code presented in this project includes:
       - data writing/reading, including configuration files and ancillary data, file naming, satellite sensor parametering
       - some functionalities more specific to SPIReS, but shared among versions of SPIReS: import of nasa products, generation of raster netcdf/geotiff, statistic calculations, export to snow-today webapp	
 
-
 ### Code interactions within a submission to Slurm.
 
-The code bricks presented [above](#approach-diversity-of-code-files) interact this way when a user execute a **submitter** bash script in a login session:
+The code bricks presented [above](#diversity-of-code-files) interact this way when a user execute a **submitter** bash script in a login session:
 
 ```mermaid
 sequenceDiagram
@@ -77,7 +78,7 @@ This directory contains code of Inpaint_nans external package, used to spatially
 
 Contains environment variable and alias files that should be positionned in the home directory of the user, for Linux. A version for Windows is not available.
 
-#### scripts. {#within-repository-scripts}
+#### scripts.
 
 Contains all the bash scripts which handle the submission and monitoring of slurm jobs for the daily generation with the near real time pipeline or the generation of historics.
 
