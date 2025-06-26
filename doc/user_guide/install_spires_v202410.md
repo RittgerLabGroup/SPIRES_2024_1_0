@@ -23,7 +23,7 @@ Code tested on:
 
 Many matlab scripts should work on a laptop (mac OC or windows 11), with some environment variables set. But that wasn't tested extensively.
 
-More info on code and ancillary data organization [here](code_organization_spires_v202410.md).
+More info on code and ancillary data organization [here](code_organization_v202410.md).
 
 ## Install.
 

@@ -11,7 +11,7 @@ For this purpose, the code first downloads the MOD09GA files for the western US 
 [Install and requirements](doc/user_guide/install_spires_v202410.md)
 with [output netcdf specifities](doc/user_guide/output_netcdf_v202410.md)
 
-[Code and ancillary data organization](doc/user_guide/code_organization_spires_v202410.md). This page also briefly presents the diversity of the code blocks and how each block interacts with another within the use of a HPC environment and [Slurm](https://slurm.schedmd.com/documentation.html).
+[Code and ancillary data organization](doc/user_guide/code_organization_v202410.md). This page also briefly presents the diversity of the code blocks and how each block interacts with another within the use of a HPC environment and [Slurm](https://slurm.schedmd.com/documentation.html).
 
 
 # Run in historics or near real time.
