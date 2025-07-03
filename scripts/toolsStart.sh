@@ -22,7 +22,28 @@ fi
 if [ ! -v expectedCountOfArguments ]; then expectedCountOfArguments=0; fi
 if [ ! -v defaultSlurmArrayTaskId ]; then defaultSlurmArrayTaskId=292; fi
 
-source scripts/configuration.sh
+# First parsing of options to get the environment and pipeline.
+thisEnvironment=
+OPTIND=1
+thisGepOptsString="A:b:c:d:D:E:hiI:L:M:noO:p:q:Q:rRx:y:v:w:W:z:Z:"
+# NB: add a : in string above when option expects a value.
+while getopts ${thisGepOptsString} opt; do
+# NB: all these options whould correspond to the options caught further in the code.
+#                                                                               @warning
+  case $opt in
+    E) thisEnvironment="$OPTARG"
+    printf "\nthisEnvironment=${thisEnvironment}\n\n";;
+    Z) pipeLineId="$OPTARG"
+    printf "\npipeLineId=${pipeLineId}\n\n";;
+  esac
+done
+if [[ -z $thisEnvironment ]]; then
+  source scripts/configuration.sh
+else
+  source scripts/configuration${thisEnvironment^}.sh
+    # also include the specific env/.matlabEnvironmentVariables.
+fi
+
 source scripts/toolsJobs.sh
 # We also source scripts/toolsRegions.sh below.
 
@@ -407,18 +428,6 @@ EOM
 # 5. Parameters of main script overriden/defined by the pipeline configuration.sh
 ########################################################################################
 # These parameters can still be overriden by the options sent to the script.    @warning
-# First parsing of options to get the pipeline.
-OPTIND=1
-thisGepOptsString="A:b:c:d:D:hiI:L:M:noO:p:q:Q:rRx:y:vw:W:z:Z:"
-# NB: add a : in string above when option expects a value.
-while getopts ${thisGepOptsString} opt; do
-# NB: all these options whould correspond to the options caught further in the code.
-#                                                                               @warning
-  case $opt in
-    Z) pipeLineId="$OPTARG"
-    printf "\npipeLineId=${pipeLineId}\n\n";;
-  esac
-done
 if [ -v isBatch ] && [ -v pipeLineId ]; then
   # We cant use namerefs for dynamic variables referencing arrays because bash is 4.2
   # in blanca/alpine and not 4.4.
@@ -648,6 +657,7 @@ do
     b) firstToLastIndex="$OPTARG";;
     c) filterConfId="$OPTARG";;
     d) dateOfToday="$OPTARG";;
+    E) thisEnvironment="$OPTARG";;
     D) waterYearDateString="$OPTARG"
       isToBeRepeated=0
       printf "Job wont be scheduled for a repeat because option -D "\
@@ -758,7 +768,7 @@ printf "$(pStart): tmpDir=${tmpDir}.\n"
 # 7. Arguments and parameters of the matlab script.
 ########################################################################################
 # Platform environment variables/parameters, if not already loaded, for instance by
-# .projectEnvironmentVariables.
+# scripts/configurationV.sh (e.g. source env/.projectEnvironmentVariables or source env/..matlabEnvironmentVariablesV202410).
 if [[ $codePlatform -eq 0 && -z $thisEspProjectDir ]]; then
   printf "source ~/.matlabEnvironmentVariables\n"
   source ~/.matlabEnvironmentVariables
@@ -1111,6 +1121,11 @@ EOM
       # pipeline pass through midnight, from a past month to a new month, or more
       # dangerous from a past WaterYear to a new WaterYear.
       nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( -L )~ -D ${nextWaterYearDate}\1~")
+    fi
+    if [[ "${nextSubmitLine}" != *" -d "* ]]; then
+      # We force the dateOfToday for the rest of the pipeline. Important when the
+      # pipeline pass through midnight.
+      nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~( -D )~ -d ${dateOfToday}\1~")
     fi
     if [[ "${nextSubmitLine}" != *" --dependency="* ]]; then
       nextSubmitLine=$(echo ${nextSubmitLine} | sed -E "s~(sbatch )~\1--dependency=afterok:${SLURM_ARRAY_JOB_ID} ~")
