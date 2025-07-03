@@ -5,6 +5,94 @@
 ########################################################################################
 # Functions.
 ########################################################################################
+get_object_ids_from_big_region_object_ids_string() {
+  # Extract the big region ids from the parameter objectId, collect the ids of the
+  # tiles associated in the region configuration file and return the list.
+  #
+  # Parameters
+  # ----------
+  # - objectId: String, e.g. "5" or "5,7". List of ids of big regions (e.g. 5 for
+  #   westernUS)
+  #
+  # Return
+  # ------
+  # - theseObjectIds: String, e.g. "292,293". List of the ids of the modisTiles
+  #   associated to the big region. The ids are unique
+  local objectId="$1"
+  local regionConfFilePath=${workingDirectory}/tbx/conf/configuration_of_regions.csv
+  local theseObjectIds=""
+
+  IFS=',' read -ra bigObjectIdsArray <<< "$objectId"
+  IFS=defaulIFS
+
+  for bigObjectId in "${bigObjectIdsArray[@]}"; do
+    local additionalObjectIds=$(awk -F',' -v target_id="$bigObjectId" '
+      $2 == "modisTile" && $20 == target_id {
+        if (line_values == "") {
+          line_values = $19
+        } else {
+          line_values = line_values "," $19
+        }
+      }
+      END { print line_values }
+    ' "${regionConfFilePath}")
+
+    if [[ -n "$additionalObjectIds" ]]; then
+      theseObjectIds="${theseObjectIds},${additionalObjectIds}"
+    fi
+  done
+
+  # Remove the leading comma if it exists
+  if [[ "${theseObjectIds:0:1}" == "," ]]; then
+    theseObjectIds="${theseObjectIds:1}"
+  fi
+
+  # Use `tr` to replace commas with newlines, `sort -u` to get unique values,
+  # and `tr` again to replace newlines back with commas
+  theseObjectIds=$(echo "$theseObjectIds" | tr ',' '\n' | sort -u | tr '\n' ',')
+
+  # Remove the trailing comma (if any)
+  theseObjectIds=${theseObjectIds%,}
+
+  echo "$theseObjectIds"
+}
+
+get_region_names_from_object_ids_string() {
+  # Get the list of region names associated to the list of object ids
+  # $theseObjectIds.
+  #
+  # Parameters
+  # ----------
+  # - objectIds: String, e.g. "292" or "292,293,5". List of tile or big region ids.
+  #
+  # Return
+  # ------
+  # - regionNames: String, e.g. "h08v04,h08v05,westernUS". List of the regionNames
+  #   associated with the object ids.
+  local objectIds="$1"
+  local regionConfFilePath=${workingDirectory}/tbx/conf/configuration_of_regions.csv
+  local regionNames=""
+
+  # Convert the comma-separated string of IDs into an array
+  IFS=',' read -r -a objectIdArray <<< "$objectIds"
+
+  # Build an awk command to filter and extract
+  # The pattern is constructed like "$19 == ID1 || $19 == ID2 || ..."
+  awk_pattern=""
+  for id in "${objectIdArray[@]}"; do
+    if [ -n "$awk_pattern" ]; then
+      awk_pattern="$awk_pattern || "
+    fi
+    awk_pattern="$awk_pattern\$19 == \"$id\""
+  done
+
+  # Use awk to filter the CSV and extract column 1 values
+  # Then use paste to join the results with commas
+  regionNames=$(awk -F',' "$awk_pattern {print \$1}" "$regionConfFilePath" | paste -sd',')
+
+  echo "$regionNames"
+}
+
 get_tile_group_id_from_group_name(){
   # Get our internal id from a group name.
   #
@@ -94,9 +182,33 @@ tileArrayStringForTileGroup4="369,370,406,407,408,444,445,481,482"
 tileArrayForTileGroup6=(h29v13 h30v13)
 tileArrayStringForTileGroup6="1057,1093"
 
-# Definition of objectIds by big region.
-# NB: should be better if linked to configuration_of_regions.csv, risk of mismatch here.
-#                                                                               @warning
+# List of all big region ids.
+########################################################################################
+regionConfFilePath=${workingDirectory}/tbx/conf/configuration_of_regions.csv
+
+# Use awk to filter and extract, and pipe the output to mapfile
+# mapfile -t reads the input line by line and stores it in the array
+# < <(...) uses process substitution to provide the output of awk as input to mapfile
+mapfile -t allBigRegionIds < <(awk -F',' '$2 == "bigRegion" && $19 != "" {print $19}' "$regionConfFilePath")
+  # NB: mapfile() requires bash 4.+.
+
+# String list of tile object ids associated to all big region ids.
+########################################################################################
+declare -A regionIdsPerBigRegion
+for bigRegionId in "${allBigRegionIds[@]}"; do
+  # Use awk to filter column 20 by the current bigRegionId,
+  # extract column 19 values, and join them with commas
+  # -F',' sets the field delimiter to comma
+  # -v search_id="$bigRegionId" passes the shell variable to awk
+  # '$20 == search_id' filters rows where column 20 equals the search_id
+  # '{print $19}' prints the value of column 19
+  # The output of awk (newline-separated values) is piped to paste -sd',' to join with commas
+  regionIdsPerBigRegion["$bigRegionId"]=$(awk -F',' -v search_id="$bigRegionId" '$20 == search_id {print $19}' "$regionConfFilePath" | paste -sd',')
+done
+regionIdsPerBigRegion[0]=0
+
+: '
+# obsolete.
 declare -A regionIdsPerBigRegion
 regionIdsPerBigRegion[0]=0
 regionIdsPerBigRegion[1]=255,291,326,327,362,363,365,398,399,400,433,434,469,470
@@ -106,6 +218,7 @@ regionIdsPerBigRegion[4]=369,370,406,407,408,444,445,481,482,443,518
 regionIdsPerBigRegion[5]=292,293,328,329,364
 regionIdsPerBigRegion[6]=397,401,435,436,437,471,472,505,506,507,508
 regionIdsPerBigRegion[7]=1057,1093
+'
 
 # Defined in toolStart.sh.
 # workingDirectory=$(pwd) 
