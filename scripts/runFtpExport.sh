@@ -137,216 +137,130 @@ fi
 # Argument setting.
 # None.
 
-if [[ $inputLabel == 'v2024.0d' || $inputLabel == 'v2024.1.0' || $inputLabel == 'v2025.0.1' ]]; then
-  outputLabel=$inputLabel;
-  if [[ $inputLabel == 'v2024.0d' ]]; then
-    outputLabel='v2024.1.0';
-  fi
+# Years and objects to rsync.
+########################################################################################
+theseYears=($thisYear  $(($thisYear - 1))) #( {2025..2024..-1} );
+theseObjectIds=$objectId,$(get_object_ids_from_big_region_object_ids_string $objectId)
+regionNames=($(echo $(get_region_names_from_object_ids_string ${theseObjectIds}) | tr ',' ' ' ))
+# get_object.. and get_region.. are in toolsRegions.sh.
 
-  # RSync of westernUS Netcdf to archive [hard-coded].
-  ######################################################################################
-  # No check that the rsync jobs are correctly achieved!
-
-  printf "\nSubmission of jobs to rsync netcdfs back to archive [all versions]...\n"
-  printf "%77s\n" | tr ' ' '#'
-  years=( {2025..2024..-1} );
-  regionNames=(h08v04 h08v05 h09v04 h09v05 h10v04 \
-h29v13 h30v13 \
-h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v02 h13v02 h10v05 h11v04); # h12v01 h13v01 
-  slurmAccount=${SLURM_JOB_ACCOUNT};
-  slurmLogDir=${projectDir}slurm_out/;
-  # scratchPath defined in toolsStart.sh.
-  slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
-  exclude="";
-  scriptPath=./scripts/runRsync.sh
-
-  sourceBasePath=${scratchPath}output/mod09ga.061/spires/${outputLabel}/netcdf/ #modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
-  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/netcdf/
-    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
-
-  for year in ${years[@]}; do
-    scriptId=sync${year};
-    for regionName in ${regionNames[@]}; do
-      jobName=$scriptId-${regionName};
-      targetPath=${targetBasePath}${regionName}/
-      sourcePath=${sourceBasePath}${regionName}/${year}
-      if [[ -d $sourcePath ]]; then
-        mkdir -p ${targetPath}
-        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
-        printf "${submitLine}\n"
-        ${submitLine}
-      else
-        printf "WARNING, absent ${sourcePath}.\n"
-      fi
-    done
-  done
-  printf "%77s\n" | tr ' ' '#'
-  
-  # RSync of westernUS proj tif to archive [hard-coded].
-  ######################################################################################
-  # No check that the rsync jobs are correctly achieved!
-  printf "\nSubmission of jobs to rsync projected geotiff back to archive [v2024.1.0]...\n"
-  printf "%77s\n" | tr ' ' '#'
-  years=( {2025..2024..-1} );
-  regionNames=(westernUS);
-  scriptPath=./scripts/runRsync.sh
-
-  sourceBasePath=${scratchPath}modis/variables/scagdrfs_geotiff_${inputLabel}/v006/;
-  endSourceBasePath=EPSG_3857/LZW/
-  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/
-    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
-
-  for year in ${years[@]}; do
-    scriptId=sync${year};
-    for regionName in ${regionNames[@]}; do
-      jobName=$scriptId-${regionName};
-      targetPath=${targetBasePath}${regionName}/
-      sourcePath=${sourceBasePath}${regionName}/${endSourceBasePath}${year}
-      if [[ -d $sourcePath ]]; then
-        mkdir -p ${targetPath}
-        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
-        printf "${submitLine}\n"
-        ${submitLine}
-      else
-        printf "WARNING, absent ${sourcePath}.\n"
-      fi
-    done
-  done
-  printf "%77s\n" | tr ' ' '#'
-  
-  # RSync of westernUS proj tif v2025.0.1 to archive [hard-coded].
-  ######################################################################################
-  # No check that the rsync jobs are correctly achieved!
-  printf "\nSubmission of jobs to rsync projected geotiff back to archive [v2025.0.1+]...\n"
-  printf "%77s\n" | tr ' ' '#'
-  years=( {2025..2024..-1} );
-  regionNames=(westernUS OCNewZealand h08v04 h08v05 h09v04 h09v05 h10v04 h29v13 h30v13);
-  scriptPath=./scripts/runRsync.sh
-
-  sourceBasePath=${scratchPath}output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/;
-  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/;
-    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
-
-  for year in ${years[@]}; do
-    scriptId=sync${year};
-    for regionName in ${regionNames[@]}; do
-      jobName=$scriptId-${regionName};
-      targetPath=${targetBasePath}${regionName}/
-      sourcePath=${sourceBasePath}${regionName}/${year}
-      if [[ -d $sourcePath ]]; then
-        mkdir -p ${targetPath}
-        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
-        printf "${submitLine}\n"
-        ${submitLine}
-      else
-        printf "WARNING, absent ${sourcePath}.\n"
-      fi
-    done
-  done
-  printf "%77s\n" | tr ' ' '#'
-  
-  # RSync of westernUS mat v2024.1.0 to archive [hard-coded].
-  ######################################################################################
-  # Used for snow-today website monthly report.
-  # NB: For v2025.0.1, those files are not produced any more and the routine for the
-  # monthly report would need to be updated.                                    @warning
-  # No check that the rsync jobs are correctly achieved!
-  printf "\nSubmission of jobs to rsync western US mat back to archive  [v2024.1.0]...\n"
-  printf "%77s\n" | tr ' ' '#'
-  years=( {2025..2024..-1} );
-  regionNames=(westernUS);
-  scriptPath=./scripts/runRsync.sh
-
-  sourceBasePath=${scratchPath}modis/variables/scagdrfs_mat_${inputLabel}/v006/;
-  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/mat/
-    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
-
-  for year in ${years[@]}; do
-    scriptId=sync${year};
-    for regionName in ${regionNames[@]}; do
-      jobName=$scriptId-${regionName};
-      targetPath=${targetBasePath}${regionName}/
-      sourcePath=${sourceBasePath}${regionName}/${year}
-      if [[ -d $sourcePath ]]; then
-        mkdir -p ${targetPath}
-        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
-        printf "${submitLine}\n"
-        ${submitLine}
-      else
-        printf "WARNING, absent ${sourcePath}.\n"
-      fi
-    done
-  done
-  printf "%77s\n" | tr ' ' '#'
-  
-  # RSync of stats for users to archive [hard-coded].
-  ######################################################################################
-  # dataLabel: SubdivisionStatsWebCsvv20231
-  # No check that the rsync jobs are correctly achieved!
-
-  printf "\nSubmission of jobs to rsync stats for users back to archive  [all versions]...\n"
-  printf "%77s\n" | tr ' ' '#'
-  years=( {2025..2024..-1} );
-  regionNames=(westernUS);
-  if [[ $outputLabel == 'v2025.0.1' ]]; then
-    regionNames=(OCNewZealand); #(westernUS OCNewZealand);
-  fi
-
-  sourceBasePath=${scratchPath}modis/regional_stats/scagdrfs_csv_${inputLabel}/v006/ #modis/variables/scagdrfs_netcdf_${inputLabel}/v006/; #modis/intermediary/scagdrfs_stc_
-  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/csv/
-    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
-
-  for year in ${years[@]}; do
-    scriptId=sync${year};
-    for regionName in ${regionNames[@]}; do
-      jobName=$scriptId-${regionName};
-      targetPath=${targetBasePath}${regionName}/
-      sourcePath=${sourceBasePath}${regionName}/WY${year}
-      if [[ -d $sourcePath ]]; then
-        mkdir -p ${targetPath}
-        submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
-        printf "${submitLine}\n"
-        ${submitLine}
-      else
-        printf "WARNING, absent ${sourcePath}.\n"
-      fi
-    done
-  done
-  printf "%77s\n" | tr ' ' '#'
-  
-  # RSync of aggreg stats for monthly article to archive [hard-coded].
-  ######################################################################################
-  # Used for snow-today website monthly report.
-  # dataLabel: SubdivisionStatsAggregCsv
-  # No check that the rsync jobs are correctly achieved!
-
-  printf "\nSubmission of jobs to rsync aggreg stats for users back to archive [all versions]...\n"
-  printf "%77s\n" | tr ' ' '#'
-  sourceBasePath=${scratchPath}modis/subdivisionstats/scagdrfs_aggregcsv_${inputLabel}/v006/
-  targetBasePath=${archivePath}output/mod09ga.061/spires/${outputLabel}/aggregcsv/
-    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
-    
-  sourceFilePaths=($(find ${sourceBasePath}* | grep "\.csv"))
-  targetFilePaths=${sourceFilePaths[@]//${sourceBasePath}/${targetBasePath}}
-  targetFilePaths=(${targetFilePaths//${inputLabel}/${outputLabel}})
-  if [[ ${#sourceFilePaths[@]} -eq 0 ]]; then
-    printf "WARNING, no aggreg stat csv files.\n"
-  else
-    for (( fileIdx=0; fileIdx<${#sourceFilePaths[@]}; fileIdx++ )); do
-      sourceFilePath=${sourceFilePaths[fileIdx]}
-      targetFilePath=${targetFilePaths[fileIdx]}
-      targetDirectory=${targetFilePath%/*}
-      if [[ ! -d $targetDirectory ]]; then
-        mkdir -p ${targetDirectory}
-      fi
-      echo "rsync $sourceFilePath $targetFilePath"
-      rsync $sourceFilePath $targetFilePath
-    done
-  fi
-  printf "%77s\n" | tr ' ' '#'
-  sleep $(( 60 * 10 ))
-    # Suppose rsync sbatch jobs will last less than 10 mins, not really necessary...
+# Folders to rsync.
+########################################################################################
+if [[ $inputLabel == 'v2024.0d' ]]; then
+  thisOutputLabel=v2024.1.0
+  sourceBasePaths=(
+  modis/intermediary/spiresfill_${inputLabel}/v006/ 
+  modis/variables/scagdrfs_mat_${inputLabel}/v006/ 
+  output/mod09ga.061/spires/${outputLabel}/netcdf/ 
+  modis/variables/scagdrfs_geotiff_${inputLabel}/v006/ 
+  modis/regional_stats/scagdrfs_csv_${inputLabel}/v006/ 
+  modis/subdivisionstats/scagdrfs_aggregcsv_${inputLabel}/v006/
+  )
+  endSourceBasePaths=(
+  "" 
+  "" 
+  "" 
+  EPSG_3857/LZW/ 
+  "WY" 
+  "")
+  targetBasePaths=(
+  modis/intermediary/spiresfill_${inputLabel}/v006/ 
+  output/mod09ga.061/spires/${thisOutputLabel}/mat/ 
+  output/mod09ga.061/spires/${outputLabel}/netcdf/ 
+  output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/ 
+  output/mod09ga.061/spires/${outputLabel}/csv/ 
+  output/mod09ga.061/spires/${outputLabel}/aggregcsv/
+  )
+  isAll=(
+  0
+  0
+  0
+  0
+  1
+  )
+else
+  sourceBasePaths=(
+  mod09ga.061/spires/${inputLabel}/int_day/ 
+  output/mod09ga.061/spires/${outputLabel}/netcdf/ 
+  output/mod09ga.061/spires/${inputLabel}/tif_EPSG3857/
+  modis/regional_stats/scagdrfs_csv_${inputLabel}/v006/ 
+  modis/subdivisionstats/scagdrfs_aggregcsv_${inputLabel}/v006/
+  )
+  endSourceBasePaths=(
+  "" 
+  "" 
+  "" 
+  "WY" 
+  ""
+  )
+  targetBasePaths=(
+  mod09ga.061/spires/${inputLabel}/int_day/
+  output/mod09ga.061/spires/${outputLabel}/netcdf/ 
+  output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/ 
+  output/mod09ga.061/spires/${outputLabel}/csv/ 
+  output/mod09ga.061/spires/${outputLabel}/aggregcsv/
+  )
+  isAll=(
+  0
+  0
+  0
+  0
+  1
+  )
 fi
+
+# Submission of jobs to rsync to archive.
+########################################################################################
+# NB: No check that the rsync jobs are correctly achieved!
+printf "%77s\n" | tr ' ' '#'
+scriptPath=./scripts/runRsync.sh
+slurmAccount=${SLURM_JOB_ACCOUNT};
+slurmLogDir=${projectDir}slurm_out/;
+# scratchPath defined in toolsStart.sh.
+slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
+exclude="";
+scriptPath=./scripts/runRsync.sh
+for pathIdx in $(echo ${!sourceBasePaths[@]}); do
+  sourceBasePath=${scratchPath}${sourceBasePaths[$pathIdx]}
+  endSourceBasePath=${endSourceBasePaths[$pathIdx]}
+  targetBasePath=${archivePath}${targetBasePaths[$pathIdx]}
+    # $slurmQos, $archivePath and $scratchPath defined in toolsStart.sh.
+  printf "\nSubmission of jobs to rsync ${sourceBasePath} back to ${targetBasePath}...\n"
+  if [[ ${isAll[$pathIdx]} -eq 0 ]]; then
+    for oneYear in ${theseYears[@]}; do
+      scriptId=sync${oneYear};
+      for regionName in ${regionNames[@]}; do
+        jobName=$scriptId-${regionName};
+        targetPath=${targetBasePath}${regionName}/
+        sourcePath=${sourceBasePath}${regionName}/${endSourceBasePath}${oneYear}
+        if [[ -d $sourcePath ]]; then
+          mkdir -p ${targetPath}
+          submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+          printf "${submitLine}\n"
+          ${submitLine}
+        else
+          printf "WARNING, absent ${sourcePath}.\n"
+        fi
+      done
+    done
+  else
+    scriptId=syncAll;
+    jobName=$scriptId-All;
+    targetPath=${targetBasePath}
+    sourcePath=${sourceBasePath}
+    if [[ -d $sourcePath ]]; then
+      mkdir -p ${targetPath}
+      submitLine="sbatch --export=NONE --account=${slurmAccount} --qos=${slurmQos} ${exclude} -o ${slurmOutputPath} --job-name ${jobName} --ntasks-per-node=1 --mem 1G --time 03:15:00 ${scriptPath} -x ${sourcePath} -y ${targetPath}"
+      printf "${submitLine}\n"
+      ${submitLine}
+    else
+      printf "WARNING, absent ${sourcePath}.\n"
+    fi
+  fi
+done
+printf "%77s\n" | tr ' ' '#'
+sleep $(( 60 * 10 ))
+    # Suppose rsync sbatch jobs will last less than 10 mins, not really necessary...
 
 : '
 # Launch the export to the ftp. SPECIFIC TO WESTERN US!
@@ -364,8 +278,8 @@ regionNamesForMat=(''h08v04' 'h08v05' 'h09v04' 'h09v05' 'h10v04' 'westernUS'')
 bigRegionName=westernUS
 #set -o noglob
 # prevent wildcard * expansion.
-inputFolderForGeotiff="modis/variables/scagdrfs_geotiff_${versionLabel}/v006/${bigRegionName}/EPSG_3857/LZW/{year}/{datePattern}*"
-inputFolderForMat="modis/variables/scagdrfs_mat_${versionLabel}/v006/{regionName}/{year}/{regionName}_Terra_{datePattern}*mat"
+inputFolderForGeotiff="modis/variables/scagdrfs_geotiff_${versionLabel}/v006/${bigRegionName}/EPSG_3857/LZW/{oneYear}/{datePattern}*"
+inputFolderForMat="modis/variables/scagdrfs_mat_${versionLabel}/v006/{regionName}/{oneYear}/{regionName}_Terra_{datePattern}*mat"
 outputFolderForGeotiff="snow-today/WY${waterYear}_tmp/${bigRegionName}/geotiff_mosaic/"
 outputFolderForMat="snow-today/WY${waterYear}_tmp/${bigRegionName}/mat_tile/{regionName}/"
 
@@ -376,13 +290,13 @@ if [ -d $outputFolderForGeotiff ]; then
 fi
 
 for datePattern in ${datePatterns[@]}; do
-  inputPath="${scratchDir}${inputFolderForGeotiff//\{year\}/${datePattern::-1}}"
+  inputPath="${scratchDir}${inputFolderForGeotiff//\{oneYear\}/${datePattern::-1}}"
   inputPath="${inputPath//\{datePattern\}/${datePattern}}"
   
   /bin/rsync -HpvxrltoDu --chmod=ug+rw,o-w,+X,Dg+s ${inputPath} ${ftpDir}${outputFolderForGeotiff}
 
 
-  inputPath="${scratchDir}${inputFolderForMat//\{year\}/${datePattern::-1}}"
+  inputPath="${scratchDir}${inputFolderForMat//\{oneYear\}/${datePattern::-1}}"
   inputPath="${inputPath//\{datePattern\}/${datePattern}}"
   for regionName in ${regionNamesForMat[@]}; do
     regionInputPath="${inputPath//\{regionName\}/${regionName}}"
