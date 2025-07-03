@@ -3,7 +3,8 @@ classdef ExporterToWebsite < handle
     % from which the website will import the data and then display them on the
     % snow-today website.
     %
-    % NB: The exporter uses scp to a distant domain, from a linux server.
+    % NB: The exporter uses rsync (previously 2025-07-01 scp) to a distant domain,
+    % from a linux server.
     % Other methods (ftp, windows laptop, etc ...) not implemented.
     % Before using this exporter, you have
     % to generate a ssh key and copy it to the distant domain. You can use ssh-keygen
@@ -30,6 +31,7 @@ classdef ExporterToWebsite < handle
     % region .json, if the configuration .csv files have changed and then sync
     % from archive to scratch [WARNING].
     toBeUsedFlag = 1; % By default 1.
+    espWebExportConfId = 1; % 1: integration, 0, production.
     label = 'v2024.0';
     versionOfAncillary = 'v3.2'; % Only for initiating the exporter.
     versionOfAncillariesToExport = {'v3.1', 'v3.2'}; % all these versions are exported.
@@ -40,7 +42,8 @@ classdef ExporterToWebsite < handle
     scratchPath = getenv('espScratchDir');
     setenv('espWebExportRootDir', getenv('espWebExportRootDirForIntegration'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
-    espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
+    espEnv = ESPEnv(modisData, espWebExportConfId = espWebExportConfId, ...
+        scratchPath = scratchPath);
     exporter = ExporterToWebsite(espEnv, versionOfAncillariesToExport);
     exporter.exportFileForDataLabelDateAndVarName(dataLabel, thisDate, varName, ...
         complementaryLabel);
@@ -69,7 +72,8 @@ classdef ExporterToWebsite < handle
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForQA'));
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
-    espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
+    espEnv = ESPEnv(modisData, espWebExportConfId = espWebExportConfId, ...
+        scratchPath = scratchPath);
     exporter = ExporterToWebsite(espEnv, versionOfAncillariesToExport, ...
         toBeUsedFlag = toBeUsedFlag);
     for dataLabelIdx = 1:length(dataLabels)
@@ -97,8 +101,10 @@ classdef ExporterToWebsite < handle
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForQA'));
     %setenv('espWebExportRootDir', getenv('espWebExportRootDirForProd'));
     modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary);
-    espEnv = ESPEnv(modisData = modisData, scratchPath = scratchPath);
-    espEnvWOFilter = ESPEnv(modisData = modisData, scratchPath = scratchPath, ...
+    espEnv = ESPEnv(modisData, espWebExportConfId = espWebExportConfId, ...
+        scratchPath = scratchPath);
+    espEnvWOFilter = ESPEnv(modisData, espWebExportConfId = espWebExportConfId, ...     
+        scratchPath = scratchPath, ...
         filterMyConfByVersionOfAncillary = 0);
     
     % Temporary for albedo and radiative forcing
@@ -154,6 +160,7 @@ classdef ExporterToWebsite < handle
                             % allows to  connect the user to the ingest domain.
                             % - user: char. User/Login that allows to connect to the
                             % domain.
+        rsync               % rsync command with options + rsa identification file.
         versionOfAncillariesToExport % cell(char). List of versionOfAncillary data to
                             % export.
         toBeUsedFlag = 1;   % Flag in the landsubdivision confs indicating that the
@@ -205,6 +212,8 @@ classdef ExporterToWebsite < handle
             %   data to export. This is used to filter regions, and also the data linked
             %   to these regions (if versionOfAncillary is v3.1, only westernUS
             %   ancillary and data will be exported.
+            % verbosity: int, optional. By default 1, non verbose, particularly for 
+            %   rsync. 0: verbose, all messages including host banner for rsync.
             % toBeUsedFlag: int, optional. By default 1, but we can use another number
             %   > 1 to temporarily deactivate some subdivisions. Shouldn't be 0.
             %
@@ -235,11 +244,20 @@ classdef ExporterToWebsite < handle
             end
             
             p = inputParser;
+            addParameter(p, 'verbosity', 1);
             addParameter(p, 'toBeUsedFlag', obj.toBeUsedFlag);
             p.KeepUnmatched = false;
             parse(p, varargin{:});
+            verbosity = p.Results.verbosity;
+            quietOption = '';
+            if verbosity > 0
+                quietOption = '-q';
+            end
             obj.toBeUsedFlag = p.Results.toBeUsedFlag;
-            
+            obj.rsync = ['/bin/rsync -HpvxrltogDu --chmod=ugo+rw,+X,Dg+s ', ...  
+                '--ignore-errors --no-motd -e "ssh ', quietOption, ' -i ', ...
+                obj.espWebExport.sshKeyFilePath, '" '];
+
             fprintf('%s: Instantiates exporterToWebsite to %s@%s directory %s.\n', ...
                 mfilename(), obj.espWebExport.user, obj.espWebExport.domain, ...
                 obj.espWebExport.rootDir);
@@ -281,6 +299,7 @@ classdef ExporterToWebsite < handle
                 thisEspEnv = ESPEnv(MODISData( ...
                     label = obj.espEnv.modisData.versionOf.SubdivisionStatsWebJson, ...
                     versionOfAncillary = versionOfAncillary), ...
+                    espWebExportConfId = obj.espEnv.espWebExportConfId, ...
                     scratchPath = obj.espEnv.scratchPath);
                     % WARNING: here we use versionOf.SubdivisionStatsWebJson while in
                     % AncillaryOutput we use versionOf.VariablesGeotiff.        @warning
@@ -502,8 +521,7 @@ classdef ExporterToWebsite < handle
                         end
 
                         % Copy the file to the distant directory ...
-                        cmd = ['scp -q -i ', ...
-                            obj.espWebExport.sshKeyFilePath, ' ', filePath, ...
+                        cmd = [obj.rsync, filePath, ...
                             ' ', obj.espWebExport.user, '@', ...
                             obj.espWebExport.domain, ...
                             ':', obj.espWebExport.rootDir, webRelativeFilePath];
@@ -540,8 +558,7 @@ classdef ExporterToWebsite < handle
                 obj.espEnv.myConf.filePath, 'dataLabel', ...
                 dataLabel, 'webRelativeFilePath');
             % Copy the file to the distant directory ...
-            cmd = ['scp -q -i ', ...
-                obj.espWebExport.sshKeyFilePath, ' ', filePath, ...
+            cmd = [obj.rsync, filePath, ...
                 ' ', obj.espWebExport.user, '@', obj.espWebExport.domain, ...
                 ':', obj.espWebExport.rootDir, webRelativeFilePath];
             [status, cmdout] = obj.system(cmd);
