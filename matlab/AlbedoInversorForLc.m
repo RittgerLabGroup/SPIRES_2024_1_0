@@ -11,7 +11,7 @@ classdef AlbedoInversorForLc < handle
   % Use case to generate deltavis and albedo for p042r034 lc08.l2sp.02.t1 and
   % julian year 2023.
   addpath(genpath(getenv('matlabPathForESPToolbox'));
-  addpath(genpath([getenv('projectDir'), 'MATLAB/ParBal']));
+  addpath(genpath(getenv('matlabPathForParBal'));
 
   regionName = 'p068r015'; %'p068r014'; 'p042r034';
   objectName = regionName;

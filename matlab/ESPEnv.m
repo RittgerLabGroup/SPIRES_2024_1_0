@@ -3,6 +3,11 @@ classdef ESPEnv < handle
     %   Directories with locations of various types of data needed for ESP
     %   Major cleaning for SIER_352.
     % NB: Don't use the text 'zzzzz' or '*' in filenames or name of subfolders.
+    % NB: Requires the definition before instantiation of environment variables in
+    %   .bashrc, env/.matlabEnvironmentVariablesV, or in submitLine to a slurm job.
+    %   In particular, variable $thisEnvironment, which determine which individual
+    %   project we are in or if we are in dev environment, and in fonction select
+    %   the corresponding configuration files.
     %
     % WARNING: The class uses specific environment variables (property
     %   espEnvironmentVars), which must be defined at the environment level, either
@@ -10,7 +15,6 @@ classdef ESPEnv < handle
     properties
         archivePath % char. Path where are archived the files. Only used to pull input
             % files or push output files.
-        confDir         % directory with configuration files (including variable names)
         defaultArchivePath % getenv('espArchiveDir');
         defaultScratchPath % getenv('espScratchDir');
         dirWith % struct with various STC pipeline directories
@@ -50,25 +54,6 @@ classdef ESPEnv < handle
         regions = struct()  % struct(h08v04 = region1, h08v05 = region2)
             % Struct listing Regions objects, with keys being the regionName.
         scratchPath % char. Path hosting all files necessary for the run of the project.
-%{
-        %                                                                      @obsolete
-        colormapDir    % directory with color maps
-        shapefileDir     % directory with MODIS tiles projection information
-        extentDir      % directory with geographic extent definitions
-        regionMaskDir  % directory with region mask ids files
-        heightmaskDir  % directory heightmask for Landsat canopy corrections
-        MODISDir       % directory with MODIS scag STC cubes from UCSB (.mat)
-        LandsatDir     % directory with Landsat scag images
-        LandsatResampledDir % directory with resample Landsat images
-        viirsDir       % directory with TBD for VIIRS
-        watermaskDir   % directory with water mask
-        modisWatermaskDir   % directory with MODIS watermask files
-        modisForestDir      % directory with MODIS canopy corrections
-        modisElevationDir   % directory with MODIS DEMs
-        modisTopographyDir  % directory with MODIS topography files
-        MODICEDir      % directory with (annual) MODICE data
-             % by tile/year (.hdr/.dat, .tif)
-%}
         slurmEndDate  % datetime. When running on slurm, indicates when the job will
             % a kill signal [cancel].
         slurmFullJobId % char. When running on slurm, id of the job (jobId_taskId).
@@ -76,6 +61,14 @@ classdef ESPEnv < handle
             % to determine the nrtOrHist pattern.
     end
     properties(Constant)
+        % All configuration files can be declined by individual version of the code,
+        % defined by the environment variable $thisEnvironment, by inserting
+        % $thisEnvironment before the extension, e.g. if $thisEnvironment is
+        % Dev, the conf/configuration_of_regions.csv file used can be
+        % configuration_of_regionsDev.csv file, if present, and if not, will default
+        % to configuration_of_regions.csv.
+        % NB: keys for additionalConfigurationFilenames and configurationFilenames
+        % *must* be different.
         additionalConfigurationFilenames = struct( ...
             landsubdivision = 'configuration_of_landsubdivisions.csv', ...
             landsubdivisionlink = 'configuration_of_landsubdivisionlinks.csv', ...
@@ -96,7 +89,8 @@ classdef ESPEnv < handle
             versionregion = 'configuration_of_versionsregions.csv', ...
             versionvariable = 'configuration_of_versionsvariables.csv');
         defaultHostName = 'CURCScratchAlpine';
-        espEnvironmentVars = {'espArchiveDir', 'espProjectDir', 'espScratchDir'};
+        espEnvironmentVars = {'espArchiveDir', 'espProjectDir', 'espScratchDir', ...
+            'thisEspProjectDir', 'thisEnvironment'};
             % List of the variables which MUST be defined at the OS environment level.
         % defaultPublicOutputPath = 'xxx/esp_public/';
         patternsInFilePath = table({ ...
@@ -145,12 +139,51 @@ classdef ESPEnv < handle
         slurmSafetySecondsBeforeKill = 3 * 60; % in seconds.
     end
     methods(Static)
+        function confFilePath = getESPConfFilePath(confLabel)
+        % Parameters
+        % ----------
+        % confLabel: string. Label that points to a specific configuration file.
+        %   E.g., 'region' points to
+        %   conf/configuration_of_regions${thisEnvironment}.csv or default to
+        %   conf/configuration_of_regions.csv. Must be a key of constants
+        %   ESPEnv.configurationFilenames or
+        %   ESPEnv.additionalConfigurationFilenames.
+        % Return
+        % ------
+        %   conFilePath: string. Absolute filepath to the configuration file.
+            thisEspProjectDir = getenv('thisEspProjectDir');
+            thisEnvironment = getenv('thisEnvironment');
+                % Variables defined in env/ or home/ configuration files or in slurm
+                % bash submissionLine.
+                % getenv() returns a character vector.
+            if isempty(thisEspProjectDir) || isempty(thisEnvironment)
+                errorStruct.identifier = ...
+                    'getESPConfFilePath:InvalidEnvironmentVariable';
+                errorStruct.message = sprintf( ...
+                    ['%s: Define environment variables $thisEspProjectDir and ', ...
+                    '$thisEnvironment.'], mfilename());
+                error(errorStruct);
+            end
+            fileNameList = 'configurationFilenames';
+            if isfield(confLabel, ESPEnv.additionalConfigurationFilenames)
+                fileNameList = 'additionalConfigurationFilenames';
+            end
+            confFilePath = fullfile(getenv('thisEspProjectDir'), 'conf', ...
+                ESPEnv.(fileNameList).(confLabel));
+
+            [~, ~, thisExtension] = fileparts(confFilePath);
+            confFilePathForThisEnvironment = replace(confFilePath, thisExtension, ...
+                [thisEnvironment, thisExtension]);
+            if isfile(confFilePathForThisEnvironment)
+                confFilePath = confFilePathForThisEnvironment;
+            end
+        end
         function espEnv = getESPEnvForRegionNameAndVersionLabel(regionName, ...
             versionLabel, scratchPath)
         % Parameters
         % ----------
         % regionName: char. Name of the region. Should be in column name of file
-        %   configuration_of_regions.csv.
+        %   configuration_of_regions${thisEnvironment}.csv.
         % versionLabel: char. Label of the version of data files, which will be
         %   parametered in the modisData property of espEnv. E.g. v2023.1.
         % scratchPath: char. Path of the scratch path. Let '' for default.
@@ -162,15 +195,12 @@ classdef ESPEnv < handle
 
          % Load configuration files (paths of ancillary data files and region conf).
          %------------------------------------------------------------------------------
-            [thisFilepath, ~, ~] = fileparts(mfilename('fullpath'));
-            parts = split(thisFilepath, filesep);
-            thisFilepath = join(parts(1:end-1), filesep); % 1 level up
-            confDir = fullfile(thisFilepath{1}, 'conf');
             confLabel = 'region';
+            confFilePath = ESPEnv.getESPConfFilePath(confLabel);
+            
             fprintf('%s: Load %s configuration\n', mfilename(), confLabel);
             allRegionsConf = ...
-                readtable(fullfile(confDir, ...
-                ESPEnv.configurationFilenames.(confLabel)), 'Delimiter', ',');
+                readtable(confFilePath, 'Delimiter', ',');
             allRegionsConf(1,:) = []; % delete comment line
             thisRegionConf = allRegionsConf(strcmp( ...
                 allRegionsConf.name, regionName), :);
@@ -179,7 +209,7 @@ classdef ESPEnv < handle
                     'ESPEnv_getESPEnvForRegionName:InvalidRegionName';
                 errorStruct.message = sprintf( ...
                     ['%s: %s is not a valid name in the ', ...
-                    'configuration_of_regions.csv file'], mfilename(), regionName);
+                    'conf/configuration_of_regions.csv file'], mfilename(), regionName);
                 error(errorStruct);
             end
             modisData = MODISData(label = versionLabel, ...
@@ -195,7 +225,7 @@ classdef ESPEnv < handle
         % Parameters
         % ----------
         % regionName: char. Name of the region. Should be in column name of file
-        %   configuration_of_regions.csv.
+        %   conf/configuration_of_regions.csv.
         % originalEspEnv: ESPEnv. A primary ESPEnv, from which some of the properties
         %   will be copied, for instance modisData.versionOf for all except ancillary
         %   and scratchPath. This way the new espEnv object can handle different
@@ -221,15 +251,11 @@ classdef ESPEnv < handle
             versionOfAncillary = p.Results.versionOfAncillary;
             
             if isempty(versionOfAncillary)
-                [thisFilepath, ~, ~] = fileparts(mfilename('fullpath'));
-                parts = split(thisFilepath, filesep);
-                thisFilepath = join(parts(1:end-1), filesep); % 1 level up
-                confDir = fullfile(thisFilepath{1}, 'conf');
                 confLabel = 'region';
+                confFilePath = ESPEnv.getESPConfFilePath(confLabel);
                 fprintf('%s: Load %s configuration\n', mfilename(), confLabel);
                 allRegionsConf = ...
-                    readtable(fullfile(confDir, ...
-                    ESPEnv.configurationFilenames.(confLabel)), 'Delimiter', ',');
+                    readtable(confFilePath, 'Delimiter', ',');
                 allRegionsConf(1,:) = []; % delete comment line
                 thisRegionConf = allRegionsConf(strcmp( ...
                     allRegionsConf.name, regionName), :);
@@ -238,7 +264,8 @@ classdef ESPEnv < handle
                         'ESPEnv_getESPEnvForRegionName:InvalidRegionName';
                     errorStruct.message = sprintf( ...
                         ['%s: %s is not a valid name in the ', ...
-                        'configuration_of_regions.csv file'], mfilename(), regionName);
+                        'conf/configuration_of_regions.csv file'], mfilename(), ...
+                        regionName);
                     error(errorStruct);
                 end
                 versionOfAncillary = thisRegionConf.versionOfAncillary{1};
@@ -339,17 +366,13 @@ classdef ESPEnv < handle
             % 2. Load configuration files (paths of ancillary data files,
             % thresholds / region / variable configuration data.
             %---------------------------------------------------------------------------
-            [thisFilepath, ~, ~] = fileparts(mfilename('fullpath'));
-            parts = split(thisFilepath, filesep);
-            thisFilepath = join(parts(1:end-1), filesep); % 1 level up
-            obj.confDir = fullfile(thisFilepath{1}, 'conf');
             confLabels = fieldnames(obj.configurationFilenames);
             for confLabelIdx = 1:length(confLabels)
                 confLabel = confLabels{confLabelIdx};
+                confFilePath = ESPEnv.getESPConfFilePath(confLabel);
                 fprintf('%s: Load %s configuration\n', mfilename(), confLabel);
                 tmp = ...
-                    readtable(fullfile(obj.confDir, ...
-                    obj.configurationFilenames.(confLabel)), 'Delimiter', ',');
+                    readtable(confFilePath, 'Delimiter', ',');
                 tmp(1,:) = []; % delete comment line
 
                 % Convert Date string columns into datetimes.
@@ -370,7 +393,7 @@ classdef ESPEnv < handle
             nonUniqueIdx = find(~ismember(allIdx, firstIdx));
             if ~isempty(nonUniqueIdx)
                 error('ESPEnv:nonUniqueIdInConf', ...
-                    ['configuration_of_regions.csv contains non unique ids, ', ...
+                    ['conf/configuration_of_regions.csv contains non unique ids, ', ...
                     'for instance %d - %s.\n'], ...
                     obj.myConf.region.id(nonUniqueIdx(1)), ...
                     obj.myConf.region.name(nonUniqueIdx(1)));
@@ -519,28 +542,7 @@ classdef ESPEnv < handle
                 'scagdrfs_mat'), ...
                 'RegionalStatsCsv', fullfile(path, 'regional_stats', ...
                 'scagdrfs_csv'));
-%{
-            obj.dirWith.publicFTP =  fullfile(obj.defaultPublicOutputPath, 'snow-today'));
-            % For top-level stuff, paths are on PetaLibrary
-            path = fullfile('x', 'x');
 
-            %                                                              @obsolete
-            obj.MODISDir = fullfile(path, 'scag', 'MODIS', 'SSN', 'v01');
-            obj.viirsDir = fullfile(path, 'viirs');
-            obj.watermaskDir = fullfile(path, 'landcover', 'NLCD_ucsb');
-            obj.LandsatDir = fullfile(path, 'Landsat_test');
-            obj.LandsatResampledDir = fullfile(path, ...
-            'Landsat_test', 'Landsat8_resampled');
-            obj.heightmaskDir = fullfile(path, ...
-                'SierraBighorn', 'landcover', 'LandFireEVH_ucsb');
-            obj.MODICEDir = fullfile(path, 'modis', 'modice');
-            obj.modisWatermaskDir = fullfile(path, 'landcover');
-            obj.modisForestDir = fullfile(path, 'forest_height');
-            obj.modisElevationDir = fullfile(path, 'elevation');
-            obj.modisTopographyDir = fullfile(path, 'topography');
-            obj.shapefileDir = fullfile(path, 'shapefiles');
-            obj.regionMaskDir = fullfile(path, 'region_masks', 'v3');
-%}
             % Convert these from 1x1 cells to plain char arrays, (put aside read-only
             % constants).
             metaEspEnv = ?ESPEnv;
@@ -872,7 +874,7 @@ classdef ESPEnv < handle
             % thisDate: datetime. Cover the period for which we want the
             %   files. If not necessary, put ''.
             % varName: name of the variable to load (name in the file, not output_name
-            %   of configuration_of_variables.csv).
+            %   of conf/configuration_of_variables.csv).
             % complementaryLabel: char. Only used to add EPSG code for geotiffs. E.g.
             %   EPSG_3857. If not necessary, put ''.
             %
@@ -1024,8 +1026,8 @@ classdef ESPEnv < handle
                     patternsToReplaceByJoker = patternsToReplaceByJoker, ...
                     monthWindow = monthWindow, timestampAndNrt = timestampAndNrt, ...
                     optim = optim);
-                % Raises error if dataLabel not in configuration_of_filenames.csv and
-                % in modisData.versionOf.
+                % Raises error if dataLabel not in conf/configuration_of_filenames.csv
+                % and in modisData.versionOf.
                 % NB: metaData is information yielded by getObjectIdentification() and
                 % getVariableIdentification() through the call to
                 % replacePatternByValue(). These metadata are currently not updated when
@@ -1947,7 +1949,7 @@ classdef ESPEnv < handle
             % waterYearDate: WaterYearDate. Cover the period for which we want the
             %   files.
             % varName: name of the variable to load (name in the file, not output_name
-            %   of configuration_of_variables.csv).
+            %   of conf/configuration_of_variables.csv).
             % force: struct(dimensionInfo), optional. Used to
             %   override varName configuration.
             %   dimensionInfo: 11: 1 dim row: row*column*depth (reshaped matrix with on
@@ -2055,8 +2057,8 @@ classdef ESPEnv < handle
                     waterYearDate, ...
                     patternsToReplaceByJoker = patternsToReplaceByJoker, ...
                     varName = varName, optim = optim);
-                % Raises error if dataLabel not in configuration_of_filenames.csv and
-                % in modisData.versionOf.
+                % Raises error if dataLabel not in conf/configuration_of_filenames.csv
+                % and in modisData.versionOf.
             filePath = filePath(fileExists == 1); % In regular process, a proper
                 % handling of waterYearDate and of the generation of files (potentially
                 % with nodata/NaN-filled variables) should make all files present and
@@ -2692,7 +2694,7 @@ classdef ESPEnv < handle
                     ['ESPEnv:getFilePath:NoConfForDataLabel'];
                 errorStruct.message = sprintf( ...
                     ['%s: invalid dataLabel=%s, ' ...
-                     'should be in configuration_of_filepaths.csv file.'], ...
+                     'should be in conf/configuration_of_filepaths.csv file.'], ...
                     thisFunction, dataLabel);
                 error(errorStruct);
             end
@@ -2951,7 +2953,7 @@ classdef ESPEnv < handle
                     'ESPEnv:getFilePathForDateAndVarName:NoConfForDataLabel';
                 errorStruct.message = sprintf( ...
                     ['%s: invalid dataLabel=%s, ' ...
-                     'should be in configuration_of_filepaths.csv file.'], ...
+                     'should be in conf/configuration_of_filepaths.csv file.'], ...
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
@@ -3086,9 +3088,9 @@ classdef ESPEnv < handle
             %   and others. E.g. 'h08v04'. Must be unique. Alternatively, can be the
             %   id of the landSubdivision. E.g. 26000 for 'westernUS'.
             %   If the filepath is not object dependent
-            %   (column in configuration_of_filepaths.csv), objectName is unused.
+            %   (column in conf/configuration_of_filepaths.csv), objectName is unused.
             % dataLabel: char. Label (type) of data for which the file is required, as in
-            %   configuration_of_filepaths: aspect,canopyheight, elevation, land,
+            %   conf/configuration_of_filepaths: aspect,canopyheight, elevation, land,
             %   landsubdivision, region, slope, water.
             %   NB: specific handling for spiresModel, depending on modis/viirs and Ned
             %   filter conf or not.
@@ -3142,7 +3144,7 @@ classdef ESPEnv < handle
                     'ESPEnv:getFilePathForObjectNameDataLabel:NoConfForDataLabel';
                 errorStruct.message = sprintf( ...
                     ['%s: invalid dataLabel=%s, ' ...
-                     'should be in configuration_of_filepaths.csv file.'], ...
+                     'should be in conf/configuration_of_filepaths.csv file.'], ...
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
@@ -3286,7 +3288,7 @@ classdef ESPEnv < handle
                     'ESPEnv:getFilePathForWaterYearDate:NoConfForDataLabel';
                 errorStruct.message = sprintf( ...
                     ['%s: invalid dataLabel=%s, ' ...
-                     'should be in configuration_of_filepaths.csv file.'], ...
+                     'should be in conf/configuration_of_filepaths.csv file.'], ...
                     mfilename(), dataLabel);
                 error(errorStruct);
             end
@@ -3964,10 +3966,11 @@ classdef ESPEnv < handle
             % Parameters
             % ----------
             % dataLabel: char. Type of the file as indicated in
-            %   configuration_of_filepaths.csv, for the versionOf.ancillary property of
-            %   the current espEnv object.
+            %   conf/configuration_of_filepaths.csv, for the versionOf.ancillary
+            %   property of the current espEnv object.
             % filePath: char. Filepath from which all metadata will be derived.
-            %   Its format must follow the patterns in configuration_of_filepaths.csv.
+            %   Its format must follow the patterns in
+            %   conf/configuration_of_filepaths.csv.
             %
             % Return
             % ------
@@ -4199,7 +4202,7 @@ classdef ESPEnv < handle
             % Filter objectNames by the versionOfAncillary
             % (necessary for versionOfAncillary independent filePaths).
             % NB:This is a bit convoluted but required by the current dirty structure of
-            % configuration_of_filepaths.csv. 2023-11-15.
+            % conf/configuration_of_filepaths.csv. 2023-11-15.
             if Tools.valueInTableForThisField(obj.myConf.filePath, 'dataLabel', ...
                 dataLabel, 'isAncillary') == 0
                 objectNames = cell2table(objectNames);
@@ -4249,8 +4252,8 @@ classdef ESPEnv < handle
             % shortObjectName: char. For region, shortName, for landsubdivision ''.
 
             % NB: there are probably cases i don't detect in the condition.     @tocheck
-            % we get objectId from objectName and configuration_of_regions.csv and
-            % configuration_of_landsubdivisions.csv.
+            % we get objectId from objectName and conf/configuration_of_regions.csv and
+            % conf/configuration_of_landsubdivisions.csv.
             % Code below is to make certain that
             % objectId is numeric and single, I don't trust Matlab and its automatic
             % conversion which can make the division below a integer division we don't
@@ -4415,7 +4418,7 @@ classdef ESPEnv < handle
             % Parameters
             % ----------
             % varLabel: char or uint8. varId or varName. Must be unique in
-            %   configuration_of_variables.csv.
+            %   conf/configuration_of_variables.csv.
             %
             % Return
             % ------
@@ -4423,7 +4426,7 @@ classdef ESPEnv < handle
             % varName: char. output_name (non-unique).                        @toprecise
             %
             % NB: there are probably cases i don't detect in the condition.     @tocheck
-            % we get varId from varName and using configuration_of_variables.csv.
+            % we get varId from varName and using conf/configuration_of_variables.csv.
             % % NB: impacts the files sent to web-app and the stc preinterp files.
             % NB: varName should be only used for the geotiffs and we'll need to see
             %   if this can be replaced by varId                                   @todo
@@ -4911,14 +4914,15 @@ classdef ESPEnv < handle
             %   name of the landSubdivisionGroup. E.g. 'westernUS' or 'USWestHUC2'.
             %   can also be objectId, unique id of the subdivision.
             %   In any case, objectId or objectName MUST be present in
-            %   configuration_of_regions.csv or configuration_of_landsubdivisions.csv.
+            %   conf/configuration_of_regions.csv or
+            %   conf/configuration_of_landsubdivisions.csv.
             %   NB: long-term goal should be only have objectIds.
             % dataLabel: char. Label (type) of data for which the file is required.
             % thisDate: datetime. Cover the period for which we want the files.
             %   Can also be '' if no argument.
             % varName: char. Name of the variable (name_unique in
-            %   configuration_of_variables.csv. Alternatively can be varId, the unique
-            %   id of the variable.
+            %   conf/configuration_of_variables.csv. Alternatively can be varId, the
+            %   unique  id of the variable.
             %   Can also be '' if no argument.
             %   NB: long-term goal should be only have varIds.
             % complementaryLabel: char. This Label, if available may precise a
@@ -5508,8 +5512,8 @@ classdef ESPEnv < handle
                     theseDate(1), varName, complementaryLabel, optim = optim, ...
                     thisIndex = thisIndex);
             end
-                % Raises error if dataLabel not in configuration_of_filenames.csv and
-                % in modisData.versionOf.
+                % Raises error if dataLabel not in conf/configuration_of_filenames.csv
+                % and in modisData.versionOf.
                 % NB: metaData is information yielded by getObjectIdentification() and
                 % getVariableIdentification() through the call to
                 % replacePatternByValue().
@@ -5991,15 +5995,10 @@ classdef ESPEnv < handle
                 return;
             end
 
-            [thisFilepath, ~, ~] = fileparts(mfilename('fullpath'));
-            parts = split(thisFilepath, filesep);
-            thisFilepath = join(parts(1:end-1), filesep); % 1 level up
-            obj.confDir = fullfile(thisFilepath{1}, 'conf');
-            confLabels = fieldnames(obj.configurationFilenames);
+            confFilePath = ESPEnv.getESPConfFilePath(confLabel);
             fprintf('%s: Load %s configuration\n', mfilename(), confLabel);
             tmp = ...
-                readtable(fullfile(obj.confDir, ...
-                obj.additionalConfigurationFilenames.(confLabel)), 'Delimiter', ',');
+                readtable(confFilePath, 'Delimiter', ',');
             tmp(1,:) = []; % delete comment line
 
             % Convert Date string columns into datetimes.
@@ -6021,7 +6020,7 @@ classdef ESPEnv < handle
                 nonUniqueIdx = find(~ismember(allIdx, firstIdx));
                 if ~isempty(nonUniqueIdx)
                     error('ESPEnv:nonUniqueIdInConf', ...
-                        ['configuration_of_landsubdivisions.csv contains non ', ...
+                        ['conf/configuration_of_landsubdivisions.csv contains non ', ...
                         'unique ids, for instance %d - %s.\n'], ...
                         tmp.id(nonUniqueIdx(1)), ...
                         tmp.name(nonUniqueIdx(1)));
@@ -6050,9 +6049,9 @@ classdef ESPEnv < handle
                 tmp = tmp(~isnan(tmp.id), :);
             elseif strcmp(confLabel, 'variablestat')
                 confLabel2 = 'landsubdivisionstat';
+                confFilePath = ESPEnv.getESPConfFilePath(confLabel2);
                 tmp2 = ...
-                    readtable(fullfile(obj.confDir, ...
-                        obj.additionalConfigurationFilenames.(confLabel2)), ...
+                    readtable(confFilePath, ...
                         'Delimiter', ',');
                 tmp = innerjoin(tmp, tmp2, ...
                     LeftKeys = 'landSubdivisionStatId', RightKeys = 'id', ...

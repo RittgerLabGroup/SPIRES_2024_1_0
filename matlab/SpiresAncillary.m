@@ -12,8 +12,8 @@ classdef SpiresAncillary < handle
   versionOfAncillary = 'v3.2';
   inputProduct = 'mod09ga'; % 'vnp09ga';
   inputProductVersion = '061'; %'002';
-  addpath(genpath([getenv('projectDir'), 'dev/esp/tbx/ESPToolbox']));
-  addpath(genpath([getenv('projectDir'), 'MATLAB/SPIRES/MATLABFileExchange/Inpaint_nans']));
+  addpath(genpath(getenv('matlabPathForESPToolbox')));
+  addpath(genpath(getenv('matlabPathForInpaintNans'));
   waterYear = 2023;
 
   modisData = MODISData(label = label, versionOfAncillary = versionOfAncillary, ...
