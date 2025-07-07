@@ -8,23 +8,23 @@ For this purpose, the code first downloads the MOD09GA files for the western US 
 
 # Installation and code organization.
 
-[Install and requirements](doc/user_guide_v202410/install_spires_v202410.md)
-with [output netcdf specifities](doc/user_guide_v202410/output_netcdf_v202410.md)
+[Install and requirements](doc/user_guideSpiresV202410/install.md)
+with [output netcdf specifities](doc/user_guideSpiresV202410/output_netcdf.md)
 
-[Code and ancillary data organization](doc/user_guide_v202410/code_organization_v202410.md). This page also briefly presents the diversity of the code blocks and how each block interacts with another within the use of a HPC environment and [Slurm](https://slurm.schedmd.com/documentation.html).
+[Code and ancillary data organization](doc/user_guideSpiresV202410/code_organization.md). This page also briefly presents the diversity of the code blocks and how each block interacts with another within the use of a HPC environment and [Slurm](https://slurm.schedmd.com/documentation.html).
 
 
 # Run in historics or near real time.
 
-[SPIReS v2024.1.0 Algorithm near-real time (NRT) run](doc/user_guide_v202410/spires_run_nrt_pipeline_v202410.md)
+[SPIReS v2024.1.0 Algorithm near-real time (NRT) run](doc/user_guideSpiresV202410/run_nrt_pipeline.md)
 
-[SPIReS v2024.1.0 Algorithm historic (HIST) run](doc/user_guide_v202410/spires_run_historics_v202410.md)
+[SPIReS v2024.1.0 Algorithm historic step (HIST) run](doc/user_guideSpiresV202410/run_historic_step.md)
 
-[Checking logs and job result](doc/user_guide_v202410/checking_logs_v202410.md)
+[Checking logs and job result](doc/user_guideSpiresV202410/checking_logs.md)
 
 # Complementary documentation.
 
-[Data file organization](doc/user_guide_v202410/data_organization_spires_v202410.md)
+[Data file organization](doc/user_guideSpiresV202410/data_organization.md)
 
 
 

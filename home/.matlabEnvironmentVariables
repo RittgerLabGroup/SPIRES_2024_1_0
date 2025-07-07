@@ -1,17 +1,24 @@
-export thisEspProjectDir=${espDevProjectDir}
+# To edit to your configuration.
+########################################################################################
+# Absolute path of root directory of the project code, to edit to your configuration.
+thisEspProjectDir=${espProjectDir}
+
 # ESP external matlab package paths
-export matlabPathForESPDoc=${espDevProjectDir}tbx/doc
-export matlabPathForESPToolbox=${espDevProjectDir}tbx/ESPToolbox
-export matlabPathForESPTests=${espDevProjectDir}tests
-export matlabPathForESPUpdates=${espDevProjectDir}updates
 export matlabPathForInpaintNans=${espProjectDir}external/Inpaint_nans
 export matlabPathForParBal=${projectDir}MATLAB/ParBal
+  # https://github.com/edwardbair/ParBal
 export matlabPathForRasterReprojection=${projectDir}MATLAB/RasterReprojection
+  # https://github.com/DozierJeff/RasterReprojection
 export matlabPathForSpiresCore=${projectDir}MATLAB/SPIRES/core
+  # https://github.com/edwardbair/SPIRES
 export matlabPathForSpiresModisHdf=${projectDir}MATLAB/SPIRES/MODIS_HDF
 export matlabPathForSpiresRasterReprojection=${projectDir}MATLAB/SPIRES/RasterReprojection
 export matlabPathForSpiresMccm=${projectDir}MATLAB/SPIRES/MccM
 export matlabPathForSpiresMappping=${projectDir}MATLAB/SPIRES/Mappping
 export matlabPathForSpiresGeneral=${projectDir}MATLAB/SPIRES/General
 export matlabPathForSpiresTimeSpace=${projectDir}MATLAB/SPIRES/TimeSpace
-export webColorMapFilePathInJson=${espDevProjectDir}tbx/conf/colormaps.json
+
+# Not to be edited.
+########################################################################################
+# Paths to shared and specific source.
+export webColorMapFilePathInJson=${espProjectDir}tbx/conf/colormaps.json
