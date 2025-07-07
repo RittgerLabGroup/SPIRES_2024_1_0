@@ -17,7 +17,7 @@ For each version of Snow-Today algorithm (STC or SPIReS), a .cdl template is des
 A .cdl template can be generated from a .nc on a node of the supercomputer with nco library*:
 ```
 ml nco/4.8.1;
-originalNetCdfFilePath=${espDevProjectDir}/tbx/template/outputnetcdf.v03.nc
+originalNetCdfFilePath=${thisEspProjectDir}template/outputnetcdf.v03.nc # $thisEspProjectDir defined in env/.matlabEnvironmentVariablesSpiresV202410
 cdlFilePath=${espScratchDir}outputnetcdf.v03.cdl
 ncdump -hcs $originalNetCdfFilePath > $cdlFilePath
 ```
@@ -27,15 +27,15 @@ The .cdl template can be edited with any text editor to add variables or propert
 The .nc sample file is generated from the .cdl on a compute node with:
 ```
 ml nco/4.8.1;
-cdlFilePath=${espDevProjectDir}/tbx/template/outputnetcdf.v03.cdl
+cdlFilePath=${thisEspProjectDir}template/outputnetcdf.v03.cdl
 ncgen -o ${cdlFilePath/\.cdl/\.nc} -k 'netCDF-4' -x $cdlFilePath
 ```
 
 Current available templates:
 ```
-cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2024.1.0.hist.cdl
+cdlFilePath=${espDevProjectDir}template/outputnetcdf.v2024.1.0.hist.cdl
   # Previously dubbed v2024.0d, Global mod09ga SPIReS (v1 (?) for NSIDC).
-cdlFilePath=${espDevProjectDir}tbx/template/outputnetcdf.v2024.1.0.nrt.cdl
+cdlFilePath=${espDevProjectDir}template/outputnetcdf.v2024.1.0.nrt.cdl
   # Same as above, for near real time data.
 ```
 

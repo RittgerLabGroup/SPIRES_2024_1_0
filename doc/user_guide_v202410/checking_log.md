@@ -15,11 +15,11 @@ This project has three types of jobs/scripts:
 - monitoring script. Written in bash and run on slurm cluster, with 2 log file output for all regions covered, per period requested.
 - step script. Written in bash, Matlab, with .csv configuration files and .nc templates, run on slurm cluster, with 1 log file output per region and period requested.
 
-More info on [code organization](code_organization_v202410.md)
+More info on [code organization](code_organization.md)
 
 ## Submission scripts.
 
-The submission scripts [spires_run_nrt_pipeline](spires_run_nrt_pipeline_v202410.md) and [spires_run_nrt_pipeline](spires_run_nrt_pipeline_v202410.md) display their info on the shell. If the submission to slurm is successful, they'll display the jobIds of the monitoring job(s) they submitted to slurm:
+The submission scripts [run_nrt_pipeline](run_nrt_pipeline.md) and [run_historic_step](run_historic_step.md) display their info on the shell. If the submission to slurm is successful, they'll display the jobIds of the monitoring job(s) they submitted to slurm:
 ```
 2024
 Submitted batch job 19647584
@@ -31,7 +31,7 @@ For historic runs, the year of data generated is also indicated (or water year, 
 
 ## Monitoring scripts (runSubmitter.sh).
 
-Monitoring jobs are submitted using the submission scripts above. One main script `shared/sh/runSubmitter.sh` is used for these jobs, with ancillary scripts of filepath pattern `shared/sh/tools***.sh`.
+Monitoring jobs are submitted using the submission scripts above. One main script `bash/runSubmitter.sh` is used for these jobs, with ancillary scripts of filepath pattern `bash/tools***.sh`.
 
 ### Real time.
 
@@ -79,7 +79,7 @@ cat *19647584*.csv
 
 When you run historics, if you submit a lot of monitoring jobs, you can see their results rapidly using the commands above on a **login** node, and after going to the root of the project and loading the slurm cluster tool module:
 ```
-cd ${projectDir}/STC-MODSCAG-MODDRFS # if the project is there, with ${projectDir} defined in .bashrc.
+cd ${thisEspProjectDir} # $thisEspProjectDir defined in .matlabEnvironmentVariableV, either in env/, or in your home.
 ml slurm/xxx
 source shared/sh/toolsJobs.sh
 get_log_status_for_submit_historics sCRa5 1964
@@ -91,7 +91,7 @@ xxx/sCRa524_1_19647665.out; COMPLETED; Jobs done: 5/5.
 xxx/sCRa524_1_19649865.out; COMPLETED; Jobs done: 5/5.
 xxx/sCRa525_1_19649915.out; COMPLETED; Jobs done: 5/5.
 ```
-Here we asked the result for all monitoring job having a job name containing the pattern `sCRa5` (list of monitoring jobnames in variable `$submitScriptIdJobNames` in `specific/sh/submitStcForHistorics.sh`) and with monitoring jobId starting by `1964`. The output shows that all jobs have been successfully achieved.
+Here we asked the result for all monitoring job having a job name containing the pattern `sCRa5` (list of monitoring jobnames in variable `$submitScriptIdJobNames` in `bash/submitHistoric.sh`) and with monitoring jobId starting by `1964`. The output shows that all jobs have been successfully achieved.
 
 ## Step scripts.
 
@@ -104,7 +104,7 @@ The real time monitoring of a step script job can be carried out with:
 gLog
 tail -f *292*19647585*.out
 ```
-if the arrayJobId is `19647585` and the id of the region/tile is `292` (list of ids in `shared/conf/configuration_of_regions.csv`).
+if the arrayJobId is `19647585` and the id of the region/tile is `292` (list of ids in `conf/configuration_of_regions${thisEnvironment}.csv` or by default in `conf/configuration_of_regions.csv`), with `$thisEnvironment=SpiresV202410`.
 
 Note that the filename includes that arrayJobId and not the jobId (the jobId appears in the column `job` of the array listing the status of every job. 
 

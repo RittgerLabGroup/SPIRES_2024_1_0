@@ -62,23 +62,9 @@ sequenceDiagram
 
 ### Within repository.
 
-#### doc.
+To the exception of the files in `env/` and `home/` (see [install](install.md)), or only for advanced use, not for production of data, files within this project repository should not be edited.
 
-This directory contains the documentation of the project (in `doc/user_guide_v202410`), written in Markdown. Some of this documentation is a copy of documentation for other projects that are developed within the snow-today application.
-
-#### env.
-
-Contains the project configuration file .matlabEnvironmentVariablesv202410.
-
-#### external.
-
-This directory contains code of Inpaint_nans external package, used to spatially fill the gaps in the input product (mod09ga).
-
-#### home.
-
-Contains environment variable and alias files that should be positionned in the home directory of the user, for Linux. A version for Windows is not available.
-
-#### scripts.
+#### bash/ and bashSpiresV202410/.
 
 Contains all the bash scripts which handle the submission and monitoring of slurm jobs for the daily generation with the near real time pipeline or the generation of historics.
 
@@ -87,37 +73,55 @@ In particular:
 - the `tools*.sh` series + runSubmitter.sh, shared with other projects, which handle the submission and monitoring of slurm jobs. In addition, runRsync.sh is used to sync files scratch to archive and vice-versa. All these files **must not** be updated without coordination with other projects.
 - the `run*.sh` scripts, which handle the specificities of each step of the nrt pipeline or the generation of historics. Most scripts are shared with other versions of SPIReS (and so these files **must not** be updated without coordination with other SPIReS versions), to the exception of: runSpiresFill.sh, runSpiresSmooth.sh, runUpdateMosaicBigRegion.sh, runUpdateWaterYearSCD.sh.
 
-Referring to the [code methodological approach](#approach-diversity-of-code-files), the scripts:
-- **submitter** are `scripts/submitSpiresV202410ForNrt.sh` and `scripts/submitSpiresV202410ForHistorics.sh`,
-- **runSubmitter** is `scripts/runSubmitter.sh`,
-- **runStep** are the remaining scripts starting by `run`, e.g. `scripts/runGetMod09gaFiles.sh`. The list of runStep scripts is given in `scripts/configuration.sh`.
-- **tool** are the scripts starting by `tools`, e.g. `scripts/toolsStart.sh`.
+Referring to the [code methodological approach](#diversity-of-code-files), the scripts:
+- **submitter** are `bash/submitNrt.sh` and `bash/submitHistoric.sh`,
+- **runSubmitter** is `bash/runSubmitter.sh`,
+- **runStep** are the remaining scripts starting by `run`, e.g. `bash/runGetMod09gaFiles.sh`. The list of runStep scripts is given in `bash/configurationSpiresV202410.sh`. Scripts specific to SPIReS v2024.1.0 are in `bashSpiresV202410`.
+- **tool** are the scripts starting by `tools`, e.g. `bash/toolsStart.sh`.
 
-#### tbx/ESPToolbox.
+#### conf/.
 
-Contains .m script files which do the actual calculations for SPIReS core and peripheral steps. Some are classes. Others are function files carrying out utilities.
+Contains .csv configuration files, that are loaded as tables with the `ESPEnv.m` and `Regions.m` scripts. Allows to configure the file patterns, the step parameters (called here filters), the versions, the region parameters, the land subdivisions, the variables, etc.
+
+Most configuration is generic. Configuration files specific to SPIReS v2024.1.0 exist, for instance `configuration_of_versionsvariablesSpiresV202410.csv`, and are named based on the initial file default to Snow-Today, `[previous_name_without_extension]SpiresV202410[extension]`.
+
+Edition of these configuration files is not recommended for data production and reserved for advanced use.
+
+#### doc/.
+
+This directory contains the documentation of the project (in `doc/user_guideSpiresV202410/`), written in Markdown. Some of this documentation is a copy of documentation for other projects that are developed within the snow-today application.
+
+#### env/.
+
+Contains the project configuration file .matlabEnvironmentVariablesSpiresV202410. This file should be edited for [install](install.md).
+
+#### external/.
+
+This directory contains code of Inpaint_nans external package, used to spatially fill the gaps in the input product (mod09ga).
+
+#### home/.
+
+Contains environment variable and alias files that should be positionned (and edited, see [install](install.md)) in the home directory of the user, for Linux. A version for Windows is not available.
+
+
+#### matlab/ and matlabSpiresV202410/.
+
+Contains .m script files which do the actual calculations for SPIReS core and peripheral steps. Some are classes. Others are function files carrying out utilities. Scripts specific to SPIReS v2024.1.0 are in `matlabSpiresV202410/`.
 
 *Warning*
-For this version of SPIReS, many function scripts are not physically in this repository but are in https://github.com/edwardbair/SPIRES repository, [cloned locally](install_spires_v202410.md) and used by the scripts of this project.
+For this version of SPIReS, many function scripts are not physically in this repository but are in https://github.com/edwardbair/SPIRES repository, [cloned locally](install.md) and used by the scripts of this project.
 
-#### tbx/colormaps.
+#### tbx/colormaps/.
 
 Legacy colormaps. Might be removed from this repository.
-
-#### tbx/conf.
-
-Contains .csv configuration files, that are loaded as tables with the ESPEnv.m and Regions.m scripts. Allows to configure the file patterns, the step parameters (called here filters), the versions, the region parameters, the land subdivisions, the variables, etc.
-
-**Advanced use**
-If the step filters are updated (for instance setting up a threshold of minimal snow detection of 15% rather than 10%), it is advised to have a distinct, new version number for the output spires data after editing of this configuration.
 
 #### tbx/mapping.
 
 Legacy matlab struct files used for reprojection. Might be removed from this repository.
 
-#### tbx/template.
+#### template/.
 
-Contains the .cdl templates of the [output netcdf](output_netcdf_v202410.md).
+Contains the .cdl templates of the [output netcdf](output_netcdf.md).
 
 #### updates.
 
