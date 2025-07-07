@@ -84,7 +84,7 @@ thisSequence=
 thisSequenceMultiplierToIndices=
 thisMonthWindow=12
 
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
 fi
@@ -92,7 +92,7 @@ fi
 # Argument setting
 # None.
 
-source scripts/toolsMatlab.sh
+source bash/toolsMatlab.sh
 
 # Matlab.
 ########################################################################################
@@ -116,7 +116,7 @@ ${catchExceptionAndExit}
 EOM
 
 # Launch Matlab and terminate bash script.
-source scripts/toolsStop.sh
+source bash/toolsStop.sh
 
 # SIER_201 remove the tile h07v03 for USAlaska tileset because lack JPL data from
 # 2005 to 2018.

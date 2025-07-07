@@ -105,12 +105,12 @@ thisSequence=001-036
 thisSequenceMultiplierToIndices=3
 thisMonthWindow=12
 
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 if [ $? -eq 1 ]; then
   error_exit "Exit=1, matlab=no, toolStart.sh failed at some point."
 fi
 
-source scripts/toolsMatlab.sh
+source bash/toolsMatlab.sh
 
 # Scratch shuffle.
 ########################################################################################
@@ -173,7 +173,7 @@ ${catchExceptionAndExit}
 EOM
 
 # Launch Matlab and terminate bash script.
-source scripts/toolsStop.sh
+source bash/toolsStop.sh
 
 # NB: Maybe the geotiff generation per big region (root) is not optimally placed. @checking
 

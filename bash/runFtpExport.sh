@@ -129,7 +129,7 @@ thisSequence=
 thisSequenceMultiplierToIndices=
 thisMonthWindow=12
 
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
 fi
@@ -213,13 +213,12 @@ fi
 ########################################################################################
 # NB: No check that the rsync jobs are correctly achieved!
 printf "%77s\n" | tr ' ' '#'
-scriptPath=./scripts/runRsync.sh
+scriptPath=${scriptIdFilePathAssociations["rSynchro"]}
 slurmAccount=${SLURM_JOB_ACCOUNT};
 slurmLogDir=${projectDir}slurm_out/;
 # scratchPath defined in toolsStart.sh.
 slurmOutputPath=${slurmLogDir}%x_%a_%A.out;
 exclude="";
-scriptPath=./scripts/runRsync.sh
 for pathIdx in $(echo ${!sourceBasePaths[@]}); do
   sourceBasePath=${scratchPath}${sourceBasePaths[$pathIdx]}
   endSourceBasePath=${endSourceBasePaths[$pathIdx]}
@@ -310,4 +309,4 @@ done
 #set +o noglob
 echo "Done sync to ftp."
 '
-source scripts/toolsStop.sh
+source bash/toolsStop.sh

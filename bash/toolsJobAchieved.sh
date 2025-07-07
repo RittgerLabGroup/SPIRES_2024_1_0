@@ -17,7 +17,7 @@
 # It can also be over-written at the command line
 #SBATCH --mail-type FAIL,INVALID_DEPEND,TIME_LIMIT,REQUEUE,STAGE_OUT
 
-source scripts/toolsJobs.sh
+source bash/toolsJobs.sh
 
 printf "Environment variables before export:\n--------------------------------------\n\n"
 env

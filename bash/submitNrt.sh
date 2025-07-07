@@ -95,10 +95,10 @@ shift $(($OPTIND - 1))
 
 # External configuration setting.
 ########################################################################################
-printf "Load scripts/configuration${thisEnvironment^}.sh...\n"
-source scripts/configuration${thisEnvironment^}.sh # include source env/.matlabEnvironmentVariables${thisEnvironment^}
-printf "Load scripts/toolsRegions.sh...\n"
-source scripts/toolsRegions.sh
+printf "Load bash/configuration${thisEnvironment}.sh...\n"
+source bash/configuration${thisEnvironment}.sh # include source env/.matlabEnvironmentVariables${thisEnvironment^}
+printf "Load bash/toolsRegions.sh...\n"
+source bash/toolsRegions.sh
 
 # Referencing the parameters on the selected pipeline.
 ########################################################################################
@@ -251,7 +251,7 @@ EOM
 printf "\n${thisHeader}\n"
 
 submitLine="sbatch ${exclude} --account=${slurmAccount} --qos=${slurmQos} -o ${slurmOutputPath} --job-name=${scriptId} --cpus-per-task=1 --ntasks-per-node=${thisTasksPerNode} --mem=${thisMem} --time=${thisTime} --array=${objectId} ${scriptPath} -A ${versionOfAncillary} -E ${thisEnvironment} -L ${inputLabel} -M 0 -O ${outputLabel} -p ${inputProductAndVersion} -Q ${countOfCells} ${workers} -x ${scratchPath} -y ${archivePath} -W ${espWebExportConfId} ${pipeLine}"
-controlingSubmitLineWoParameter="sbatch ${beginTime} ${exclude} --account=${slurmAccount} --qos=${slurmQos} -o ${slurmOutputPath} --job-name=${controlScriptId} --ntasks-per-node=1 --mem=1G --time=${controlTime} --array=1 scripts/runSubmitter.sh"
+controlingSubmitLineWoParameter="sbatch ${beginTime} ${exclude} --account=${slurmAccount} --qos=${slurmQos} -o ${slurmOutputPath} --job-name=${controlScriptId} --ntasks-per-node=1 --mem=1G --time=${controlTime} --array=1 bash/runSubmitter.sh"
 
 echo "${controlingSubmitLineWoParameter} \"${submitLine}\""
 printf "\n"

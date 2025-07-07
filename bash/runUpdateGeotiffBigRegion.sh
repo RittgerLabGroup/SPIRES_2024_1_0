@@ -87,7 +87,7 @@ thisMonthWindow=0
 # Matlab package paths added.
 matlabPackages=(rasterReprojection)
 
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
 fi
@@ -97,7 +97,7 @@ fi
 
 if [[ $inputLabel == 'v2024.1.0' || $inputLabel == 'v2024.0d' ]]; then
   # Version v2024.1.0 = v2024.0d.
-  source scripts/toolsMatlab.sh
+  source bash/toolsMatlab.sh
 
   # Matlab.
   ######################################################################################
@@ -318,7 +318,7 @@ conda install gdal
   printf "\nDone generating projected tifs for each tile/variable of big region ${objectId} of the last available day.\n\n"
 fi
 # Launch Matlab and terminate bash script.
-source scripts/toolsStop.sh
+source bash/toolsStop.sh
 
 # SIER_201 remove the tile h07v03 for USAlaska tileset because lack JPL data from
 # 2005 to 2018.

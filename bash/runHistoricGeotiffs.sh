@@ -19,9 +19,9 @@
 #SBATCH --array=2023
 
 # Example runs:
-# - Dailey EPSG 3857: for year in {2023..2023}; do for month in 5; do sbatch --job-name HistGeon-${year}-${month} --time=00:05:00 --ntasks-per-node=10 --array=${year} ./scripts/runHistoricGeotiffs.sh -L v2023.1 westernUS 3857 ${month} 16 0; done; done;
-# - Historic EPSG 4326: for year in {2020..2022}; do for month in 3 6 9 12; do sbatch --job-name HistGeom-${year}-${month} --time=00:40:00 --ntasks-per-node=9 --array=${year} ./scripts/runHistoricGeotiffs.sh -L v2023.1 westernUS 4326 ${month} 31 3; done; done
-# - Historic EPSG 5070: for year in {2000..2007}; do for month in 3 6 9 12; do sbatch --job-name HistGeom-${year}-${month} --time=00:40:00 --ntasks-per-node=16 --array=${year} ./scripts/runHistoricGeotiffs.sh -L v2023.1 westernUS 5070 ${month} 31 3; done; done
+# - Dailey EPSG 3857: for year in {2023..2023}; do for month in 5; do sbatch --job-name HistGeon-${year}-${month} --time=00:05:00 --ntasks-per-node=10 --array=${year} ./bash/runHistoricGeotiffs.sh -L v2023.1 westernUS 3857 ${month} 16 0; done; done;
+# - Historic EPSG 4326: for year in {2020..2022}; do for month in 3 6 9 12; do sbatch --job-name HistGeom-${year}-${month} --time=00:40:00 --ntasks-per-node=9 --array=${year} ./bash/runHistoricGeotiffs.sh -L v2023.1 westernUS 4326 ${month} 31 3; done; done
+# - Historic EPSG 5070: for year in {2000..2007}; do for month in 3 6 9 12; do sbatch --job-name HistGeom-${year}-${month} --time=00:40:00 --ntasks-per-node=16 --array=${year} ./bash/runHistoricGeotiffs.sh -L v2023.1 westernUS 5070 ${month} 31 3; done; done
 
 # Functions.
 #--------------------------------------------------------------------------
@@ -89,7 +89,7 @@ thisScriptDir=$(pwd)
 printf "Script directory: ${thisScriptDir}\n"
 #Go to parent of this script, so that correct pathdef.m file is used
 cd ..
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 
 # Argument setting
 tileId=$1
@@ -102,7 +102,7 @@ window=$5
 inputForESPEnv="modisData = modisData"
 inputForRegion="'"${regionName}"', '"${regionName}"_mask', espEnv, modisData"
 
-source scripts/toolsMatlab.sh
+source bash/toolsMatlab.sh
 
 matlab -nodesktop -nodisplay -r "clear; "\
 "try; "\
@@ -119,4 +119,4 @@ matlab -nodesktop -nodisplay -r "clear; "\
 "end; "\
 "exit(0);" || error_exit "Line $LINENO: matlab error."
 
-source scripts/toolsStop.sh
+source bash/toolsStop.sh

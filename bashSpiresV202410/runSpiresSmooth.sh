@@ -109,7 +109,7 @@ thisMonthWindow=12
 # Matlab package paths added.
 matlabPackages=(parBal spiresCore spiresGeneral spiresModisHdf spiresTimeSpace)
 
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
 fi
@@ -117,7 +117,7 @@ fi
 # Argument setting.
 # None.
 
-source scripts/toolsMatlab.sh
+source bash/toolsMatlab.sh
 
 # Matlab.
 ########################################################################################
@@ -147,4 +147,4 @@ EOM
 # NB: didn't figure out how to escape * character.
 
 # Launch Matlab and terminate bash script.
-source scripts/toolsStop.sh
+source bash/toolsStop.sh

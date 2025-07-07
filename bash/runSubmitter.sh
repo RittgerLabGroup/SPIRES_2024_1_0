@@ -136,7 +136,7 @@ if [ ! -v SLURM_JOB_ID ]; then
   exit 1
 fi
 
-source scripts/toolsJobs.sh
+source bash/toolsJobs.sh
   # Include $slurmTerminatedStates
 
 # Get info on the runSubmitter job.

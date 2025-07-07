@@ -37,15 +37,22 @@ while getopts ${thisGepOptsString} opt; do
     printf "\npipeLineId=${pipeLineId}\n\n";;
   esac
 done
+
+# Loading configuration and parameters.
 if [[ -z $thisEnvironment ]]; then
-  source scripts/configuration.sh
+  thisEnvironment=SpiresV202410;
+    # By default we set the environment to the one in production for Snow-Today NRT.
+  source bash/configuration.sh
 else
-  source scripts/configuration${thisEnvironment^}.sh
-    # also include the specific env/.matlabEnvironmentVariables.
+  source bash/configuration${thisEnvironment}.sh
+    # also include the specific env/.matlabEnvironmentVariablesV.
+fi
+if [[ -z "$matlabPathForThisProject" ]];
+  matlabPathForThisProject=${thisEspProjectDir}matlab${thisEnvironment}/
 fi
 
-source scripts/toolsJobs.sh
-# We also source scripts/toolsRegions.sh below.
+source bash/toolsJobs.sh
+# We also source bash/toolsRegions.sh below.
 
 ########################################################################################
 # Functions.
@@ -366,7 +373,7 @@ if [[ ${mainBashSource} == *"slurm_script"* ]]; then
   # NB: deactivated because transferred to runSubmitter.sh.
 : '
   achievedSbatch="sbatch --account=${slurmAccount} --export=NONE --qos=${slurmQos} --time 00:01:00 "\
-"-o ${slurmLogDir}endlog${scriptId}-%x-%j.out --dependency=afterany:${slurmFullJobId} ./scripts/toolsJobAchieved.sh "\
+"-o ${slurmLogDir}endlog${scriptId}-%x-%j.out --dependency=afterany:${slurmFullJobId} ./bash/toolsJobAchieved.sh "\
 "${slurmFullJobId} ${slurmStdOut}"
   printf "Submit performance statistic update job.\n$(echo ${achievedSbatch} | sed s~%~%%~g)\n"
   # the % are interpreted by printf, so we need sed to prevent that in the display.
@@ -385,7 +392,7 @@ workingDirectory=$(pwd)
 printf "Working directory: ${workingDirectory}\n"
 printf "#############################################################################\n"
 
-source scripts/toolsRegions.sh
+source bash/toolsRegions.sh
 # In toolsRegions.sh, we need $workingDirectory.
 
 ########################################################################################
@@ -657,7 +664,7 @@ do
     b) firstToLastIndex="$OPTARG";;
     c) filterConfId="$OPTARG";;
     d) dateOfToday="$OPTARG";;
-    E) thisEnvironment="$OPTARG";;
+    E) ;;
     D) waterYearDateString="$OPTARG"
       isToBeRepeated=0
       printf "Job wont be scheduled for a repeat because option -D "\
@@ -688,7 +695,7 @@ do
     w) parallelWorkersNb="$OPTARG";;
     W) espWebExportConfId="$OPTARG";;
     z) codePlatform="$OPTARG";;
-    Z) pipeLineId="$OPTARG";;
+    Z) ;;
     ?) printf "Unknown option %s\n" $opt
       usage
       exit 1;;
@@ -767,15 +774,6 @@ printf "$(pStart): tmpDir=${tmpDir}.\n"
 ########################################################################################
 # 7. Arguments and parameters of the matlab script.
 ########################################################################################
-# Platform environment variables/parameters, if not already loaded, for instance by
-# scripts/configurationV.sh (e.g. source env/.projectEnvironmentVariables or source env/..matlabEnvironmentVariablesV202410).
-if [[ $codePlatform -eq 0 && -z $thisEspProjectDir ]]; then
-  printf "source ~/.matlabEnvironmentVariables\n"
-  source ~/.matlabEnvironmentVariables
-elif [[ -z $thisEspProjectDir ]]; then
-  printf "source ~/.matlabDevEnvironmentVariables\n"
-  source ~/.matlabDevEnvironmentVariables
-fi
 
 # Input product and version, e.g. mod09ga and 061.
 inputProduct=${inputProductAndVersion%.*}
@@ -850,6 +848,7 @@ fi
 "${expectedCountOfArguments} expected."
 
 packagePathInstantiation="addpath(genpath('${matlabPathForESPToolbox}')); "
+packagePathInstantiation=${packagePathInstantiation}"addpath(genpath('${matlabPathForThisProject}')); "
 for matlabPackage in ${matlabPackages[@]}; do
   parameterName=matlabPathFor${matlabPackage^}
   packagePathInstantiation=${packagePathInstantiation}"addpath(genpath('$(echo ${!parameterName})')); ";  

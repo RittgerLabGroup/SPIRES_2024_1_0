@@ -129,7 +129,7 @@ thisSequence=
 thisSequenceMultiplierToIndices=
 thisMonthWindow=2
 
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
 fi
@@ -372,4 +372,4 @@ for thisDate in $theseDates; do
   fi
 done
 
-source scripts/toolsStop.sh
+source bash/toolsStop.sh

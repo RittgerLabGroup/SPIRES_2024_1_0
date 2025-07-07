@@ -2,6 +2,9 @@
 #
 # Initialize region parameters. SIER_345.
 
+# NB: ${thisEnvironment} should be defined. In classic operations, it is done in
+# toolsStart.sh.
+
 ########################################################################################
 # Functions.
 ########################################################################################
@@ -19,7 +22,7 @@ get_object_ids_from_big_region_object_ids_string() {
   # - theseObjectIds: String, e.g. "292,293". List of the ids of the modisTiles
   #   associated to the big region. The ids are unique
   local objectId="$1"
-  local regionConfFilePath=${workingDirectory}/tbx/conf/configuration_of_regions.csv
+  local regionConfFilePath=${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv
   local theseObjectIds=""
 
   IFS=',' read -ra bigObjectIdsArray <<< "$objectId"
@@ -70,7 +73,7 @@ get_region_names_from_object_ids_string() {
   # - regionNames: String, e.g. "h08v04,h08v05,westernUS". List of the regionNames
   #   associated with the object ids.
   local objectIds="$1"
-  local regionConfFilePath=${workingDirectory}/tbx/conf/configuration_of_regions.csv
+  local regionConfFilePath=${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv
   local regionNames=""
 
   # Convert the comma-separated string of IDs into an array
@@ -184,7 +187,7 @@ tileArrayStringForTileGroup6="1057,1093"
 
 # List of all big region ids.
 ########################################################################################
-regionConfFilePath=${workingDirectory}/tbx/conf/configuration_of_regions.csv
+regionConfFilePath=${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv
 
 # Use awk to filter and extract, and pipe the output to mapfile
 # mapfile -t reads the input line by line and stores it in the array
@@ -226,16 +229,16 @@ regionIdsPerBigRegion[7]=1057,1093
 
 # Region names for tiles and big regions.
 declare -A allRegionNames
-eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allRegionNames[" $19 "]=" $1 ";\n" }')
+eval $(printf "$(cat ${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allRegionNames[" $19 "]=" $1 ";\n" }')
 # Probably a simpler way than accumulate the greps...                              @todo
 
 # First month of waterYear for tiles and big regions.
 declare -A allFirstMonthOfWaterYear
-eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allFirstMonthOfWaterYear[" $19 "]=" $39 ";\n" }')
+eval $(printf "$(cat ${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allFirstMonthOfWaterYear[" $19 "]=" $39 ";\n" }')
 
 # Big regions for tiles.
 declare -A bigRegionForTile
-eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_regions.csv)" | grep modisTile | grep -E "v3.1|v3.2" | awk -F, '{ printf sep "bigRegionForTile[" $19 "]=" $20 ";\n" }')
+eval $(printf "$(cat ${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv)" | grep modisTile | grep -E "v3.1|v3.2" | awk -F, '{ printf sep "bigRegionForTile[" $19 "]=" $20 ";\n" }')
 # Not clean way to do it, since configuration files can change columns. And eval is
 # dirty...
 
@@ -259,15 +262,15 @@ done
 
 # Land subdivisions per big region
 
-# eval $(printf "$(cat ${workingDirectory}/tbx/conf/configuration_of_landsubdivisions.csv)" | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }'  | grep -v "=;" | tail -n +3)
+# eval $(printf "$(cat ${workingDirectory}conf/configuration_of_landsubdivisions.csv)" | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }'  | grep -v "=;" | tail -n +3)
 
-subdivisionsByRegionString=$(cat ${workingDirectory}/tbx/conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "" $8 ":" $2 ":" $12 ";\n" }' | grep -E "^[^:].*" | grep -E "\:[^0];" | tail -n +3)
+subdivisionsByRegionString=$(cat ${workingDirectory}conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "" $8 ":" $2 ":" $12 ";\n" }' | grep -E "^[^:].*" | grep -E "\:[^0];" | tail -n +3)
 
 declare -A countOfSubdivisionsPerBigRegion
 for bigRegionId in {1..10}; do
   countOfSubdivisionsPerBigRegion[${bigRegionId}]=$(printf "${subdivisionsByRegionString}" | grep -E "^"${bigRegionId}"\:" | wc -l)
 done
 
-#cat ${workingDirectory}/tbx/conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }' | grep -v "=;" | tail -n +3
+#cat ${workingDirectory}conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }' | grep -v "=;" | tail -n +3
 
 

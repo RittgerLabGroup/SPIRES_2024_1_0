@@ -108,7 +108,7 @@ thisMonthWindow=2
 matlabPackages=(inpaintNans spiresCore spiresGeneral spiresMappping spiresMccm \
 spiresModisHdf spiresRasterReprojection)
 
-source scripts/toolsStart.sh
+source bash/toolsStart.sh
 if [ $? -eq 1 ]; then
   exit 1
 fi
@@ -116,7 +116,7 @@ fi
 # Argument setting.
 # None.
 
-source scripts/toolsMatlab.sh
+source bash/toolsMatlab.sh
 
 # Matlab.
 ########################################################################################
@@ -139,7 +139,7 @@ ${catchExceptionAndExit}
 EOM
 
 # Launch Matlab and terminate bash script.
-source scripts/toolsStop.sh
+source bash/toolsStop.sh
 
 # "if ${nbDays} ~= 0; theseDates = theseDates((end - ${nbDays}):end); end; "
 
