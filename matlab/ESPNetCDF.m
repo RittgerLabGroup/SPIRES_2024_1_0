@@ -3,13 +3,13 @@ classdef ESPNetCDF < handle
     % Projection MODIS Sinusoidal only.
     % NB: only works with modis tiles 2023-08-31.
     
-    % IMPORTANT: This class uses sample .nc files stored in tbx/templates. These files
-    %   need to be edited and generated following docs/source/user_guide/output_netcdf.md
+    % IMPORTANT: This class uses sample .nc files stored in template/. These files
+    %   need to be edited and generated following docs/user_guideV/output_netcdf.md
     %
     % Use case
     % --------
 %{
-    addpath(genpath([getenv('espDevProjectDir'), 'tbx/ESPToolbox']));
+    addpath(genpath(getenv('matlabPathForESPToolbox')));
     label = 'v2022.0'; versionOfAncillary = 'v3.2'; % for v03 HMA ASHimalaya.
     label = 'v2024.0d'; versionOfAncillary = 'v3.1';
     label = 'v2023.0e'; versionOfAncillary = 'v3.1'; % for STC western US v2023.hist.
@@ -1021,7 +1021,7 @@ classdef ESPNetCDF < handle
             delete(netCDFFilePath);
           end
           templateNetCdfFilePath = [getenv('thisEspProjectDir'), ...
-              'tbx/template/outputnetcdf.', ...
+              'template/outputnetcdf.', ...
               espEnv.modisData.versionOf.(outputDataLabel), ...
               '.', espEnv.waterYearDate.getNrtOrHist(), '.nc'];
           [status, message] = copyfile(templateNetCdfFilePath, ...
