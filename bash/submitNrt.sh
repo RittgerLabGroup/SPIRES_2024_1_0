@@ -15,14 +15,15 @@ usage() {
   read -r -d '' thisUsage << EOM
 
   Usage: ${PROGNAME}
-    [-v verbosity] [scriptId]
+    [-E thisEnvironment] [-T controlTime] [-U thisStepOnly] [-v verbosity]
+    [-W espWebExportConfId] [-y archivePath] [-Z pipelineId] [scriptId]
     Submit the near real time spires pipeline, starting by a step (scriptId).
     NB: You must launch this script when in root directory of the project.
    
   Options:
-    -E thisEnvironment: String, obligatory. E.g. v202410. Gives the environment
-      version, to distinguish between different version of the algorithm used to
-      calculate snow properties.
+    -E thisEnvironment: String, obligatory. E.g. SpiresV202410, Dev.
+      Gives the environment version, to distinguish between different version of the
+      algorithm used to calculate snow properties.
     -T controlTime: String format 00:00:00, optional. Wall-time of the runSubmitter.sh
       execution, beyond which the monitoring of the pipeline will be stopped. By
       default, time indicated in configuration.sh for the pipeline
@@ -34,6 +35,10 @@ usage() {
       but no prompt.
     -W espWebExportConfId: Int, optional. Configuration id of the target of web export
       server. 0: Prod (default), 1: Integration, 2: QA. 
+    -y archivePath: String, optional. Default $espArchiveDirOps defined in .bashrc.
+      Directory path of the archive from which are
+      collected the most up-to-date data of previous days to the scratch of the user,
+      and to which output data are rsync from this scratch.
     -Z pipelineId: Int, obligatory. E.g. 1. Should refer to a pipelineId defined in
       configuration.sh (or configurationV.sh, with V the environment version, e.g
       V202410).
@@ -63,7 +68,7 @@ verbosity=0
 espWebExportConfId=0
 
 OPTIND=1
-thisGepOptsString="E:T:U:v:W:Z:"
+thisGepOptsString="E:T:U:v:W:y:Z:"
 while getopts ${thisGepOptsString} opt; do
   case $opt in
     E) thisEnvironment="$OPTARG";;
@@ -71,6 +76,7 @@ while getopts ${thisGepOptsString} opt; do
     U) thisStepOnly="$OPTARG";;
     v) verbosity="$OPTARG";;
     W) espWebExportConfId="$OPTARG";;
+    y) archivePath="$OPTARG";;
     Z) pipelineId="$OPTARG";;
     ?) printf "Unknown option %s\n" $opt
     usage
@@ -155,7 +161,10 @@ printf "Starting submission daily run...\n"
 
 git status;
 
-ml slurm/${slurmName2}; slurmAccount=${slurmAccount2}; archivePath=${espArchiveDirOps};
+ml slurm/${slurmName2}; slurmAccount=${slurmAccount2}; 
+if [[ -z $archivePath ]]; then
+  archivePath=${espArchiveDirOps};
+fi
 scratchPath=${slurmScratchDir1}; slurmLogDir=${projectDir}slurm_out/; slurmQos=${slurmQos2};
 
 slurmOutputPath=${slurmLogDir}%x_%a_%A.out;

@@ -126,6 +126,82 @@ The pipeline has some expectations over the input and intermediary data availabl
 
 - The output .netcdf and `dailycsv` files are generated for the full ongoing water year, from 10/1 until date of today - 1. The geotiffs for the web-app are only generated for the last day.
 
+## Location of input, intermediary, and output data.
+
+Filepaths are determined in a central way by a dedicated DataManager class, `ESPEnv`. `ESPEnv` also handles I/O operations. Each type of file has a specific label, `dataLabel`. The associated file path pattern is configured in `conf/configuration_of_filepathsSpiresV202410.csv`. And the DataManager transforms this pattern in an actual filepath by replacing the variables contained in the pattern by their value. This notably includes the region or tile, the date, the year, or the wateryear. For instance, respectively `h08v04`, `20250625` for the date `06-25-2025`, `2025`, `WY2025` for waterYear 2025.
+
+For SPIReS v2024.1.0, three steps, `spiFillC`, `spiSmooC`, and `ftpExport` are not handled by `ESPEnv` and the files are hard-coded in the scripts.
+
+Here are the input and output dataLabels used for each step of the pipeline:
+
+| # | scriptId | inputDataLabel | outputDataLabel |
+|---|---|---|---|
+| 1 | mod09gaI |  | mod09ga |
+|---|---|---|---|
+| 2 | spiFillC | mod09ga | modisspiresfill |
+|---|---|---|---|
+| 3 | spiSmooC | modisspiresfill | modisspiressmoothbycell |
+|---|---|---|---|
+| 4 | moSpires | modisspiressmoothbycell | VariablesMatlab |
+|---|---|---|---|
+| 5 | scdInCub | VariablesMatlab | VariablesMatlab |
+|---|---|---|---|
+| 6 | daNetCDF | VariablesMatlab | outputnetcdf |
+|---|---|---|---|
+| 7 | daMosBig | VariablesMatlab | VariablesMatlab |
+|---|---|---|---|
+| 8 | daGeoBig | VariablesMatlab | VariablesGeotiff |
+|---|---|---|---|
+| 9 | daStatis | VariablesMatlab | SubdivisionStatsDailyCsv |
+|   |   |  | SubdivisionStatsAggregCsv |
+|   |   |  | SubdivisionStatsWebJson |
+|   |   |  | SubdivisionStatsWebCsvv20231 |
+|---|---|---|---|
+| 10 | ftpExpor |  | modisspiresfill |
+|   |   |  | VariablesMatlab |
+|   |   |  | outputnetcdf |
+|   |   |  | VariablesGeotiff |
+|   |   |  | SubdivisionStatsWebCsvv20231 |
+|   |   |  | SubdivisionStatsAggregCsv |
+|---|---|---|---|
+| 11 | webExpSn | VariablesGeotiff |  |
+|   |   | SubdivisionStatsWebJson |  |
+|   |   | SubdivisionStatsWebCsvv20231 |  |
+|---|---|---|---|
+
+The current (2025-07-07) directories where the files are located:
+| dataLabel | directoryPath | comment |
+|---|---|---|
+| mod09ga | modis/input/mog09ga.061/v006/{objectName}/{thisYear}/ | |
+|---|---|---|
+| modisspiresfill | modis/intermediary/spiressmooth_{version}/v006/{objectName}/{thisYear}/ | |
+|---|---|---|
+| modisspiressmoothbycell | modis/intermediary/spiressmooth_{version}/v006/{objectName}/ | |
+|---|---|---|
+| VariablesMatlab | modis/variables/scagdrfs_mat_{version}/v006/{objectName}/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/mat/ |
+|---|---|---|
+| outputnetcdf | output/{inputProduct}/{inputProductVersion}/{algorithm}/{version}/netcdf/{objectName}/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/netcdf/ |
+|---|---|---|
+| VariablesGeotiff | modis/variables/scagdrfs_geotiff_(version}/v006/{objectName}/EPSG_3857/LZW/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/tif_EPSG3857/ |
+|---|---|---|
+| SubdivisionStatsDailyCsv | modis/subdivisionstats/scagdrfs_dailycsv_{version}/v006/{objectId_1000}/{thisYear}/ | |
+|---|---|---|
+| SubdivisionStatsAggregCsv | modis/subdivisionstats/scagdrfs_aggregcsv_{version}/v006/{objectId_1000} | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/aggregcsv/ |
+|---|---|---|
+| SubdivisionStatsWebJson | modis/subdivisionstats/scagdrfs_webjson_{version}/v006/{objectId_1000}/{objectId}/{thisYear} | |
+|---|---|---|
+| SubdivisionStatsWebCsvv20231 | modis/regional_stats/scagdrfs_csv_{version}/v006/{sourceRegionName}/WY{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/csv/ |
+|---|---|---|
+
+where:
+- {algorithm} = spires
+- {inputProduct} = mod09ga
+- {inputProductVersion} = 061
+- {objectId_1000} = 26, if objectId = 26014 (the objectIds are configured in `conf/configuration_of_landsubdivisionsSpiresV202410.csv`)
+- {objectName} = h08v04 or westernUS
+- {sourceRegionName} = westernUS
+- {thisYear} = 2025
+- {version} = v2024.0d or v2024.1.0
 
 ## More advanced remarks
 
