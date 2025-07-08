@@ -28,8 +28,8 @@ The new code presented in this project includes:
     1. Matlab function scripts that were derived from this initial code to handle the generation of both the near real time and historical data in a uniform way.
 
     2. Matlab tool classes that allow to handle:
-      - data writing/reading, including configuration files and ancillary data, file naming, satellite sensor parametering
-      - some functionalities more specific to SPIReS, but shared among versions of SPIReS: import of nasa products, generation of raster netcdf/geotiff, statistic calculations, export to snow-today webapp	
+      - data writing/reading, including configuration files and ancillary data, file naming (class `ESPEnv`, would be better renamed `DataManager`), satellite sensor parametering (class `MODISData`, would be better renamed `SensorManager`), tile and raster handling (classe `Regions`),
+      - some functionalities more specific to SPIReS, but shared among versions of SPIReS: import of nasa products, generation of raster netcdf/geotiff, statistic calculations, export to snow-today webapp.
 
 ### Code interactions within a submission to Slurm.
 
