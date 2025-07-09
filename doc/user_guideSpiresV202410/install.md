@@ -65,7 +65,7 @@ WARNING: The files in `env/` and `home/` are the only ones which should be edite
 
 The code include .cdl files for each version of the netcdf to be produced. For each of them, a .nc template file should be generated, following instructions in [Output netcdf](output_netcdf.md).
 
-
+### Configure the scratch and archive folders.
 
 
 <br><br><br>

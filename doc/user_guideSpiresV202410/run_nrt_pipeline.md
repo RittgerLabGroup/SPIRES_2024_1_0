@@ -2,9 +2,54 @@
 
 This page presents the submission of the daily update of near-real-time (NRT) snow property data from the collection of input products to the export of output products for the Snow-Today web-app and for other users (netcdf data files).
 
+[Procedure for a submission in production](#run-as-a-beginner).
+[Procedure for a submission as a new user and/or for testing](#run-for-testing).
+
+## Preamble and vocabulary.
+
+The goal of the NRT pipeline is to generate and deliver output data.
+
+For this, the process divides the work in several tasks and execute them in a **sequence**. Each of this task is called here a **step**. The instructions of each step are coded in a dedicated bash script, referenced by a **scriptId**, for instance `daStatis`. [List of steps](#steps-and-scriptid).
+
+Each step will generate data for a set of objects, referenced by **objectId** or **objectName**. Here, objects can be modis tiles, such as h08v04, big regions, such as westernUS, or land subdivisions, such as states or watersheds. [Not exhaustive list of objects](#objects-examples).
+
+ For each object to handle, the process launch as many parallel jobs as the number of objects given to the step. This corresponds to 1 job per object, except (1) for the step *daStatis*, for which it combines several objects in the same job, and (2) for the step *spiSmooC*, for which it divides the interpolation task in 36 jobs.
+
+Each step takes input data files and provide output data files. To manage the different types of files, we use the notion of **dataLabel**. Each dataLabel correspond to a group of files generated for a specific step, for specific configuration, a specific object, a specific period of time, among others. [List of dataLabels](#datalabels). These dataLabels point to a specific filepath string pattern, which encodes how the directory and filename is determined. [List of file locations](#data-file-location).
+
+## Data spaces and file synchronization.
+
+**File spaces** are organized in categories:
+- home: mostly for the bash environment files, including `.bashrc`.
+- code: code and logs.
+- scratch: I/O operations during slurm execution are optimized there. But space is limited and files are automatically erased after some time ([for CURC officially 90 days](https://curc.readthedocs.io/en/latest/compute/filesystems.html#scratch-filesystems)).
+- archive: permanent storage space. Spaces for historical data are for data that are not updated (except if error), while space for NRT data is for data updated frequently.
+
+[List of spaces](#data-spaces-and-rsync).
+
+**Synchronization of files for beginner users of NRT**. This synchronization is carried out transparently for the user by automation coded in the scripts. 
+
+The *sync from archive to scratch* is carried out so that the jobs:
+- have up-to-date ancillary data,
+- have data from the previous runs, in particular from those by other users,
+- do not suffer from the automatic deletion of files on scratch.
+The code automatically sync the data when required, on the go.
+
+The *sync from scratch to archive* is carried out to:
+- deliver the data output to product users,
+- keep a copy of some intermediary files, necessary for later runs, either by the user or another one.
+The code carried out this task during the step `ftpExpor`.
+
+For both cases, the synchronization only updates files when the source is more recent and ensures that file group and rights are correctly set, if the receiving folders had been correctly set during [installation](install.md#configure_the_scratch_and_archive_folders).
+
+**Synchronization in other cases**
+
+For all other cases, such as [testing runs](#run-for-testing) or [runs of historics](run_historic_step.md), automatic rsync are considered too risky and the user needs to synchronize the files using the [procedure described here](#runrsync). 
+
+
 ## Run as a beginner.
 
-The entry script to launch submission is `bash/submitNrt.sh`. This script submits a submit line using the script `bash/runSubmitter.sh` for a job to a slurm cluster. When slurm starts the job, `runSubmitter.sh` monitors the submission to slurm of a sequence of secondary, operational jobs to carry out the generation of data and achieve the full run ([code interactions](code_organization.md#Code_interactions_within_a_submission_to_Slurm)). This generation is carried out in a sequence of several steps, each step corresponding to a series of parallel jobs.
+The entry script to launch submission is `bash/submitNrt.sh`. This script submits a job to a slurm cluster, with a submit line including the script `bash/runSubmitter.sh`. When slurm starts the job, `runSubmitter.sh` monitors the submission to slurm of a sequence of secondary, operational jobs to carry out the generation of data and achieve the full run ([code interactions](code_organization.md#Code_interactions_within_a_submission_to_Slurm)).
 
 The near real time jobs use the same scripts for each step as for the [historic jobs](run_historic_step.md), with different parameters and in a automatized sequential way, which is not the case for the historics, which are run each step individually.
 
@@ -26,9 +71,10 @@ Submission...
 Submitted batch job 20164305
 ```
 
-The user notes the job id of the `runSubmitter.sh`, here `20164305` and can follow its execution:
+The user notes the job id of the `runSubmitter.sh`, here `20164305` and would<sup>*</sup> follow its execution:
 - with the help of [slurm](https://slurm.schedmd.com/documentation.html) commands `squeue`, `sacct`, `scontrol`,
 - and with the help of the [logs](checking_log.md).
+
 
 To run it without the prompt:
 `bash/submitNrt.sh -E SpiresV202410 -v 10 -Z 1`. The script will achieve without waiting the user's input and will submit the job.
@@ -38,12 +84,12 @@ To run it without the prompt:
 
 The production command launches a series of steps, which includes the update of the production archive and the production snow-today web-app with the output data.
 
-For testing, the user should first `rsync` the folders `modis_ancillary`, `modis`, and `mod09ga` from the production archive (`$espArchiveDirOps` defined in `.bashrc`) to their scratch (`$espScratchDir` defined in `.bashrc`).
+For testing, the user should first `rsync` the folders `modis_ancillary`, `modis`, and `mod09ga` from the production archive (`$espArchiveDirOps` defined in `.bashrc`) to their scratch (`$espScratchDir` defined in `.bashrc`). [Procedure indicated here](#runrsync).
 
 Then the user can execute:
 `bash/submitNrt.sh -E SpiresV202410 -W 1 -y ${espScratchDir} -Z 1`.
 
-With that command, the update of the production archive is neutralized (no rsync to there) and the output data are sent to the integration web-app (this may be an issue if another user works on integration too).
+With that command, the update of the production archive is neutralized (no rsync scratch to archive there) and the output data are sent to the integration web-app (this may be an issue if another user works on integration too).
 
 
 ## Options and argument for submitNrt
@@ -132,6 +178,84 @@ Filepaths are determined in a central way by a dedicated DataManager class, `ESP
 
 For SPIReS v2024.1.0, three steps, `spiFillC`, `spiSmooC`, and `ftpExport` are not handled by `ESPEnv` and the files are hard-coded in the scripts.
 
+[List of file locations](#data-file-location).
+
+## More advanced remarks
+
+No other option or argument is available for this submission script. That implies that when specific changes of parametering should be done, either or both `bash/submitNrt.sh` and `bash/configurationSpiresV202410.sh` should be edited locally, as explained for the examples below.
+
+(1) Occasionally, some nodes are to be excluded from the run because they don't work as expected, notably for access to scratch or some libraries or performance issues. For instance, if the nodes are toto and titi, this is done in the script `bash/submitNrt.sh` by changing the line `exclude="";` into `exclude="--exclude=toto,titi";`. The two nodes **must** be part of the slurm cluster.
+
+(2) Some jobs associated to specific steps can occasionally be killed because their necessary execution time is longer than the expected time (wall-time) or they can run into an out of memory error. It's possible to edit the wall-time of a step by editing, in the script `bash/configurationSpiresV202410.sh`, the variable `pipeLineTimes1` (time in hours) and `pipeLineMems1`, respectively. **Important**: increasing memory often requires increasing the number of cpus.
+
+## Appendices
+
+### Steps and scriptId
+
+Here are the NRT- and historic-generation steps for SPIReS v2024.1.0:
+
+| # | scriptId | description | generation period | NRT | historic |
+|---|---|---|---|---|---|
+| 1 | mod09gaI | Download mod09ga. |  | x | x |
+|---|---|---|---|---|
+| 2 | spiFillC | Generate intermediary gap files from mod09ga input. |  | x | x |
+|---|---|---|---|---|
+| 3 | spiSmooC | Generate gap-filled data files (without false positives) + 
+    temporal interpolation. |  | x | x |
+|---|---|---|---|---|
+| 4 | moSpires | Generate daily .mat files (dubbed mosaics). | VariablesMatlab | x | x |
+|---|---|---|---|---|
+| 5 | scdInCub | Calculate snow cover days in daily .mat files. | VariablesMatlab | x | x |
+|---|---|---|---|---|
+| 6 | daNetCDF | Generate output netcdf files. | outputnetcdf | x | x |
+|---|---|---|---|---|
+| 7 | daMosBig | Generate output big mosaic .mat files. | VariablesMatlab | x | x |
+|---|---|---|---|---|
+| 8 | daGeoBig | Generate NRT geotiffs for website |  | x |  |
+|---|---|---|---|---|
+| 9 | daStatis | Generate .csv daily statistic files. | SubdivisionStatsDailyCsv | x | x |
+|---|---|---|---|---|
+| 10 | ftpExpor | Rsync NRT data from scratch to archive |  | x|  |
+|---|---|---|---|---|
+| 11 | webExpSn | Generate and export NRT data to website |  | x |  |
+|---|---|---|---|---|
+
+where:
+- generation period indicates the period over a single historic job should be run,
+- NRT checked indicates if the NRT sequence include the step,
+- historic checked indicates if this step should be carry out in the generation of historics.
+
+### Objects, examples.
+
+Here are a few examples of objects:
+
+| objectId | objectName | type | configuration file |
+|---|---|---|---|
+| 5 | westernUS | bigRegion | regions |
+|---|---|---|---|
+| 292 | h08v04 | tile | regions |
+|---|---|---|---|
+| 293 | h08v05 | tile | regions |
+|---|---|---|---|
+| 328 | h09v04 | tile | regions |
+|---|---|---|---|
+| 329 | h09v05 | tile | regions |
+|---|---|---|---|
+| 364 | h10v04 | type | configuration file |
+|---|---|---|---|
+| 26000 | westernUS | subdivision groupadm0 | subdivisions |
+|---|---|---|---|
+| 11726 | Colorado | subdivision adm1 | subdivisions |
+|---|---|---|---|
+| 12513 | Upper Colorado HUC14 | subdivision huc2 | subdivisions |
+|---|---|---|---|
+| 12778 | Colorado Headwaters HUC1401 | subdivision huc4 | subdivisions |
+|---|---|---|---|
+
+Full list is in the regions file `conf/configuration_of_regionsSpiresV202410.csv` and the subdivisions file `conf/configuration_of_landsubdivisionsSpiresV202410.csv`.
+
+### DataLabels
+
 Here are the input and output dataLabels used for each step of the pipeline:
 
 | # | scriptId | inputDataLabel | outputDataLabel |
@@ -169,20 +293,77 @@ Here are the input and output dataLabels used for each step of the pipeline:
 |   |   | SubdivisionStatsWebCsvv20231 |  |
 |---|---|---|---|
 
-The current (2025-07-07) directories where the files are located:
+### Data spaces
+
+The data spaces are:
+
+| name | category | environment variable | configuration file | comment |
+|---|---|---|---|---|
+| `myHome` | home | ~.bashrc | |
+|---|---|---|---|---|
+| `projectDir` | code | ~.bashrc | |
+|---|---|---|---|---|
+| `thisEspProjectDir` | code | env/.matlabEnvironmentVariablesSpiresV202410 | other projects, such as external matlab packages are also defined in this file |
+| `espLogDir` | code | ~.bashrc | centralized location of logs. |
+|---|---|---|---|---|
+| `espScratchDir` | scratch | ~.bashrc | variable `$slurmAlternativeScratchDir1` points to the same space, was added to handle directory links that matlab can sometimes not handle correctly. |
+|---|---|---|---|---|
+| `espArchiveDirEsp`  | archive | ~.bashrc | legacy archive |
+|---|---|---|---|---|
+| `espArchiveDir` | archive | ~.bashrc | default archive in code. |
+|---|---|---|---|---|
+| `espArchiveDirNrt`| archive | ~.bashrc | archive for historic data |
+|---|---|---|---|---|
+| `espArchiveDirOps`| archive | ~.bashrc | archive for NRT data |
+|---|---|---|---|---|
+
+### runRsync
+
+**For one folder not that big**. `bash/runRsync.sh` executes the synchronization of 1 folder from one data space to the another. [file naming, organization](#data-spaces-and-rsync) and [location](#data_file_location). The user can go on any node, cd to the root of this project, and execute the command:
+```bash
+thisVersion=v2024.0.d
+sourcePath=${espScratchDir}modis/subdivisionstats/scagdrfs_dailycsv_${thisVersion}/v006/
+targetPath=${espArchiveDir}modis/subdivisionstats/scagdrfs_dailycsv_${thisVersion}/v006/
+
+bash/runRsync.sh -x $sourcePath -y $targetPath
+```
+with the example of syncing the daily csv stats from historic archive to the user's scratch space.
+
+**For parallel sync**. The following procedure is advised when (1) the folder is really big, or (2) the user only needs files for a specific big region and/or a range of years. Files in the folder needs to be organized by region subfolder and year subfolder . The procedure allows to submit parallel rsync jobs to slurm for the regions and years.
+
+The user can go on any node, cd to the root of this project, and execute the command:
+`bash/submitRSync.sh -B 5 -e 2024 -f 2025 -x ${espScratchDir} -y ${espArchiveDir} modis/variables/scagdrfs_mat_v2024.0d/v006/`
+where options are:
+- -B bigRegionId: int, obligatory. Identifying the big region (e.g. 5 for westernUS). Only one big region per run.
+- -e startYear: int, optional. Smallest year of run, e.g. 2024. If not given, startYear = endYear.
+- -f endYear: int, obligatory. Highest year of run, of year of run, e.g. 2025.
+- -x: sourcePath: string, obligatory. Source data space base path.
+- -y: targetPath: string, obligatory. Target data space base path.
+
+and argument is
+- thisFolder: String, obligatory. E.g. 'modis/variables/scagdrfs_mat_v2024.0d/v006/'.
+
+The script asks confirmation, the user enters 'y' and the jobs are submitted.
+
+In addition to all this, note that a specific alias `rsync` is defined in `.bashrc` to ensure that group, rights of files are correctly set and that updates are only done if source is more recent.
+
+### Data file location
+
+The current (2025-07-07) directories where the files are located is defined in `conf/configuration_of_filepathsSpiresV202410.csv` and is:
+
 | dataLabel | directoryPath | comment |
 |---|---|---|
-| mod09ga | modis/input/mog09ga.061/v006/{objectName}/{thisYear}/ | |
+| mod09ga | modis/input/mod09ga.061/v006/{objectName}/{thisYear}/ | |
 |---|---|---|
-| modisspiresfill | modis/intermediary/spiressmooth_{version}/v006/{objectName}/{thisYear}/ | |
+| modisspiresfill | modis/intermediary/spiresfill_{version}/v006/{objectName}/{thisYear}/ | |
 |---|---|---|
 | modisspiressmoothbycell | modis/intermediary/spiressmooth_{version}/v006/{objectName}/ | |
 |---|---|---|
 | VariablesMatlab | modis/variables/scagdrfs_mat_{version}/v006/{objectName}/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/mat/ |
 |---|---|---|
-| outputnetcdf | output/{inputProduct}/{inputProductVersion}/{algorithm}/{version}/netcdf/{objectName}/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/netcdf/ |
+| outputnetcdf | output/{inputProduct}/{inputProductVersion}/{algorithm}/{version}/netcdf/{objectName}/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/netcdf/{objectName}/{thisYear}/ |
 |---|---|---|
-| VariablesGeotiff | modis/variables/scagdrfs_geotiff_(version}/v006/{objectName}/EPSG_3857/LZW/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/tif_EPSG3857/ |
+| VariablesGeotiff | modis/variables/scagdrfs_geotiff_{version}/v006/{objectName}/EPSG_3857/LZW/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${dataLabel}/tif_EPSG3857/ |
 |---|---|---|
 | SubdivisionStatsDailyCsv | modis/subdivisionstats/scagdrfs_dailycsv_{version}/v006/{objectId_1000}/{thisYear}/ | |
 |---|---|---|
@@ -202,15 +383,5 @@ where:
 - {sourceRegionName} = westernUS
 - {thisYear} = 2025
 - {version} = v2024.0d or v2024.1.0
-
-## More advanced remarks
-
-No other option or argument is available for this submission script. That implies that when specific changes of parametering should be done, either or both `bash/submitNrt.sh` and `bash/configurationSpiresV202410.sh` should be edited locally, as explained for the examples below.
-
-(1) Occasionally, some nodes are to be excluded from the run because they don't work as expected, notably for access to scratch or some libraries or performance issues. For instance, if the nodes are toto and titi, this is done in the script `bash/submitNrt.sh` by changing the line `exclude="";` into `exclude="--exclude=toto,titi";`. The two nodes **must** be part of the slurm cluster.
-
-(2) Some jobs associated to specific steps can occasionally be killed because their necessary execution time is longer than the expected time (wall-time) or they can run into an out of memory error. It's possible to edit the wall-time of a step by editing, in the script `bash/configurationSpiresV202410.sh`, the variable `pipeLineTimes1` (time in hours) and `pipeLineMems1`, respectively. **Important**: increasing memory often requires increasing the number of cpus.
-
-
 
 <br><br><br>

@@ -388,7 +388,7 @@ printf "Main program name: ${mainProgramName}\n"
 cd "$(dirname "${mainProgramName}")"
 #Go to parent of this script, so that correct pathdef.m file is used
 cd ..
-workingDirectory=$(pwd)
+workingDirectory=$(pwd)/
 printf "Working directory: ${workingDirectory}\n"
 printf "#############################################################################\n"
 

@@ -15,7 +15,7 @@ usage() {
   read -r -d '' thisUsage << EOM
 
   Usage: ${PROGNAME}
-    [-A versionOfAncillary] [-B bigRebigRegionIdgion] [-c [-C confOfMonthId]
+    [-A versionOfAncillary] [-B bigRegionId] [-c filterId] [-C confOfMonthId]
     [-D yyyy-MM-dd-monthWindow] [-e startYear] [-f endYear] [-h] [-I objectId]
     [-L inputLabel] [-O outputLabel] [-s scriptId] [-t lagTimeBetweenSubmissionOfYears]
     [-u slurmCluster] [-U slurmExecutionOptions] [-v verbosity]

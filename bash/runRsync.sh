@@ -16,13 +16,12 @@ usage() {
   read -r -d '' thisUsage << EOM
 
   Usage: ${PROGNAME}
-    [-D yyyy-MM-dd-monthWindow] [-h] [-i] [-I objectId] [-o]
-    [-x originPath] [-y targetPath]
+    [-x sourcePath] [-y targetPath]
     Carry out the rsync from one repo to another one, for instance from scratch to
     archive or vice-versa.
   Options:
-    -x: originPath: string, obligatory, origin of the files to rsync.
-    -y: targetPath: string, obligatory, destination of the files.
+    -x: sourcePath: string, obligatory, origin of the files to rsync. E.g. '/toto/tata/'
+    -y: targetPath: string, obligatory, destination of the files. E.g. '/tutu/to/voila/'
   Arguments:
     None
   Sbatch parameters:
@@ -89,7 +88,7 @@ error_exit() {
 
 export SLURM_EXPORT_ENV=ALL
 
-originPath=
+sourcePath=
 targetPath=
 
 while getopts "hx:y:" opt
@@ -99,20 +98,20 @@ while getopts "hx:y:" opt
          exit 1;;
 
       y) targetPath="$OPTARG";;
-      x) originPath="$OPTARG";;
+      x) sourcePath="$OPTARG";;
       ?) printf "Unknown option %s\n" $opt
          usage
          exit 1;;
     esac
   done
 
-if [[ -z ${originPath} ]] || [[ -z ${targetPath} ]]; then
-  error_exit "Line $LINENO: Unexpected number of arguments."
+if [[ -z ${sourcePath} ]] || [[ -z ${targetPath} ]]; then
+  error_exit "Line $LINENO: Source and/or target base path not given as options."
 fi
 
 thisRsync='/bin/rsync -HpvxrltogDu --chmod=ug+rw,o-w,+X,Dg+s'
 # By precaution, should be in your ~/.bashrc too.
-echo "${thisRsync} $originPath $targetPath..."
-$thisRsync $originPath $targetPath
+echo "${thisRsync} $sourcePath $targetPath..."
+$thisRsync $sourcePath $targetPath
 
 echo "${PROGNAME}: Done"

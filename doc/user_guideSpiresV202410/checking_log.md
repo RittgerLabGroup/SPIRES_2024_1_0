@@ -1,6 +1,6 @@
 # Checking logs and incident analysis.
 
-This page explains how to check the correct execution of the submitted jobs by investigating logs.
+This page explains how to check the correct execution of the submitted jobs by investigaeting logs.
 
 Note that slurm's exit status for a job is not a guarantee that the job correctly executed, in part because of the complexity of the scripts.
 

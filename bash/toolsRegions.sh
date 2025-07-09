@@ -153,7 +153,7 @@ get_tile_name_from_tile_id(){
 ########################################################################################
 # If script submitted standalone for test.
 if [ ! -v workingDirectory ]; then 
-  workingDirectory=$(pwd)
+  workingDirectory=$(pwd)/
   printf "Working directory: ${workingDirectory}\n"
   printf "#############################################################################\n"
 fi

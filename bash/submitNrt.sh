@@ -57,7 +57,7 @@ EOM
   printf "$thisUsage\n" 1>&2
 }
 
-workingDirectory=$(pwd)
+workingDirectory=$(pwd)/
 printf "Working directory: ${workingDirectory}.\n";
 
 # Parsing of options.
