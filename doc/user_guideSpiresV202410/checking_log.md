@@ -1,12 +1,12 @@
 # Checking logs and incident analysis.
 
-This page explains how to check the correct execution of the submitted jobs by investigaeting logs.
+This page explains how to check the correct execution of the submitted jobs by investigating logs.
 
 Note that slurm's exit status for a job is not a guarantee that the job correctly executed, in part because of the complexity of the scripts.
 
 ## Preamble.
 
-All monitoring and step jobs have log files centralized in a location determined by the environment variable `$espLogDir` in `~.bashrc` (see [here](install.md)
+All monitoring and step jobs have log files centralized in a location determined by the environment variable `$espLogDir` in `~/.bashrc` (see [here](install.md)
 
 Given a slurm cluster, this location **must** be the same for all users of the project.
 
@@ -36,7 +36,8 @@ Monitoring jobs are submitted using the submission scripts above. One main scrip
 ### Real time.
 
 The real time monitoring of a monitoring script job can be carried out with:
-```gLog # alias in .bashrc going to the log directory.
+```bash
+gLog # alias in .bashrc going to the log directory.
 tail -f *19647584*.out
 ```
 if the jobId is `19647584`.
@@ -70,7 +71,8 @@ Note that in some rare cases, this line can be displayed even if a step job has 
 When not displayed, the monitoring can be affected by an issue by repeatingly resubmitting a job in error, with the new iteration falling back again in error either because of a bug in the project code, or of a hardware/software issue with the slurm cluster, notably with connections. While the code handles many cases now, there's still some work in progress.
 
 A .csv file lists all the jobs executed and their result. To read it:
-```gLog
+```bash
+gLog
 cat *19647584*.csv
 ```
 
@@ -78,7 +80,7 @@ cat *19647584*.csv
 ### After execution for historics.
 
 When you run historics, if you submit a lot of monitoring jobs, you can see their results rapidly using the commands above on a **login** node, and after going to the root of the project and loading the slurm cluster tool module:
-```
+```bash
 cd ${thisEspProjectDir} # $thisEspProjectDir defined in .matlabEnvironmentVariableV, either in env/, or in your home.
 ml slurm/xxx
 source shared/sh/toolsJobs.sh
@@ -100,7 +102,7 @@ The same log file is used by the bash and matlab code.
 ### Real time.
 
 The real time monitoring of a step script job can be carried out with:
-```
+```bash
 gLog
 tail -f *292*19647585*.out
 ```
@@ -112,13 +114,13 @@ The list of step arrayJobIds is available in the log file of the monitoring job 
 `Creation of arrayJobIds with parent 19647585`, if the arrayJobId is `19647585`.
 
 A list of jobs in execution is also available using on a login node, after loading the slurm cluster tool module:
-```
+```bash
 ml slurm/xxx
 squeue # alias defined in .bashrc
 ```
 
 For scripts calling Matlab, it's possible to get the set of instructions given to Matlab using:
-```
+```bash
 gLog
 cat *292*19647585*.out | grep "Matlab string" -A 50
 ```
@@ -144,37 +146,45 @@ It is advised that logs older than 1 month be archived in a permanent location h
 
 Production incident 06/27/2025
 Procedure to identify the step triggering the incident and collect a level 2 information.
-```
+```bash
 # 1. Get runSubmitter logs for the last 24 h.
 gLog # cd to the central location of the logs.
 find . -mtime -1 | grep stnr
-
+```
+```
 >./stnr2410_1_20178646.out
 # NB: this can show several logs if several runSubmitter executed.
+```
 
+```bash
 # 2. Get the exit result of the runSubmitter log.
 runSubmitterLogPath=stnr2410_1_20178646.out
 tail -n 20 ${runSubmitterLogPath}
-
+```
+```
 > [...]
 > 0627T06:54; 00:00; webExpSn; 20181932;    5;     ; 2025-06-26-12; end:ERROR; bgpu-casa1     ; 49%; 44%; 2; 3 GB; Exit=1, matlab=ExporterToWebsite:systemCmdError, Line 50: Matlab.
 > [...]
 > slurmstepd: error: *** JOB 20178646 ON bgpu-casa1 CANCELLED AT 2025-06-27T07:01:09 DUE TO TIME LIMIT ***
 # Here the runSubmitter job failed on step webExpSn. The line job CANCELLED suggests that the runSubmitter job resubmitted the step webExpSn multiple times, following multipe failures on this step webExpSn.
-
+```
+```bash
 # 3. Get the first time in runSubmitter log that the step webExpSn failed. This is to be sure that we catch the original error, because steady resubmission of the step can lead to other errors over time.
 thisError='webExpSn.*ERROR'; grep -C 10 -E "$thisError" ${runSubmitterLogPath} | head -n 21
-
+```
+```
 > [...]
 > FAILED                                                  ; 1:0 
 > /projects/sele7124/slurm_out/webExpSn_5_2025_06_26_12_20179776.out
 > [...]
 # Here we get the log of the slurm job for the step itself, the first time it was executed.
-
+```
+```bash
 # 4. Check the end of the log of the job of step webExpSn the first time it was executer to see if there are details on the error.
 stepLogPath=webExpSn_5_2025_06_26_12_20179776.out
 tail -n 500 ${stepLogPath}
-
+```
+```
 > instantiation: ExporterToWebsite: Sending cmd scp -q -i /home/julo9057/.ssh/id_rsa /scratch/alpine/julo9057/modis_ancillary/v3.1/landsubdivision/metadata/26000_subdivisions_202309.json julo9057@nusnow.colorado.edu:/share/apps/snow-today/production/incoming/snow-surface-properties/regions/26000.json ...
 > ExporterToWebsite:systemCmdError: ExporterToWebsite: Failed cmd, error 1: scp: /share/apps/snow-today/production/incoming/snow-surface-properties/regions/26000.json: Permission denied
 > [...]

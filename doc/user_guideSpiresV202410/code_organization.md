@@ -53,6 +53,7 @@ sequenceDiagram
     runSubmitter-->Slurm: I'm done!
 ```
 
+A extensive set of environmental variables (around 50 for SPIReS v2024.1.0) is defined in the project. Most are only used by the bash scripts, but a small amount is also used in the matlab scripts and facilitates the communication between the bash scripts and the matlab scripts.
 
 ### Ancillary data.
 
@@ -113,19 +114,11 @@ For this version of SPIReS, many function scripts are not physically in this rep
 
 #### tbx/colormaps/.
 
-Legacy colormaps. Might be removed from this repository.
-
-#### tbx/mapping.
-
-Legacy matlab struct files used for reprojection. Might be removed from this repository.
+Legacy colormaps. Might be removed in the future from this repository.
 
 #### template/.
 
 Contains the .cdl templates of the [output netcdf](output_netcdf.md).
-
-#### updates.
-
-Scripts to generate regions. Might be removed from this repository.
 
 ### Outside repository, ancillary data.
 

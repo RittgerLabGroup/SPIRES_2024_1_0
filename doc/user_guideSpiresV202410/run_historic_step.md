@@ -2,33 +2,46 @@
 
 This page presents the submission of the update of historic snow property data from the collection of input products to the generation of output products for users (netcdf data files) and for the [daily near real time (NRT) update](run_nrt_pipeline.md) to the snow-today website (dailycsv statistic files for plots).
 
-We advise to read the [Preamble of the NRT pipeline doc](run_nrt_pipeline.md#preamble-and-vocabulary) and more generally the NRT documentation of that page.
+## Preamble and vocabulary.
 
-# Run as a beginner
+We advise to read the [Preamble of the NRT pipeline doc](run_nrt_pipeline.md#preamble-and-vocabulary) and more generally the NRT documentation in that page. We also advise to recheck the install and requirements [here](install.md), particularly about the environment variables.
 
-The entry script to launch submission is `bash/submitHistoric.sh`. This script submits a job to a slurm cluster, with a submit line including the script `bash/runSubmitter.sh` (see [Run as a beginner for the NRT pipeline](run_nrt_pipeline.md#run_as_a_beginner) and [code interactions](code_organization.md#Code_interactions_within_a_submission_to_Slurm)). 
+The historic step process is a production chain which goal is to generate and deliver output historic data for previous time, usually a previous water year, for a set of big regions. For SPIReS v2024.1.0, there's only one big region: `westernUS`.
 
-The historic jobs use the same scripts for each [step](run_nrt_pipeline.md#preamble-and-vocabulary) as for the [NRT jobs](run_nrt_pipeline.md). However, while the NRT pipeline has a automatized sequence of jobs from input to delivery of output data files, the user should follow a different procedure to run the historics:
+To carry out this objective, we use the same [code architecture](code_organization.md) and scripts (with a different configuration) as the [NRT pipeline](run_nrt_pipeline.md#preamble-and-vocabulary). However, contrary to the NRT pipeline, here, the workload is not divided sequentially, and each step is executed individually.
+
+## Data spaces and file synchronization.
+
+The file spaces are similar to what is described in the [NRT pipeline](run_nrt_pipeline.md#data-spaces-and-file-synchronization). However, as explained in [file synchronization](run_nrt_pipeline.md#data-spaces-and-file-synchronization), synchronization of output files should be done manually.
+
+## Run as a beginner
+
+For a beginner user, we strongly advise to handle a waterYear after another waterYear for a big region, starting by the older waterYear of the record (2001 for MODIS in this project), and not trying to run everything simultaneously. Indeed, the production chain, for SPIReS v2024.1.0, can submit a *minimum* total of more than 280 jobs per year, which makes a minimum of 7,000 jobs for the full MODIS record for the 5 tiles of the big region westernUS in summer 2025. We say minimum, because the jobs can be resubmitted in case of failure.
+
+Beyond these numbers, thanks to the code implementation, the user will only have to supervise (actively) 14 jobs per waterYear, which carry out the monitoring task of all these jobs. As an additional remark, slurm by default send an email each time a job ends, more information/suggestions [here](run_nrt_pipeline.md#preamble-and-vocabulary).
+
+The entry script to launch submission is `bash/submitHistoric.sh`. This script submits a job to a slurm cluster, with a submit line including the script `bash/runSubmitter.sh` (see [Run as a beginner for the NRT pipeline](run_nrt_pipeline.md#run_as_a_beginner) and [code interactions](code_organization.md#code_interactions_within_a_submission_to_slurm)). 
+
+The historic jobs use the same scripts for each [step](run_nrt_pipeline.md#preamble-and-vocabulary) as for the [NRT jobs](run_nrt_pipeline.md). However, while the NRT pipeline has an automatized sequence of jobs from input to delivery of output data files, the user should follow a different procedure to run the historics:
 
 1. The user submits each step at a time, according to instructions below,
 2. The use monitors the execution of the step, using [checking log](checking_log.md),
 3. Once the step has achieved correctly and generated the data files, the user can submit the next step.
-4. Once all steps have been carried out, the user can check some of the output files and their content, and then rsync
+4. Once all steps have been carried out, the user might check some of the output files and in case of doubt their content, and then [synchronize to archive](run_nrt_pipeline.md#data-spaces-and-file-synchronization)
 
+In the following, we only present the instructions for point 1., since the other points are documented elsewhere as indicated.
 
+### Global view of submission (point 1.).
 
-
-
-To run the full pipeline in ***production***, the user first connect to a login node. After `cd` to the root of this project, the user executes:
-`bash/submitNrt.sh -E SpiresV202410 -Z 1`.
-
-WARNING: This command is for production only. See the procedure for [testing in integration](#run_for_testing).
+To run a specific step ([list of steps](run_nrt_pipeline.md#steps-and-scriptid)) as asked for 1., the user first connects to a login node. After `cd` to the root of this project (**IMPORTANT**), the user executes a command such as:
+```bash
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment -f $endYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
 
 The scripts prints the options given and load some configuration, and then it shows the submitLine that will be submitted to slurm and ask confirmation:
 
-```bash
-sbatch   --account=XX --qos=XX -o XX/slurm_out/%x_%a_%A.out --job-name=spnr2410 --ntasks-per-node=1 --mem=1G --time=11:30:00 --array=1 bash/runSubmitter.sh "sbatch  --account=XX --qos=XX -o XX/slurm_out/%x_%a_%A.out --job-name=mod09gaI --cpus-per-task=1 --ntasks-per-node=1 --mem=1G --time=01:30:00 --array=292,293,328,329,364 ./bash/runGetMod09gaFiles.sh -A v3.1 -L v061 -O v061 -p mod09ga.061 -w 0 -x XX -y XX -Z 1"
-Do you want to proceed? (y/n)
+```
+Do you want to proceed submission? (y/n)
 ```
 
 The user confirms `y` and the script submits the job and prints:
@@ -41,180 +54,187 @@ The user notes the job id of the `runSubmitter.sh`, here `20164305` and can foll
 - with the help of [slurm](https://slurm.schedmd.com/documentation.html) commands `squeue`, `sacct`, `scontrol`,
 - and with the help of the [logs](checking_log.md).
 
-To run it without the prompt:
-`bash/submitNrt.sh -E SpiresV202410 -v 10 -Z 1`. The script will achieve without waiting the user's input and will submit the job.
+All input files are downloaded to the [user's scratch](run_nrt_pipeline.md#data-spaces-and-file-synchronization) and intermediary and output files are generated in that data space. After the last checks at the end of the process, and except for the remote sensing input files (publicly available), the user can synchronize the files [back to archive](run_nrt_pipeline.md#runrsync).
 
 
+### Detailed instructions for submissions.**
 
-This list of steps is defined in `bash/configurationForHistoricsSpiresV202410.sh`, vawhere steps are automatically run in a sequential way, the user runs each step here individually. The user will run the next step of the process only after checking in the logs that the already run step has been executed correctly. The nextwith different parameters and in a automatized sequential way, which is not the case for the historics, which are run 
+In the following instructions, we focus on the production chain for westernUS waterYear 2024. The options described in the process make it similar to run other complete waterYears.
 
+**Step `mod09ga`**. First, the user needs to download the input remote sensing data to their scratch. For this, the user submits (1) a series of jobs that cover the first part of the waterYear N, from October to December of the year N-1 for the Northern Hemisphere, as defined in this project, and (2) a series of jobs that cover the second part of the waterYear for the year N. For instance for waterYear 2024, (1) covers the end of 2023, and (2) covers the start of 2024.
 
+The set of commands for (1) is:
+```bash
+# Values for options.
+bigRegionId=5
+  # bigRegionId=5 is the id of the big region on which the work is carried out. For western US, this id is 5, as indicated in conf/configuration_of_regionsSpiresV202410.csv.
+confOfMonthId=20
+  # confOfMonthId=30 is the code for the period to cover in the year indicated by $endYear. confOfMonthId=20 is for October to December. 30 is for January to September. However, for most steps later in the production chain, the work needs to be done over a full waterYear in the same job. In that case, confOfMonthId=0 and $optionForWaterYearDateString should be assigned.
+optionForWaterYearDateString=
+  # This option is used preferredly when the calculations should not be split and should cover a full waterYear, as it is the case for most steps later in the production chain. The syntax is optionForWaterYearDateString="-D yyyy-mm-dd-mw", for instance optionForWaterYearDateString="-D 2024-09-30-12" to cover the waterYear 2024 for the Northern Hemisphere, with yyyy, mm, dd, the year, month, day of the last day of the waterYear, and 12 the month window, that is the number of months covered before the last day included.
+thisEnvironment=SpiresV202410
+  # For this project MUST be SpiresV202410.
+optionForEndYear="-f 2023"
+  # Year considered for the work. Here, since confOfMonthId=20, the work will cover October to December of 2023, which corresponds to the first part of the waterYear 2024 in the Northern Hemisphere as defined for this project. If the user want the second part, the user should set confOfMonthId=30 and optionForEndYear="-f 2024".
+scriptId=mod09ga
+  # Code of the step/script to use. Full list of codes is in the variable $authorizedScriptIds defined in conf/configurationForHistoricsSpiresV202410.sh.
+optionForLagTimeBetweenSubmissionOfYears=
+  # Most steps don't require this option. But occasionally, in particular for steps handling interpolation (for SPIReS v2024.1.0 step spiSmooC), the number of jobs to submit for the step is just too big, and we need to insert a lag between submission to avoid to overwhelm slurm and have jobs rejected. In that case, the syntax is optionForLagTimeBetweenSubmissionOfYears="-t 1h" for instance, to have a lag of 1 h between the various submissions required when the user launches the command below, or optionForLagTimeBetweenSubmissionOfYears="-t 30m" for a lag of 30 minutes.
 
-
-
-## Introduction
-
-For this purpose, the operator executes a submission script `specific/sh/submitStcForHistorics.sh`, with specific options notably the step of the algorithm that should be executed (option -s scriptId, see below) but without arguments. This script detects the configuration of the step scriptId (in `specific/sh/submitStcForHistorics.sh`) and ask you confirmation to submit a monitoring job to the configured slurm cluster.
-
-After your reply "Y", the monitoring job is submitted using the script `shared/sh/runSubmitter.sh`, and after being started, will monitor the execution of the step, including its resubmission in case of error.
-
-The historic jobs use the same scripts for each step as for the near real time jobs, with different parameters and without any automatized sequentialization, contrary to near real time execution. Each step should be run indenpendently, in the order indicated by the variable `authorizedScriptIds` in `specific/sh/submitStcForHistorics.sh`.
-
-File logs are accessible to monitor the execution of all the jobs, more info [here](checking_logs.md).
-
-## Obligatory Options
-
-`-s scriptId`: string, "id" of the step, to chose among the values in `authorizedScriptIds` in `specific/sh/submitStcForHistorics.sh`
-
-**Obligatory if option -D absent**
-
-`-C confOfMonthId`: int, identify the group of months that will be generated.
-- 0: Parameter overriden by option -D.
-- 10: Full year, by trimester. 
-- 11: Full year, by month.
-- 20: 10-12 by trimester. 
-- 21: 10-12 by month. 
-- 30: 1-9 by trimester. 
-- 31: 1-9 by month. 
-- 41: 6-9 by month.
-- 51: Full water year from Oct to Sept.
-- 120: 1-3 by trimester. 
-- 121: 1-3 by month.
-- 130: 4-12 by trimester. 
-- 131: 4-12 by month. 
-- 141: 12 by month.
-NB: Must be accompanied with option `-f endYear` (and `-e startYear` if generation is over several years).
-NB: This parameter should be set to 0 if a period misses input data in the first months, and overriden by an adequate waterYearDate.
-
-`-f endYear`: int, highest year of run, of year of run, e.g. 2025.
-NB: if we run 10/2024 for westernUS over a monthwindow of 1 month only, although this period is affected to water year 2025, endYear should be 2024 in that case.
-Option overriden by -D.
-
-**Obligatory if option -C confOfMonthId = 0 and/or -f endYear absent**
-`-D waterYearDateString`: string, format yyyy-MM-dd-monthWindow. Gives the date window over which the generation is done. E.g. 2024-03-26-1. Activated only when option -C is set to 0. The period ends by the date defined by yyyy-MM-dd, here 2024-03-26, and monthWindow, the number of months before this date covering the period: 12: 1 full year period, 1: the month of the date, from 1 to the date, 0: only the date. Default: date of today with monthWindow = 2. NB: if dd > than the last day of the month, then code (in the called script) sets it to last day.
-
-NB: if a water year misses input data in the first months, the monthwindow should be adapted so as not to include the missing months. For instance, if water year 2024 misses october, WaterYearDate covering the full wateryear should be set to 2024-09-30-11.
-
-## Optional Options
-
-Information about other, optional options and their default value are supplied by calling `specific/sh/submitStcForHistorics.sh -h`.
-
-## Requirements
-
-- The submission should be done on a login node that can submit jobs to a slurm cluster (and not directly from a node of the cluster).
-
-- The submission script **must** be executed once the operator is at the root of the STC-MODSCAG-MODDRFS project. For instance: `cd ${projectDir}/STC-MODSCAG-MODDRFS; specific/sh/submitStcForHistorics.sh`.
-
-- The operator needs to have environment variable and alias definition files stored in their home directory: `~.bashrc`, `~.netrc`, `~.matlabEnvironmentVariables`. For safety reasons, the content of these files is partly confidential and only the list of variables and explanation of their definitions is provided in `env/.bashrc`, `env/.netrc`, `env/.matlabEnvironmentVariables`, respectively. Note another environment variable file in `env/~.projectEnvironmentVariables`, that should stay in the folder `env`.
-
-
-## Previous data generation requirements
-
-The scripts have some expectations over the input and intermediary data available.
-
-- For a month M (westernUS), the mod09ga and modscagdrfs data **must** be available to run the step stcRawCu.
-- For a month M (westernUS), the mod09raw and scagdrfsraw data **must** have been generated from M - 1 to M + 1 to run stcStcCu.
-- Step daMosaic requires scagdrfsstc data for the full water year.
-- Step moDWoObs requires scadrfsmat data for the full water year.
-- Step daNetCDF requires scadrfsmat data after step moDWoObs treatment for the full water year.
-- Step daMosBig (mosaic of western US) requires scadrfsmat data after step moDWoObs treatment for the full water year.
-
-- The output files are generated for the full water year N, from 10/01/N - 1 until 09/30/N.
-
-
-## Examples of calls
+# Command.
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
 ```
-versionOfAncillary=v3.1
-bigRegion=5
-scriptId=mod09gaI
-slurmCluster=1
-scratchPath=$slurmScratchDir1
-archivePath=$espArchiveDirNrt
 
-# 1. Mod09ga download.
-scriptId=mod09gaI
-confOfMonthId=10
-endYear=2024
-inputLabel=v061
-outputLabel=v061
-
-specific/sh/submitStcForHistorics.sh -A $versionOfAncillary -B $bigRegion -C $confOfMonthId -f $endYear -L $inputLabel -O $outputLabel -s $scriptId  -u $slurmCluster -x $scratchPath -y $archivePath
-
-# 2. Modscagdrfs download.
-scriptId=mScagDrI
-confOfMonthId=10
-endYear=2024
-inputLabel=v1
-outputLabel=v1
-
-specific/sh/submitStcForHistorics.sh -A $versionOfAncillary -B $bigRegion -C $confOfMonthId -f $endYear -L $inputLabel -O $outputLabel -s $scriptId  -u $slurmCluster -x $scratchPath -y $archivePath
-
-# 3. Scagdrfsraw generation.
-scriptId=stcRawCu
+The set of commands for (2) is:
+```bash
+bigRegionId=5
 confOfMonthId=30
-endYear=2024
-inputLabel=v061 # Not directly used in this step.
-outputLabel=v2025.0.1
-
-# 4. Scagdrfsstc generation.
-scriptId=stcStcCu
-confOfMonthId=0
-waterYearDateString=2025-01-31-2
-inputLabel=v2025.0.1
-outputLabel=v2025.0.1
-
-specific/sh/submitStcForHistorics.sh -A $versionOfAncillary -B $bigRegion -C $confOfMonthId -D waterYearDateString -L $inputLabel -O $outputLabel -s $scriptId  -u $slurmCluster -x $scratchPath -y $archivePath
-
-# 5. Albedo and daily mat generation.
-scriptId=daMosaic
-confOfMonthId=51
-endYear=2024
-startYear=2022
-inputLabel=v2025.0.1
-outputLabel=v2025.0.1
-
-specific/sh/submitStcForHistorics.sh -A $versionOfAncillary -B $bigRegion -C $confOfMonthId -e startYear -f endYear -L $inputLabel -O $outputLabel -s $scriptId  -u $slurmCluster -x $scratchPath -y $archivePath
-
-# 6. Days without observation.
-scriptId=moDWoObs
-confOfMonthId=51
-endYear=2024
-inputLabel=v2025.0.1
-outputLabel=v2025.0.1
-
-specific/sh/submitStcForHistorics.sh -A $versionOfAncillary -B $bigRegion -C $confOfMonthId -f endYear -L $inputLabel -O $outputLabel -s $scriptId  -u $slurmCluster -x $scratchPath -y $archivePath
-
-# 7. Netcdfs.
-scriptId=daNetCDF
-confOfMonthId=51
-endYear=2024
-inputLabel=v2025.0.1
-outputLabel=v2025.0.1
-
-specific/sh/submitStcForHistorics.sh -A $versionOfAncillary -B $bigRegion -C $confOfMonthId -f endYear -L $inputLabel -O $outputLabel -s $scriptId  -u $slurmCluster -x $scratchPath -y $archivePath
-
-# 8. Big mosaic.
-scriptId=daMosBig
-confOfMonthId=51
-endYear=2024
-inputLabel=v2025.0.1
-outputLabel=v2025.0.1
-
-specific/sh/submitStcForHistorics.sh -A $versionOfAncillary -B $bigRegion -C $confOfMonthId -f endYear -L $inputLabel -O $outputLabel -s $scriptId  -u $slurmCluster -x $scratchPath -y $archivePath
+optionForWaterYearDateString=
+thisEnvironment=SpiresV202410
+optionForEndYear="-f 2024"
+scriptId=mod09ga
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
 ```
 
-## Other functionalities
+The 2 sets of commands can be submitted in a row.
 
-Occasionally, it might be useful to parameter the options:
-- `-I $objectId`, which restricts the run for one tile, e.g. 292 for h08v04, list in `conf/configuration_of_regions.csv` (not possible for step daMosBig)
-- `-t $lagTimeBetweenSubmissionOfYears`, which prevent the submission of plenty of jobs in a row and insert a time lag between each submission (handy if we submit 20 water years in the same time)
+Warning: As missing files were noticed in the past, we advise to run these 2 sets a second time, once the first time has achieved.
+
+Note that for this step, the (historic) input files collected do not need to be rsynced back from the user's scratch to archive, since they are available from a public source.
+
+**More insight to know for job monitoring**
+For this step, the set of jobs submitted for (1) handles the full trimester. Contrastingly, the set of jobs for (2) has 3 subsets of jobs, each of them covering 1 trimester. The common period of run covered by each step and more information is detailed [here](run_nrt_pipeline.md#steps-and-scriptid). So there is a total of 4 subsets of jobs for 1 waterYear.
+
+At a lower level, the set of jobs submitted for (1) and (2) has as many jobs as the number of indivual tiles form the big Region. For westernUS, there are 5 individual MODIS Tiles (as defined in `conf/configuration_of_regionsSpiresV202410.csv`).
+
+At the highest level, each set of jobs is monitored by a job running on slurm with the script `bash/runSubmitter.sh`. These monitoring jobs automatically resubmit jobs that fail, excepted for a few reasons that were encoded.
+
+In total, to handle the step `mod09ga` for westernUS for waterYear 2024, a minimum of 4x(1+5)=24 jobs are submitted to slurm.
+
+
+**Step `spiFillC`**. Crucially, before submitting this step, the user MUST have monitored the outcome of the previous step, as indicated [above](#run-as-a-beginner). This duty is to carry out for each step.
+
+This step is almost similar to `mod09ga`, including in the number of jobs submitted, but can need much more time to be executed.
+
+The commands are:
+```bash
+bigRegionId=5
+confOfMonthId=20
+optionForWaterYearDateString=
+thisEnvironment=SpiresV202410
+optionForEndYear="-f 2023"
+scriptId=spiFillC
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears=
+```
+
+And 30 minutes later:
+```bash
+bigRegionId=5
+confOfMonthId=30
+optionForWaterYearDateString=
+thisEnvironment=SpiresV202410
+optionForEndYear="-f 2024"
+scriptId=spiFillC
+optionForLagTimeBetweenSubmissionOfYears="-t 30m"
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
+
+Here this second set of commands launches the 1st set of submission immediately (for the 1st trimester), and then for each of the 2 other trimester, launches the set of jobs 30 minutes later. Each of these 3 sets of submissions will display a message `Submitted batch job 20164305` with the indication of the jobId, that the user needs to note so as to monitor more easily his submissions, as required [here](#run-as-a-beginner). It is therefore **IMPORTANT** that the user lets his login session open until the end of the last submission, otherwise the user takes the risk of having only part of the submissions done.
+
+**Step `spiSmooC`**. This step is different from the previous ones, because for SPIReS v2024.1.0, we divide each tile forming the big region in 36 cells to carry out temporal interpolation over a waterYear. In all, for westernUS, this step submits a minimum of 1+36x5=181 jobs simultaneously (automatically). Slurm will handle all these jobs following its work load balancing functionalities, and not all jobs start at the same time, but rather start over a certain period of time.
+
+The commands are:
+```bash
+bigRegionId=5
+confOfMonthId=0
+optionForWaterYearDateString="-D 2024-09-30-12"
+thisEnvironment=SpiresV202410
+optionForEndYear=""
+scriptId=spiFillC
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
+
+The rest of the steps will cover similarly a full waterYear, but will handle a full tile per job, rather than the division of tiles into cells that is carried out here.
+
+**Step `moSpires`**
+```bash
+bigRegionId=5
+confOfMonthId=0
+optionForWaterYearDateString="-D 2024-09-30-12"
+thisEnvironment=SpiresV202410
+optionForEndYear=""
+scriptId=moSpires
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
+
+**Step `scdInCub`**
+```bash
+bigRegionId=5
+confOfMonthId=0
+optionForWaterYearDateString="-D 2024-09-30-12"
+thisEnvironment=SpiresV202410
+optionForEndYear=""
+scriptId=scdInCub
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
+
+**Step `daNetCDF`**
+```bash
+bigRegionId=5
+confOfMonthId=0
+optionForWaterYearDateString="-D 2024-09-30-12"
+thisEnvironment=SpiresV202410
+optionForEndYear=""
+scriptId=daNetCDF
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
+
+**Step `daMosBig`**
+```bash
+bigRegionId=5
+confOfMonthId=0
+optionForWaterYearDateString="-D 2024-09-30-12"
+thisEnvironment=SpiresV202410
+optionForEndYear=""
+scriptId=daMosBig
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
+
+**Step `daStatis`**
+```bash
+bigRegionId=5
+confOfMonthId=0
+optionForWaterYearDateString="-D 2024-09-30-12"
+thisEnvironment=SpiresV202410
+optionForEndYear=""
+scriptId=daStatis
+optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
+```
+
+We advise that the intermediary and output files of this production chain be synchronized back [from scratch to archive](run_nrt_pipeline.md#runrsync) only after a final check on the output files, which are for SPIReS v2024.1.0 the files produced at the `daNetCDF, daMosBig, daStatis` steps. [Locations of the files](run_nrt_pipeline.md#data-file-location).
+
+As said in [Data spaces](run_nrt_pipeline.md#data-spaces), which includes a procedure, it's a good practice for users generating historical data to regularly check their available space and inodes and act if quotas are close to be reached.
+
+
+## More advanced uses
+
+Occasionally, notably in case of job failures, it might be useful to parameter these options to the `submitHistoric.sh`:
+- `-I $objectId`, which restricts the run for one tile, e.g. 292 for h08v04, list in `conf/configuration_of_regionsSpiresV202410.csv` (not possible for step `daMosBig`)
 - `-U $slurmExecutionOptions`, to exclude specific, deficient nodes (e.g. `--exclude=toto,titi`, the two nodes **must** be part of the slurm cluster).
 
 ## More advanced remarks
 
 In some problematic cases, `specific/sh/submitStcForHistorics.sh` should be edited, as explained for the example below.
 
-Some jobs associated to specific steps can occasionally be killed because their necessary execution time is longer than the expected time (wall-time) or they can run into an out of memory error. It's possible to edit the wall-time of a step by editing, in the script `specific/sh/submitStcForHistorics.sh`, the variable `sbatchTimes` (time in hours) and `sbatchMems`, respectively. **Important**: increasing memory often requires increasing the number of cpus. The jobs can continue to run into out of memory issues if the number of parallel workers is kept by default the number of tasks. The protection techniques against that issue, are not uniformed among scripts. In particular, the steps stcRawCu, stcStcCu, daMos, daMosBig have their parallel workers still hard-coded and not configurable through the variable `scriptParallelWorkersNbs` in `specific/sh/submitStcForHistorics.sh`.
+Some jobs associated to specific steps can occasionally be killed because their necessary execution time is longer than the expected time (wall-time) or they can run into an out of memory error. It's possible to edit the wall-time of a step by locally editing `conf/configurationForHistoricsSpiresV202410.sh` the variable `sbatchTimes` (time in hours) and `sbatchMems`, respectively. **Important**: increasing memory often requires increasing the number of cpus. The jobs can continue to run into out of memory issues if the number of parallel workers is kept by default the number of tasks. The protection techniques that we used against that issue, are not uniformed among scripts.
 
 
 
