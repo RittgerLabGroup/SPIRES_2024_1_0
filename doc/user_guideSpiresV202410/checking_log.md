@@ -36,6 +36,9 @@ Monitoring jobs are submitted using the submission scripts above. One main scrip
 ### Real time.
 
 The real-time monitoring of a monitoring script job can be carried out with:
+
+*Commands*
+
 ```bash
 gLog # alias in .bashrc going to the log directory.
 tail -f *19647584*.out
@@ -43,6 +46,9 @@ tail -f *19647584*.out
 if the jobId is `19647584`.
 
 This log records the status of the step jobs submitted for each tile, typically:
+
+*Output*
+
 ```
 Synthesis:
 date      ; dura.; script  ; job     ; obj.; cell; date         ; status   ; hostname       ; CPU%; mem%; cores; totalMem; message
@@ -60,6 +66,10 @@ Which here indicates that for the step mod09gaI, 3 step jobs have been achieved 
 ### After execution.
 
 Once the monitoring job has successfully achieved the full sequential series of steps (for the near-real-time pipeline) or the group of jobs associated with a specific step (for historic runs), the log file displays:
+
+
+*Output*
+
 ```
 #############################################################################
 Absence of begin in submit line. No submit schedule for repeated job.
@@ -71,6 +81,9 @@ Note that in some rare cases, this line can be displayed even if a step job has 
 When not displayed, the monitoring can be affected by an issue by repeatedly resubmitting a job in error, with the new iteration falling back again in error either because of a bug in the project code or a hardware/software issue with the Slurm cluster, notably with connections. While the code handles many cases now, there's still some work in progress.
 
 A .csv file lists all the jobs executed and their result. To read it:
+
+*Command*
+
 ```bash
 gLog
 cat *19647584*.csv
@@ -80,6 +93,9 @@ cat *19647584*.csv
 ### After execution for historics.
 
 When you run historics, if you submit a lot of monitoring jobs, you can see their results rapidly using the commands above on a **login** node, and after going to the root of the project and loading the Slurm cluster tool module:
+
+*Command*
+
 ```bash
 cd ${thisEspProjectDir} # $thisEspProjectDir defined in .matlabEnvironmentVariableV, either in env/, or in your home.
 ml slurm/xxx
@@ -87,6 +103,9 @@ source bash/toolsJobs.sh
 get_log_status_for_submit_historics sCRa5 1964
 ```
 which will give the output:
+
+*Output*
+
 ```
 xxx/sCRa524_1_19640553.out; COMPLETED; Jobs done: 5/5.
 xxx/sCRa524_1_19647665.out; COMPLETED; Jobs done: 5/5.
@@ -102,6 +121,9 @@ The same log file is used by the Bash and MATLAB code.
 ### Real time.
 
 The real-time monitoring of a step script job can be carried out with:
+
+*Command*
+
 ```bash
 gLog
 tail -f *292*19647585*.out
@@ -115,12 +137,18 @@ The list of step arrayJobIds is available in the log file of the monitoring job 
 `Creation of arrayJobIds with parent 19647585`, if the arrayJobId is `19647585`.
 
 A list of jobs in execution is also available on a login node after loading the Slurm cluster tool module:
+
+*Command*
+
 ```bash
 ml slurm/xxx
 squeue # alias defined in .bashrc
 ```
 
 For scripts calling Matlab, it's possible to get the set of instructions given to Matlab using:
+
+*Command*
+
 ```bash
 gLog
 cat *292*19647585*.out | grep "Matlab string" -A 50
@@ -130,6 +158,9 @@ Convenient to debug the code on a Matlab interactive session.
 ### After execution.
 
 After execution, an array synthesizing the achievement status is displayed at the end of the log.
+
+*Output*
+
 ```
 Date      ; dura.; script  ; job     ; obj.; cel.; date         ; status   ; hostname       ; CPU%; mem%; cores; totalMem; message
 .....................................................................
@@ -147,21 +178,32 @@ It is advised that logs older than 1 month be archived in a permanent location h
 
 Production incident 06/27/2025
 Procedure to identify the step triggering the incident and collect a Level 2 information ([list of support levels](#levels-of-it-support)).
+
+*Command*
+
 ```bash
 # 1. Get runSubmitter logs for the last 24 h.
 gLog # cd to the central location of the logs.
 find . -mtime -1 | grep stnr
 ```
+
+*Output*
+
 ```
 >./stnr2410_1_20178646.out
 # NB: this can show several logs if several runSubmitter executed.
 ```
+
+*Command*
 
 ```bash
 # 2. Get the exit result of the runSubmitter log.
 runSubmitterLogPath=stnr2410_1_20178646.out
 tail -n 20 ${runSubmitterLogPath}
 ```
+
+*Output*
+
 ```
 > [...]
 > 0627T06:54; 00:00; webExpSn; 20181932;    5;     ; 2025-06-26-12; end:ERROR; bgpu-casa1     ; 49%; 44%; 2; 3 GB; Exit=1, matlab=ExporterToWebsite:systemCmdError, Line 50: Matlab.
@@ -169,10 +211,16 @@ tail -n 20 ${runSubmitterLogPath}
 > slurmstepd: error: *** JOB 20178646 ON bgpu-casa1 CANCELLED AT 2025-06-27T07:01:09 DUE TO TIME LIMIT ***
 # Here the runSubmitter job failed on step webExpSn. The line job CANCELLED suggests that the runSubmitter job resubmitted the step webExpSn multiple times, following multipe failures on this step webExpSn.
 ```
+
+*Command*
+
 ```bash
 # 3. Get the first time in runSubmitter log that the step webExpSn failed. This is to be sure that we catch the original error, because steady resubmission of the step can lead to other errors over time.
 thisError='webExpSn.*ERROR'; grep -C 10 -E "$thisError" ${runSubmitterLogPath} | head -n 21
 ```
+
+*Output*
+
 ```
 > [...]
 > FAILED                                                  ; 1:0 
@@ -180,11 +228,17 @@ thisError='webExpSn.*ERROR'; grep -C 10 -E "$thisError" ${runSubmitterLogPath} |
 > [...]
 # Here we get the log of the Slurm job for the step itself, the first time it was executed.
 ```
+
+*Command*
+
 ```bash
 # 4. Check the end of the log of the job of step webExpSn the first time it was executer to see if there are details on the error.
 stepLogPath=webExpSn_5_2025_06_26_12_20179776.out
 tail -n 500 ${stepLogPath}
 ```
+
+*Output*
+
 ```
 > instantiation: ExporterToWebsite: Sending cmd rsync -q -i /home/julo9057/.ssh/id_rsa /scratch/alpine/julo9057/modis_ancillary/v3.1/landsubdivision/metadata/26000_subdivisions_202309.json julo9057@nusnow.colorado.edu:/share/apps/snow-today/production/incoming/snow-surface-properties/regions/26000.json ...
 > ExporterToWebsite:systemCmdError: ExporterToWebsite: Failed cmd, error 1: rsync: /share/apps/snow-today/production/incoming/snow-surface-properties/regions/26000.json: Permission denied

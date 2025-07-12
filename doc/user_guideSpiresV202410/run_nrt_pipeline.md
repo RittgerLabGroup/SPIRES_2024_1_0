@@ -256,15 +256,13 @@ No other option or argument is available for this submission script. That implie
 
 Here are the NRT- and historic-generation steps for SPIReS v2024.1.0:
 
-| # | scriptId | description | NRT | historical | period  | period |
-||||| for NRT | for historicals |
+| # | scriptId | description | NRT | historical | period for NRT  | period for historicals |
 |---|---|---|---|---|---|---|
 | 1 | mod09gaI | Download mod09ga. | x | x | bimester | trimester |
 |---|---|---|---|---|---|---|
 | 2 | spiFillC | Generate intermediary gap files from mod09ga input. | x | x | bimester | trimester |
 |---|---|---|---|---|---|---|
-| 3 | spiSmooC | Generate gap-filled data files (without false positives) + 
-    temporal interpolation. | x | x | waterYear | waterYear |
+| 3 | spiSmooC | Generate gap-filled data files (without false positives) + temporal interpolation. | x | x | waterYear | waterYear |
 |---|---|---|---|---|---|---|
 | 4 | moSpires | Generate daily .mat files (dubbed mosaics). | x | x | waterYear | waterYear |
 |---|---|---|---|---|---|---|
