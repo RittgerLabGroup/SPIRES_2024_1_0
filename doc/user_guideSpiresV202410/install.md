@@ -213,6 +213,7 @@ The key's randomart image is:
 The command creates both a private (stored locally) and a public key.
 
 **Append the key to the remote server**. The user appends the public key to the remote server `.ssh/authorized_key` file:
+
 *Command*:
 ```bash
 ssh-copy-id -i /.ssh/id_rsa_nusnow.pub ${espWebExportUser}@${espWebExportDomain}
