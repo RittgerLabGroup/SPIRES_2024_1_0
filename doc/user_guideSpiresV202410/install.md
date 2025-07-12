@@ -172,11 +172,15 @@ If the user already has this file and that it is not protected with passphrase, 
 The user used to log in to this remote server is 
 
 **Create the SSH rsa key:**
+
+*Commands*:
 ```bash
 cd ~
 ssh-keygen -t rsa
 ```
 The commands asks you the file path where the user wants to save it and if they want a passphrase. We do not recommend a passphrase :
+
+*Output*:
 ```
 Generating public/private rsa key pair.
 Enter file in which to save the key (~/.ssh/id_rsa_nusnow):
@@ -209,12 +213,15 @@ The key's randomart image is:
 The command creates both a private (stored locally) and a public key.
 
 **Append the key to the remote server**. The user appends the public key to the remote server `.ssh/authorized_key` file:
+*Command*:
 ```bash
 ssh-copy-id -i /.ssh/id_rsa_nusnow.pub ${espWebExportUser}@${espWebExportDomain}
 ```
 Both the `espWebExportUser` and `espWebExportDomain` are defined in the *bashrc*.
 
 The command asks the user to continue connecting, the user replies yes and then enter the user's password to the remote server.
+
+*Output*:
 ```
 /usr/bin/ssh-copy-id: INFO: Source of key(s) to be installed: "~/.ssh/id_rsa_nusnow.pub"
 The authenticity of host '10.176.18.15 (10.176.18.15)' can't be established.
