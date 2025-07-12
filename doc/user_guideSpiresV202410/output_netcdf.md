@@ -1,20 +1,20 @@
-# Generation of output NetCdfs
+# Generation of output NetCDFs
 
-This page gives information about the ouput NetCdf templates and the generation of the output NetCdf files for the users.
+This page gives information about the ouput NetCDF templates and the generation of the output NetCDF files for the users.
 
 ## Introduction
 
-Every day `runSubmitter.sh` script updates near real time snow today data and the netcdfs of the ongoing water year. The generation of NetCdfs is done with the script `bash/runESPNetCDF.sh` and use Netcdf templates stored in `template/`. The NetCdfs are then automatically pushed on the operational archive and then (manually) pushed on onedrive.
+Every day [the NRT pipeline](run_nrt_pipeline.md) updates the near real-time (NRT) snow today data and the NetCDFs of the ongoing water year. The generation of NetCDFs is done at the step `daNetcdf` ([list of steps](run_nrt_pipeline.md#steps-and-scriptid)) and uses Netcdf templates stored in `template/`. The NetCDFs are then automatically pushed on the operational archive and then (manually) pushed on OneDrive.
 
-The NetCdfs generated are Version 4, which use HDF5 storage format. They are not Version 4 Classic. They might be therefore not compatible with older software.
+The NetCDFs generated are Version 4, which uses the HDF5 storage format. They are not Version 4 Classic. They might therefore not be compatible with older software.
 
 They are projected in the same MODIS sinusoidal projection as the input data, mod09ga. <https://modis-land.gsfc.nasa.gov/GCTP.html>. 
 
 ## Templates
 
-For each version of Snow-Today algorithm (STC or SPIReS), a .cdl template is designed by supplying variables (e.g. snow_fraction) and their attributes (e.g. type, comment) as well as the general attributes of the file (e.g. authors). Then a NetCdf sample file (extension .nc) is generated from the .cdl. This .nc sample file is used by the class ESPNetCDF as a matrix to generate the NetCdfs.
+For each version of the Snow-Today algorithm (STC or SPIReS), a .cdl template is designed by supplying variables (for example, snow_fraction) and their attributes (for example, type, comment) as well as the general attributes of the file (for example, authors). Then a NetCDF sample file (extension .nc) is generated from the .cdl. This .nc sample file is used by the class ESPNetCDF as a matrix to generate the NetCDFs.
 
-A .cdl template can be generated from a .nc on a node of the supercomputer with nco library*:
+A .cdl template can be generated from a .nc on a node of the supercomputer with the nco library*:
 ```bash
 ml nco/4.8.1;
 originalNetCdfFilePath=${thisEspProjectDir}template/outputnetcdf.v2024.1.0.nc # $thisEspProjectDir defined in env/.matlabEnvironmentVariablesSpiresV202410
@@ -39,7 +39,7 @@ cdlFilePath=${espDevProjectDir}template/outputnetcdf.v2024.1.0.nrt.cdl
   # Same as above, for near real time data.
 ```
 
-Templates are slightly different for near real time vs historic data (distinct DOI and dataset identifiers).
+Templates are slightly different between near real-time and historicals (distinct DOI and dataset identifiers).
 
 ## Output data files
 
@@ -52,6 +52,6 @@ ncks -m $ncFilePath # Print variable metadata
 ```
 
 
-*More on nco library and the ncgen function:
+*More on the NCO library and the NCGen function:
 <https://nco.sourceforge.net/nco.html>
 <https://www.unidata.ucar.edu/software/netcdf/workshops/most-recent/utilities/Ncgen.html>
