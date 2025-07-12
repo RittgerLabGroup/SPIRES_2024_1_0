@@ -15,20 +15,22 @@ usage() {
   read -r -d '' thisUsage << EOM
 
   Usage: ${PROGNAME}
-    [-A versionOfAncillary] [-B bigRegionId] [-c filterId] [-C confOfMonthId]
+    [-A versionOfAncillary] [-B bigRegionId] [-c filterConfId] [-C confOfMonthId]
     [-D yyyy-MM-dd-monthWindow] [-e startYear] [-f endYear] [-h] [-I objectId]
-    [-L inputLabel] [-O outputLabel] [-s scriptId] [-t lagTimeBetweenSubmissionOfYears]
+    [-L inputLabel] [-M thisMode] [-O outputLabel] [-s scriptId]
+    [-t lagTimeBetweenSubmissionOfYears]
     [-u slurmCluster] [-U slurmExecutionOptions] [-v verbosity]
     [-x scratchPath] [-y archivePath]
     Submit and monitor a step (scriptId) of the generation of stc historics.
     NB: You must launch this script when in root directory of the project.
   Options:
-    -A versionOfAncillary: string, optional. Version of the ancillary data. If not
-      given, takes the default in bash/configurationV.sh configurationV.sh, (with V
-      the environment version, e.g V202410).
+    -A versionOfAncillary: string, optional. E.g. v3.1 or v3.2.
+      Version of the ancillary data. If not
+      given, takes the version in conf/configuration_of_regions.csv.
     -B bigRegionId: int, obligatory. Identifying the big region (e.g. 5 for westernUS).
       Only one big region per run.
-    -c, filterId, int, optional. Identifies the algorithm configuration and thresholds
+    -c, filterConfId, int, optional. Identifies the algorithm configuration and
+      thresholds
       in configuration_of_filters.csv used by the algorithm. Default 0 indicates take
       the filter id of the region configuration, other value points to another
       specific filter configuration.
@@ -57,10 +59,11 @@ usage() {
       be set to 2024-09-30-11.
     -e startYear: int, optional. Smallest year of run, e.g. 2024. If not given,
       startYear = endYear. Option overriden by -D.
-    -E thisEnvironment: String, obligatory. E.g. v202410. Gives the environment
+    -E thisEnvironment: String, obligatory. E.g. "SpiresV202410" or "SpiresV202501".
+      Gives the environment
       version, to distinguish between different version of the algorithm used to
       calculate snow properties.
-    -f endYear: int, obligatory if option -C set to 0 and -D set to a waterYearDate.
+    -f endYear: int, obligatory and activated only if option -C is not set to 0.
       Highest year of run, of year of run, e.g. 2025.
       NB: if we run 10/2024 for westernUS over a monthwindow of 1 month only, although
       this period is affected to water year 2025, endYear should be 2024 in that case.
@@ -73,6 +76,9 @@ usage() {
     -L inputLabel: string, optional. String with version label for directories.
       E.g. v2024.1.0.
       For mod09ga, is v061, for version 6.1 of the tiles.
+    -M thisMode: int, optional. Default: 0. Certain steps need to run in a specific
+      mode, among others to avoid running the full step as it is done in the NRT
+      pipeline
     -O outputLabel: string, optional. String with version label for output files.
       E.g. v2024.1.0.
       If -O not given, inputLabel is used for both input and output files.
@@ -131,7 +137,7 @@ do
   case $opt in
     A) versionOfAncillary="$OPTARG";;
     B) bigRegionId="$OPTARG";;
-    c) filterId="$OPTARG";;
+    c) filterConfId="$OPTARG";;
     C) confOfMonthId="$OPTARG";;
     D) waterYearDateString="$OPTARG";;
     E) thisEnvironment="$OPTARG";;
@@ -141,6 +147,7 @@ do
       exit 1;;
     I) objectId="$OPTARG";;
     L) inputLabel="$OPTARG";;
+    M) thisMode="$OPTARG";;
     O) outputLabel="$OPTARG";;
     p) inputProductAndVersion="$OPTARG";;
     s) scriptId="$OPTARG";;
@@ -158,26 +165,30 @@ do
   esac
 done
 
-# External configuration setting.
+# Configuration loading and check option -E thisEnvironment.
 ########################################################################################
-printf "Load bash/configuration${thisEnvironment}.sh...\n"
+if [[ -z $thisEnvironment ]]; then
+  printf "ERROR: -E thisEnvironment is obligatory (Line ${LINENO}).\n"
+  exit 1
+fi
+printf "-E thisEnvironment: ${thisEnvironment}"
+set -x
 source bash/configuration${thisEnvironment}.sh # include source env/.matlabEnvironmentVariables${thisEnvironment^}
-printf "Load ${sharedScriptRelativeDirectoryPath}toolsRegions.sh...\n"
-source ${sharedScriptRelativeDirectoryPath}toolsRegions.sh
+source bash/toolsRegions.sh
+source bash/toolsWaterYearDate.sh
 
-# Step specific parameters for slurm.
-########################################################################################
-printf "Load bash/configurationForHistorics${thisEnvironment}.sh...\n"
 source bash/configurationForHistorics${thisEnvironment}.sh
+  # Step specific parameters for slurm historics.
+set +x
 
-# Instantiate step-specific variables with option -s.
+# Determine step-specific variables with option -s scriptId.
 ########################################################################################
-printf "Determine step-specific variables...\n"
+printf "Determine script, slurm, and step-specific variables from conf/configurationForHistorics${thisEnvironment}...\n"
 # Option -s, scriptId.
 if [[ ! " ${authorizedScriptIds[*]} " =~ [[:space:]]${scriptId}[[:space:]] ]]; then
   printf "ERROR: received scriptId '%s' not in authorized list '" ${scriptId}
   printf "%s " ${authorizedScriptIds[*]}
-  printf "'.\n" ${scriptId} ${authorizedScriptIds[*]}
+  printf "' (Line ${LINENO}).\n" ${scriptId} ${authorizedScriptIds[*]}
   exit 1
 fi
 scriptIdIdx=$(echo ${authorizedScriptIds[@]/${scriptId}//} | cut -d/ -f1 | wc -w | tr -d ' ')
@@ -195,70 +206,32 @@ if [[ -z $parallelWorkersNb ]]; then
   parallelWorkersNb=${scriptParallelWorkersNbs[${scriptIdIdx}]};
 fi
 
+# Determine mode.
+if [[ -z $thisMode ]]; then
+  thisMode=${scriptModes[${scriptIdIdx}]};
+fi
+
 # sbatch parameters.
 sbatchNTasksPerNode=${sbatchNTasksPerNodes[${scriptIdIdx}]};
 sbatchMem=${sbatchMems[${scriptIdIdx}]};
 sbatchTime=${sbatchTimes[${scriptIdIdx}]};
 sbatchExcludeNodes=""; # No node excluded by default.
 
-# Options -L, -O inputLabel and outputLabel.
-if [[ -z $inputLabel ]]; then
-  inputLabel=${scriptLabels[${scriptIdIdx}]};
-fi
-if [[ -z $outputLabel && ${scriptIdIdx} -lt $((${#authorizedScriptIds[@]} - 1)) ]]; then
-  outputLabel=${scriptLabels[$((${scriptIdIdx} + 1))]};
-elif [[ -z $outputLabel ]]; then
-  outputLabel=$inputLabel
-fi
-if [[ -z $inputProductAndVersion ]]; then
-  inputProductAndVersion=$defaultInputProductAndVersion; # in configurationForHistoricsV.sh
-fi
-if [[ -z $filterId ]]; then
-  filterId=0
-fi
-
-# Slurm config parameters.
-########################################################################################
-printf "Determine slurm config parameters...\n"
-# Option -x.
-if [[ -z $scratchPath ]]; then
-  scratchPath=${espScratchDir}; # in ~.bashrc.
-fi
-# Option -y.
-if [[ -z $archivePath ]]; then
-  archivePath=${espArchiveDirNrt}; # in ~.bashrc.
-fi
-# Option -T.
-if [[ -z $controlTime ]]; then
-  controlTime=$defaultControlTime; # in configurationForHistoricsV.sh
-fi
-# Option -u.
-if [[ -z $slurmCluster ]]; then
-  slurmCluster=0; # Alpine by default.
-fi
-# Option -U.
-if [[ ! -z $slurmExecutionOptions ]]; then
-  slurmExecutionOptions=($slurmExecutionOptions)
-  for slurmExecutionOption in ${slurmExecutionOptions[@]}; do
-    thisOptionName=$(echo ${slurmExecutionOption} | cut -d "=" -f 1)
-    thisOptionValue=$(echo ${slurmExecutionOption} | cut -d "=" -f 2)
-    case $thisOptionName in
-    --ntasks-per-node) sbatchNTasksPerNode=$thisOptionValue;;
-    --mem) sbatchMem=$thisOptionValue;;
-    --time) sbatchTime=$thisOptionValue;;
-    --exclude) sbatchExcludeNodes=$slurmExecutionOption;;
-    esac
-  done
-fi
-
-# Check object options and instantiate objectId.
+# Determine region and objects with option -B bigRegionId, -I objectId.
 ########################################################################################
 # objectId is the parameter --array of the sbatch command.
-printf "Determining object options...\n"
-# Option -B.
-if [[ -z $bigRegionId ]]; then
-  bigRegionId=$defaultBigRegionId; # in configurationForHistoricsV.sh.
+printf "Determining region and object...\n"
+# Option -B
+typeOfRegion=$(get_type_of_region_id $bigRegionId)
+if [[ -z $bigRegionId || $typeOfRegion != 'bigRegion' ]]; then
+  printf "ERROR: -B bigRegionId ${bigRegionIdx} is obligatory and should correspond to a big region (Line ${LINENO}).\n"
+  exit 1
 fi
+if [[ -z $bigRegionId || $typeOfRegion != 'bigRegion' ]]; then
+  printf "ERROR: -B bigRegionId ${bigRegionIdx} is obligatory and should correspond to a big region (Line ${LINENO}).\n"
+  exit 1
+fi
+
 # Option -I.
 if [[ $scriptRegionType -eq 1 ]]; then
   objectId=$bigRegionId
@@ -267,10 +240,10 @@ elif [[ -z $objectId ]]; then
 fi
 # Option -A.
 if [[ -z $versionOfAncillary ]]; then
-  versionOfAncillary=${thoseVersionsOfAncillary[$bigRegionId]};
+  versionOfAncillary=$(get_version_of_ancillary_for_region_id $bigRegionId);
 fi
 
-# Update objectId and scriptCountOfCell depending on sequence configured.
+# Determine objectId and scriptCountOfCell depending on sequence configured.
 ########################################################################################
 objectIdsArray=(${objectId//,/ });
 
@@ -302,19 +275,25 @@ if [ "$scriptSequence" != "0" ] && [ $scriptRegionType -ne 10 ]; then
   objectId=${objectId:1};
 fi
 
-# Check period options (years, conf of months, waterYearDate).
+# Determine period from -C confOfMonthId -D waterYearDateString -e endYear -f startYear.
 ########################################################################################
-printf "Determine period options...\n"
-# Option -C, -D, -e, -f.
-if [[ -z $waterYearDateString && $confOfMonthId -eq 0 ]]; then
-  printf "ERROR: received absent waterYearString (option -D) with default confOfMonthId = 0.\n"
+printf "Determine period (years, conf of months, waterYearDate) options...\n"
+
+$allowedConfOfMonthIds=0,10,11,20,21,30,31,41,51,120,121,130,131
+if [[ -z $confOfMonthId || $allowedConfOfMonthIds != *"$confOfMonthId"* ]]; then
+  printf "ERROR: -C confOfMonthId ${confOfMonthId} is obligatory and should be in the list of allowed values (submitHistoric.sh -h for details) (Line ${LINENO}).\n"
   exit 1
 fi
-if [[ -z $waterYearDateString && -z $endYear ]]; then
-  printf "ERROR: received absent waterYearString (option -D) and absent endYear (option -f).\n"
+if [[ $confOfMonthId -ne 0 && ( $endYear != "20"* || ${#endYear} -ne 4 ) ]]; then
+  printf "ERROR: -e endYear is obligatory and should be between 2000 and 2099 when -C confOfMonthId ${confOfMonthId} is not 0 (submitHistoric.sh -h for details) (Line ${LINENO}).\n"
   exit 1
 fi
-if [[ $confOfMonthId -ne 0 && -z $waterYearDateString ]]; then
+if [[ $confOfMonthId -eq 0 && ! is_water_year_date_in_the_past "$waterYearDateString" ]]; then 
+  printf "ERROR: -D waterYearDate ${waterYearDate} is obligatory and should be the right format YYYY-MM-DD-MonthWindow, with a date no later than yesterday when -C confOfMonthId = 0 (submitHistoric.sh -h for details) (Line ${LINENO}).\n"
+  exit 1
+fi
+
+if [[ $confOfMonthId -ne 0 ]]; then
   if [[ -z $startYear ]]; then
     years=($endYear); # endYear checked above.
   else
@@ -331,9 +310,56 @@ else
   monthWindow=${waterYearDateArray[3]}
 fi
 
-# Determine mode.
+# Options -L, -O inputLabel and outputLabel, -c filterConfId.
 ########################################################################################
-thisMode=0
+if [[ -z $inputLabel ]]; then
+  inputLabel=${scriptLabels[${scriptIdIdx}]};
+fi
+if [[ -z $outputLabel && ${scriptIdIdx} -lt $((${#authorizedScriptIds[@]} - 1)) ]]; then
+  outputLabel=${scriptLabels[$((${scriptIdIdx} + 1))]};
+elif [[ -z $outputLabel ]]; then
+  outputLabel=$inputLabel
+fi
+if [[ -z $inputProductAndVersion ]]; then
+  inputProductAndVersion=$defaultInputProductAndVersion; # in configurationForHistoricsV.sh
+fi
+if [[ -z $filterConfId ]]; then
+  filterConfId=0
+fi
+
+# Slurm config parameters.
+########################################################################################
+printf "Determine slurm config parameters...\n"
+# Option -x.
+if [[ -z $scratchPath ]]; then
+  scratchPath=${espScratchDir}; # in ~.bashrc.
+fi
+# Option -y.
+if [[ -z $archivePath ]]; then
+  archivePath=${espArchiveDirNrt}; # in ~.bashrc.
+fi
+# Option -T.
+if [[ -z $controlTime ]]; then
+  controlTime=$defaultControlTime; # in configurationForHistoricsV.sh
+fi
+# Option -u.
+if [[ -z $slurmCluster ]]; then
+  slurmCluster=0; # Alpine by default.
+fi
+# Option -U.
+if [[ ! -z $slurmExecutionOptions ]]; then
+  slurmExecutionOptions=($slurmExecutionOptions)
+  for slurmExecutionOption in ${slurmExecutionOptions[@]}; do
+    thisOptionName=$(echo ${slurmExecutionOption} | cut -d "=" -f 1)
+    thisOptionValue=$(echo ${slurmExecutionOption} | cut -d "=" -f 2)
+    case $thisOptionName in
+      --ntasks-per-node) sbatchNTasksPerNode=$thisOptionValue;;
+      --mem) sbatchMem=$thisOptionValue;;
+      --time) sbatchTime=$thisOptionValue;;
+      --exclude) sbatchExcludeNodes=$slurmExecutionOption;;
+    esac
+  done
+fi
 
 # Check no argument.
 ########################################################################################
@@ -364,7 +390,7 @@ monthWindow= $monthWindow
 product= $inputProductAndVersion
 inputLabel= ${inputLabel}
 outputLabel= ${outputLabel}
-filterId= ${filterId}
+filterConfId= ${filterConfId}
 thisMode= ${thisMode}
 scratchPath= ${scratchPath}
 archivePath= ${archivePath}
@@ -412,7 +438,7 @@ sbatch ${scriptExcludeNodes} \
 --account=${slurmAccount} --qos=${slurmQos} -o ${slurmOutputPath} \
 --job-name=${thisScriptIdJobName} --cpus-per-task=1 --ntasks-per-node=${sbatchNTasksPerNode} \
 --mem=${sbatchMem} --time=${sbatchTime} --array=${objectId} ${sbatchScript} \
--A ${versionOfAncillary} -c ${filterId} -D ${waterYearDate} \
+-A ${versionOfAncillary} -c ${filterConfId} -D ${waterYearDate} \
 -E ${thisEnvironment} -L ${inputLabel} \
 -M 0 -O ${outputLabel} -p ${inputProductAndVersion} -Q ${countOfCells} \
 -x ${scratchPath} -y ${archivePath} \
