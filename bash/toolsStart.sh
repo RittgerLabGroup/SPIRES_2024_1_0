@@ -47,7 +47,7 @@ else
   source bash/configuration${thisEnvironment}.sh
     # also include the specific env/.matlabEnvironmentVariablesV.
 fi
-if [[ -z "$matlabPathForThisProject" ]];
+if [[ -z "$matlabPathForThisProject" ]]; then
   matlabPathForThisProject=${thisEspProjectDir}matlab${thisEnvironment}/
 fi
 
