@@ -26,5 +26,8 @@ export matlabPathForSpiresTimeSpace=${projectDir}MATLAB/SPIRES/TimeSpace
 
 # Not to be edited.
 ########################################################################################
+# thisEnvironment, can be redefined later in the code.
+export thisEnvironment=SpiresV202410
+
 # Paths to shared and specific source.
 export webColorMapFilePathInJson=${thisEspProjectDir}conf/colormaps.json
