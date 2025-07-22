@@ -153,7 +153,7 @@ Beware of these specific variables:
 
 - `espLogDir`. This is the location of all the logs of the project and has these obligatory requirements:
   - This location **must** be unique and accessible in read/write to all the users of the project for an institution/university. This is facilitated by the naming of a `$level3User` in the *.bashrc* ([Levels of IT Support](checking_log.md#levels-of-it-support)).
-  - This location **must** be on the resource that has the highest probability of always staying connected to the Slurm cluster. In CU configuration, I chose the resource `projects`.
+  - This location **must** be on the resource that has the highest probability of always staying connected to the Slurm cluster. In CU configuration, I chose the resource `/projects/${USER}/path/to/slurm_out/`.
   - The non-respect of these requirements was the cause of either an absence of logging or a loss of log files in the past.
   - These requirements are not necessary for a run on a personal laptop without requesting access to shared folders.
 

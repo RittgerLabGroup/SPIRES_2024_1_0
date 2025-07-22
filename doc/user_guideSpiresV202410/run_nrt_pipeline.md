@@ -128,7 +128,7 @@ To run it without the prompt:
 ```bash
 thisEnvironment=SpiresV202410
 pipelineId=1
-bash/submitNrt.sh -E SpiresV202410 -v 10 -Z 1
+bash/submitNrt.sh -E SpiresV202410 -v 10 -Z ${pipelineId}
 ```
 The script will achieve this without waiting for the user's input and will submit the job.
 
@@ -141,9 +141,11 @@ For testing, the user should first `rsync` the folders `modis_ancillary`, `modis
 
 Then the user can execute:
 ```bash
+module load slurm/blanca
+cd ${projectDir}/SPIRES_2024_1_0
 thisEnvironment=SpiresV202410
 pipelineId=1
-bash/submitNrt.sh -E SpiresV202410 -W 1 -y ${espScratchDir} -Z 1
+bash/submitNrt.sh -E SpiresV202410 -W 1 -y ${espScratchDir} -Z ${pipelineId}
 ```
 
 `$espScratchDir` is defined in `~/.bashrc`
@@ -260,30 +262,30 @@ A method to cleanly cancel (=kill) jobs is described [here](checking_log.md#canc
 
 Here are the NRT- and historic-generation steps for SPIReS v2024.1.0:
 
-| # | scriptId | description | NRT | historical | period for NRT  | period for historicals |
-|---|---|---|---|---|---|---|
-| 1 | mod09gaI | Download mod09ga. | x | x | bimester | trimester |
-|---|---|---|---|---|---|---|
-| 2 | spiFillC | Generate intermediary gap files from mod09ga input. | x | x | bimester | trimester |
-|---|---|---|---|---|---|---|
-| 3 | spiSmooC | Generate gap-filled data files (without false positives) + temporal interpolation. | x | x | waterYear | waterYear |
-|---|---|---|---|---|---|---|
-| 4 | moSpires | Generate daily .mat files (dubbed mosaics). | x | x | waterYear | waterYear |
-|---|---|---|---|---|---|---|
-| 5 | scdInCub | Calculate snow cover days in daily .mat files. | x | x | waterYear | waterYear |
-|---|---|---|---|---|---|---|
-| 6 | daNetCDF | Generate output NetCDF files. | x | x | waterYear | waterYear |
-|---|---|---|---|---|---|---|
-| 7 | daMosBig | Generate output big mosaic .mat files. | x | x | waterYear | waterYear |
-|---|---|---|---|---|---|---|
-| 8 | daGeoBig | Generate NRT geotiffs for website. | x |  | 1 day |  |
-|---|---|---|---|---|---|---|
-| 9 | daStatis | Generate .csv daily statistic files. | x | x | waterYear | waterYear |
-|---|---|---|---|---|---|---|
-| 10 | ftpExpor | Rsync NRT data from scratch to archive. | x|  | 2 years |  |
-|---|---|---|---|---|---|---|
-| 11 | webExpSn | Generate and export NRT data to website. | x |  | waterYear |  |
-|---|---|---|---|---|---|---|
+| #  | scriptId | description                                                                        | NRT | historical | period for NRT | period for historicals |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 1  | mod09gaI | Download mod09ga.                                                                  | x   | x          | bimester       | trimester              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 2  | spiFillC | Generate intermediary gap files from mod09ga input.                                | x   | x          | bimester       | trimester              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 3  | spiSmooC | Generate gap-filled data files (without false positives) + temporal interpolation. | x   | x          | waterYear      | waterYear              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 4  | moSpires | Generate daily .mat files (dubbed mosaics).                                        | x   | x          | waterYear      | waterYear              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 5  | scdInCub | Calculate snow cover days in daily .mat files.                                     | x   | x          | waterYear      | waterYear              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 6  | daNetCDF | Generate output NetCDF files.                                                      | x   | x          | waterYear      | waterYear              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 7  | daMosBig | Generate output big mosaic .mat files.                                             | x   | x          | waterYear      | waterYear              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 8  | daGeoBig | Generate NRT geotiffs for website.                                                 | x   |            | 1 day          |                        |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 9  | daStatis | Generate .csv daily statistic files.                                               | x   | x          | waterYear      | waterYear              |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 10 | ftpExpor | Rsync NRT data from scratch to archive.                                            | x   |            | 2 years        |                        |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
+| 11 | webExpSn | Generate and export NRT data to website.                                           | x   |            | waterYear      |                        |
+|----|----------|------------------------------------------------------------------------------------|-----|------------|----------------|------------------------|
 
 where:
 - NRT checked indicates if the NRT sequence includes the step,
@@ -294,28 +296,28 @@ where:
 
 Here are a few examples of objects:
 
-| objectId | objectName | type | configuration file |
-|---|---|---|---|
-| 5 | westernUS | bigRegion | regions |
-|---|---|---|---|
-| 292 | h08v04 | tile | regions |
-|---|---|---|---|
-| 293 | h08v05 | tile | regions |
-|---|---|---|---|
-| 328 | h09v04 | tile | regions |
-|---|---|---|---|
-| 329 | h09v05 | tile | regions |
-|---|---|---|---|
-| 364 | h10v04 | type | configuration file |
-|---|---|---|---|
-| 26000 | westernUS | subdivision groupadm0 | subdivisions |
-|---|---|---|---|
-| 11726 | Colorado | subdivision adm1 | subdivisions |
-|---|---|---|---|
-| 12513 | Upper Colorado HUC14 | subdivision huc2 | subdivisions |
-|---|---|---|---|
-| 12778 | Colorado Headwaters HUC1401 | subdivision huc4 | subdivisions |
-|---|---|---|---|
+| objectId | objectName                  | type                  | configuration file |
+|----------|-----------------------------|-----------------------|--------------------|
+| 5        | westernUS                   | bigRegion             | regions            |
+|----------|-----------------------------|-----------------------|--------------------|
+| 292      | h08v04                      | tile                  | regions            |
+|----------|-----------------------------|-----------------------|--------------------|
+| 293      | h08v05                      | tile                  | regions            |
+|----------|-----------------------------|-----------------------|--------------------|
+| 328      | h09v04                      | tile                  | regions            |
+|----------|-----------------------------|-----------------------|--------------------|
+| 329      | h09v05                      | tile                  | regions            |
+|----------|-----------------------------|-----------------------|--------------------|
+| 364      | h10v04                      | type                  | configuration file |
+|----------|-----------------------------|-----------------------|--------------------|
+| 26000    | westernUS                   | subdivision groupadm0 | subdivisions       |
+|----------|-----------------------------|-----------------------|--------------------|
+| 11726    | Colorado                    | subdivision adm1      | subdivisions       |
+|----------|-----------------------------|-----------------------|--------------------|
+| 12513    | Upper Colorado HUC14        | subdivision huc2      | subdivisions       |
+|----------|-----------------------------|-----------------------|--------------------|
+| 12778    | Colorado Headwaters HUC1401 | subdivision huc4      | subdivisions       |
+|----------|-----------------------------|-----------------------|--------------------|
 
 Full list is in the regions file `conf/configuration_of_regionsSpiresV202410.csv` and the subdivisions file `conf/configuration_of_landsubdivisionsSpiresV202410.csv`.
 
@@ -323,64 +325,64 @@ Full list is in the regions file `conf/configuration_of_regionsSpiresV202410.csv
 
 Here are the input and output dataLabels used for each step of the pipeline:
 
-| # | scriptId | inputDataLabel | outputDataLabel |
-|---|---|---|---|
-| 1 | mod09gaI |  | mod09ga |
-|---|---|---|---|
-| 2 | spiFillC | mod09ga | modisspiresfill |
-|---|---|---|---|
-| 3 | spiSmooC | modisspiresfill | modisspiressmoothbycell |
-|---|---|---|---|
-| 4 | moSpires | modisspiressmoothbycell | VariablesMatlab |
-|---|---|---|---|
-| 5 | scdInCub | VariablesMatlab | VariablesMatlab |
-|---|---|---|---|
-| 6 | daNetCDF | VariablesMatlab | outputnetcdf |
-|---|---|---|---|
-| 7 | daMosBig | VariablesMatlab | VariablesMatlab |
-|---|---|---|---|
-| 8 | daGeoBig | VariablesMatlab | VariablesGeotiff |
-|---|---|---|---|
-| 9 | daStatis | VariablesMatlab | SubdivisionStatsDailyCsv |
-|   |   |  | SubdivisionStatsAggregCsv |
-|   |   |  | SubdivisionStatsWebJson |
-|   |   |  | SubdivisionStatsWebCsvv20231 |
-|---|---|---|---|
-| 10 | ftpExpor |  | modisspiresfill |
-|   |   |  | VariablesMatlab |
-|   |   |  | outputnetcdf |
-|   |   |  | VariablesGeotiff |
-|   |   |  | SubdivisionStatsWebCsvv20231 |
-|   |   |  | SubdivisionStatsAggregCsv |
-|---|---|---|---|
-| 11 | webExpSn | VariablesGeotiff |  |
-|   |   | SubdivisionStatsWebJson |  |
-|   |   | SubdivisionStatsWebCsvv20231 |  |
-|---|---|---|---|
+| #  | scriptId | inputDataLabel               | outputDataLabel              |
+|----|----------|------------------------------|------------------------------|
+| 1  | mod09gaI |                              | mod09ga                      |
+|----|----------|------------------------------|------------------------------|
+| 2  | spiFillC | mod09ga                      | modisspiresfill              |
+|----|----------|------------------------------|------------------------------|
+| 3  | spiSmooC | modisspiresfill              | modisspiressmoothbycell      |
+|----|----------|------------------------------|------------------------------|
+| 4  | moSpires | modisspiressmoothbycell      | VariablesMatlab              |
+|----|----------|------------------------------|------------------------------|
+| 5  | scdInCub | VariablesMatlab              | VariablesMatlab              |
+|----|----------|------------------------------|------------------------------|
+| 6  | daNetCDF | VariablesMatlab              | outputnetcdf                 |
+|----|----------|------------------------------|------------------------------|
+| 7  | daMosBig | VariablesMatlab              | VariablesMatlab              |
+|----|----------|------------------------------|------------------------------|
+| 8  | daGeoBig | VariablesMatlab              | VariablesGeotiff             |
+|----|----------|------------------------------|------------------------------|
+| 9  | daStatis | VariablesMatlab              | SubdivisionStatsDailyCsv     |
+|    |          |                              | SubdivisionStatsAggregCsv    |
+|    |          |                              | SubdivisionStatsWebJson      |
+|    |          |                              | SubdivisionStatsWebCsvv20231 |
+|----|----------|------------------------------|------------------------------|
+| 10 | ftpExpor |                              | modisspiresfill              |
+|    |          |                              | VariablesMatlab              |
+|    |          |                              | outputnetcdf                 |
+|    |          |                              | VariablesGeotiff             |
+|    |          |                              | SubdivisionStatsWebCsvv20231 |
+|    |          |                              | SubdivisionStatsAggregCsv    |
+|----|----------|------------------------------|------------------------------|
+| 11 | webExpSn | VariablesGeotiff             |                              |
+|    |          | SubdivisionStatsWebJson      |                              |
+|    |          | SubdivisionStatsWebCsvv20231 |                              |
+|----|----------|------------------------------|------------------------------|
 
 ### Data spaces
 
 The data spaces are:
 
-| name | category | environment variable | configuration file | comment |
-|---|---|---|---|---|
-| `myHome` | home | ~/.bashrc | |
-|---|---|---|---|---|
-| `projectDir` | code | ~/.bashrc | |
-|---|---|---|---|---|
-| `thisEspProjectDir` | code | env/.matlabEnvironmentVariablesSpiresV202410 | other projects, such as external matlab packages are also defined in this file |
-| `espLogDir` | code | ~/.bashrc | centralized location of logs. |
-|---|---|---|---|---|
-| `espScratchDir` | scratch | ~/.bashrc | variable `$slurmAlternativeScratchDir1` points to the same space, was added to handle directory links that matlab can sometimes not handle correctly. |
-|---|---|---|---|---|
-| `espArchiveDirEsp`  | archive | ~/.bashrc | legacy archive |
-|---|---|---|---|---|
-| `espArchiveDir` | archive | ~/.bashrc | default archive in code. |
-|---|---|---|---|---|
-| `espArchiveDirNrt`| archive | ~/.bashrc | archive for historic data |
-|---|---|---|---|---|
-| `espArchiveDirOps`| archive | ~/.bashrc | archive for NRT data |
-|---|---|---|---|---|
+| name                | category | environment variable                         | configuration file                                                                                                                                    | comment |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `myHome`            | home     | ~/.bashrc                                    |                                                                                                                                                       |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `projectDir`        | code     | ~/.bashrc                                    |                                                                                                                                                       |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `thisEspProjectDir` | code     | env/.matlabEnvironmentVariablesSpiresV202410 | other projects, such as external matlab packages are also defined in this file                                                                        |         |
+| `espLogDir`         | code     | ~/.bashrc                                    | centralized location of logs.                                                                                                                         |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `espScratchDir`     | scratch  | ~/.bashrc                                    | variable `$slurmAlternativeScratchDir1` points to the same space, was added to handle directory links that matlab can sometimes not handle correctly. |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `espArchiveDirEsp`  | archive  | ~/.bashrc                                    | legacy archive                                                                                                                                        |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `espArchiveDir`     | archive  | ~/.bashrc                                    | default archive in code.                                                                                                                              |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `espArchiveDirNrt`  | archive  | ~/.bashrc                                    | archive for historic data                                                                                                                             |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| `espArchiveDirOps`  | archive  | ~/.bashrc                                    | archive for NRT data                                                                                                                                  |         |
+|---------------------|----------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
 
 ### runRsync
 
