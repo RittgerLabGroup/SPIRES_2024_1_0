@@ -22,6 +22,10 @@ fi
 if [ ! -v expectedCountOfArguments ]; then expectedCountOfArguments=0; fi
 if [ ! -v defaultSlurmArrayTaskId ]; then defaultSlurmArrayTaskId=292; fi
 
+# Load authorized values for environment variables.
+thatFilePath=env/.authorizedEnvironmentVariableValues
+[ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
+
 # First parsing of options to get the environment and pipeline.
 thisEnvironment=
 OPTIND=1
@@ -33,25 +37,38 @@ while getopts ${thisGepOptsString} opt; do
   case $opt in
     E) thisEnvironment="$OPTARG"
     printf "\nthisEnvironment=${thisEnvironment}\n\n";;
+    h) source bash/configurationForHelp.sh; usage
+      exit 1;;
     Z) pipeLineId="$OPTARG"
     printf "\npipeLineId=${pipeLineId}\n\n";;
   esac
 done
 
+# Check thisEnvironment value.
+[[ -z $thisEnvironment || $valuesForThisEnvironment = *"$thisEnvironment"* ]] || error_exit "Exit=1, matlab=no, unauthorized thisEnvironment=${thisEnvironment}."
+
 # Loading configuration and parameters.
 if [[ -z $thisEnvironment ]]; then
   thisEnvironment=SpiresV202410;
     # By default we set the environment to the one in production for Snow-Today NRT.
-  source bash/configuration.sh
+  thatFilePath=bash/configuration.sh
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
 else
-  source bash/configuration${thisEnvironment}.sh
+  thatFilePath=bash/configuration${thisEnvironment}.sh
     # also include the specific env/.matlabEnvironmentVariablesV.
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
 fi
 if [[ -z "$matlabPathForThisProject" ]]; then
   matlabPathForThisProject=${thisEspProjectDir}matlab${thisEnvironment}/
+  thatFilePath=matlabPathForThisProject
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
 fi
 
-source bash/toolsJobs.sh
+export thisEnvironment="$thisEnvironment";
+  # For matlab.
+
+thatFilePath=bash/toolsJobs.sh
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
 # We also source bash/toolsRegions.sh below.
 
 ########################################################################################
@@ -392,7 +409,8 @@ workingDirectory=$(pwd)/
 printf "Working directory: ${workingDirectory}\n"
 printf "#############################################################################\n"
 
-source bash/toolsRegions.sh
+thatFilePath=bash/toolsRegions.sh
+[ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
 # In toolsRegions.sh, we need $workingDirectory.
 
 ########################################################################################
@@ -669,8 +687,7 @@ do
       isToBeRepeated=0
       printf "Job wont be scheduled for a repeat because option -D "\
 "waterYearDateString is set.\n";;
-    h) usage
-      exit 1;;
+    h) ;;
     i) inputFromArchive=1;;
     I) objectId="$OPTARG";;
     L) inputLabel="$OPTARG";;
@@ -1109,7 +1126,7 @@ EOM
     } || error_exit "Exit=1, matlab=no, Defective node, impossible to login."
 
     nextSubmitLine=${sbatchSubmitLine}
-    nextSubmitLine=$(echo ${nextSubmitLine} | sed -E 's~--begin=[0-9\:]+ ~~' | sed -E "s~/[a-zA-Z0-9\_\%]+\.out( --job-name)~/${nextSlurmStdOutFileName}\1~" | sed -E "s~( --job-name=)[a-zA-Z0-9\-]+ ~\1${nextJobName} ~" | sed -E "s~( --ntasks-per-node=)[0-9]+ ~\1${nextTasksPerNode} ~" | sed -E "s~( --mem=)[0-9]+G ~\1${nextMem} ~" | sed -E "s~( --time=)[0-9:]+ ~\1${nextTime} ~" | sed -E "s~( --array=)[0-9\,\-]+ ~\1${nextArray} ~" | sed -E "s~ \.\/scripts\/[a-zA-Z0-9]+\.sh ~ ${nextScript} ~" | sed -E "s~( -A )[a-zA-Z0-9\.]+ ~\1${nextVersionOfAncillary} ~" | sed -E "s~( -L )[a-zA-Z0-9\.\_\-]+ ~\1${nextInputLabel} ~" | sed -E "s~( -O )[a-zA-Z0-9\.\_\-]+ ~\1${nextOutputLabel} ~" | sed -E "s~( -Q )[0-9]+ ~\1${nextCountOfCells} ~" | sed -E "s~( -w )[0-9]+ ~\1${nextParallelWorkersNb} ~" | sed "s~ -R ~ ~")
+    nextSubmitLine=$(echo ${nextSubmitLine} | sed -E 's~--begin=[0-9\:]+ ~~' | sed -E "s~/[a-zA-Z0-9\_\%]+\.out( --job-name)~/${nextSlurmStdOutFileName}\1~" | sed -E "s~( --job-name=)[a-zA-Z0-9\-]+ ~\1${nextJobName} ~" | sed -E "s~( --ntasks-per-node=)[0-9]+ ~\1${nextTasksPerNode} ~" | sed -E "s~( --mem=)[0-9]+G ~\1${nextMem} ~" | sed -E "s~( --time=)[0-9:]+ ~\1${nextTime} ~" | sed -E "s~( --array=)[0-9\,\-]+ ~\1${nextArray} ~" | sed -E "s~ \.\/bash[a-zA-Z0-9]?\/[a-zA-Z0-9]+\.sh ~ ${nextScript} ~" | sed -E "s~( -A )[a-zA-Z0-9\.]+ ~\1${nextVersionOfAncillary} ~" | sed -E "s~( -L )[a-zA-Z0-9\.\_\-]+ ~\1${nextInputLabel} ~" | sed -E "s~( -O )[a-zA-Z0-9\.\_\-]+ ~\1${nextOutputLabel} ~" | sed -E "s~( -Q )[0-9]+ ~\1${nextCountOfCells} ~" | sed -E "s~( -w )[0-9]+ ~\1${nextParallelWorkersNb} ~" | sed "s~ -R ~ ~")
 
     if [[ "${nextSubmitLine}" == *" -D "* ]]; then
       # Precaution, we force the waterYearDate to what the script decided, and not only

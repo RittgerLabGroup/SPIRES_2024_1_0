@@ -4,6 +4,25 @@
 
 # NB: ${thisEnvironment} should be defined. In classic operations, it is done in
 # toolsStart.sh.
+if [[ -z $fileSeparator ]]; then 
+  fileSeparator='/'
+fi
+if [[ -z $defaultIFS ]]; then 
+  defaultIFS=$' \t\n'
+fi
+if [[ -z $workingDirectory ]]; then 
+  workingDirectory=$(pwd)/
+fi
+
+regionConfFilePath=${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv
+if [ ! -f $regionConfFilePath ]; then
+  regionConfFilePath=${workingDirectory}conf/configuration_of_regions.csv
+    # default file.
+fi
+[ ! -f regionConfFilePath ] || error_exit "Exit=1, matlab=no, inexisting ${regionConfFilePath}."
+  # when toolsRegions.sh launched standalone, $thisEnvironment is unset, otherwise set
+  # by toolsStart.sh.
+
 
 ########################################################################################
 # Functions.
@@ -22,7 +41,6 @@ get_object_ids_from_big_region_object_ids_string() {
   # - theseObjectIds: String, e.g. "292,293". List of the ids of the modisTiles
   #   associated to the big region. The ids are unique
   local objectId="$1"
-  local regionConfFilePath=${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv
   local theseObjectIds=""
 
   IFS=',' read -ra bigObjectIdsArray <<< "$objectId"
@@ -60,6 +78,24 @@ get_object_ids_from_big_region_object_ids_string() {
   echo "$theseObjectIds"
 }
 
+get_type_of_region_id(){
+  # Gets the type of object a region is.
+  #
+  # Parameters
+  # ----------
+  # - objectId: Int, e.g. 5 (for westernUS). Id of the region, as defined in conf/configuration_of_regionsV.csv.
+  #
+  # Return
+  # ------
+  # - type: String, e.g. "modisTile" or "bigRegion". Type of the region.
+  #   region.
+  local objectId="$1"
+
+  # Use awk to filter the CSV and extract column 21
+  typeOfRegion=$(awk -F',' -v obj="$objectId" '($19 == obj) {print $2}' "$regionConfFilePath" | head -1)
+  echo "$typeOfRegion"
+}
+
 get_region_names_from_object_ids_string() {
   # Get the list of region names associated to the list of object ids
   # $theseObjectIds.
@@ -73,11 +109,11 @@ get_region_names_from_object_ids_string() {
   # - regionNames: String, e.g. "h08v04,h08v05,westernUS". List of the regionNames
   #   associated with the object ids.
   local objectIds="$1"
-  local regionConfFilePath=${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv
   local regionNames=""
 
   # Convert the comma-separated string of IDs into an array
   IFS=',' read -r -a objectIdArray <<< "$objectIds"
+  IFS=defaulIFS
 
   # Build an awk command to filter and extract
   # The pattern is constructed like "$19 == ID1 || $19 == ID2 || ..."
@@ -146,6 +182,24 @@ get_tile_name_from_tile_id(){
   echo "h${horizontalId}v${verticalId}"
 }
 
+get_version_of_ancillary_for_region_id(){
+  # Gets the version of ancillary data for a region.
+  #
+  # Parameters
+  # ----------
+  # - objectId: Int, e.g. 5 (for westernUS). Id of the region, as defined in conf/configuration_of_regionsV.csv.
+  #
+  # Return
+  # ------
+  # - versionOfAncillary: String, e.g. "v3.1". Version of ancillary data associated to
+  #   region.
+  local objectId="$1"
+
+  # Use awk to filter the CSV and extract column 21
+  versionOfAncillary=$(awk -F',' -v obj="$objectId" '($19 == obj) {print $21}' "$regionConfFilePath" | head -1)
+  echo "$versionOfAncillary"
+}
+
 
 # Script core.
 ########################################################################################
@@ -159,35 +213,8 @@ if [ ! -v workingDirectory ]; then
 fi
 #
 
-tileGroups=(5 1 2 3 4)
-tileGroupNames=("westernUS" "USAlaska" "ASHimalaya" "EURAlps" "AMAndes")
-
-# Tile Array String to add as parameter for --array in sbatch job.
-# westernUS: "h08v04" "h08v05" "h09v04" "h09v05" "h10v04"
-tileArrayForTileGroup0=(h08v04 h08v05 h09v04 h09v05 h10v04)
-tileArrayStringForTileGroup0="292,293,328,329,364"
-# USAlaska: "h07v03" "h08v03" "h09v02" "h09v03" "h10v02" "h10v03" "h11v02"
-#   "h11v03" "h12v01" "h12v02" "h13v01" "h13v02"
-tileArrayForTileGroup1=(h07v03 h08v03 h09v02 h09v03 h10v02 h10v03 h11v02 h11v03 h12v01 h12v02 h13v01 h13v02)
-tileArrayStringForTileGroup1="255,291,326,327,362,363,398,399,433,434,469,470"
-# ASHimalaya: "h22v04", "h22v05", "h23v04", "h23v05", "h23v06", "h24v04"
-#       "h24v05", "h24v06", "h25v05", "h25v06", "h26v05", "h26v06"
-tileArrayForTileGroup2=(h22v04 h22v05 h23v04 h23v05 h23v06 h24v04 h24v05 h24v06 h25v05 h25v06 h26v05 h26v06)
-tileArrayStringForTileGroup2="796,797,832,833,834,868,869,870,905,906,941,942"
-# EURAlps: "h18v04", "h19v04"
-tileArrayForTileGroup3=(h17v04 h18v04 h19v04)
-tileArrayStringForTileGroup3="616,652,688"
-# AMAndes: "h10v09", "h10v10", "h11v10", "h11v11", "h11v12", "h12v12", "h12v13",
-#       "h13v13", "h13v14"
-tileArrayForTileGroup4=(h10v09 h10v10 h11v10 h11v11 h11v12 h12v12 h12v13 h13v13 h13v14)
-tileArrayStringForTileGroup4="369,370,406,407,408,444,445,481,482"
-# OCNewZealand: "h29v13", "h30v13"
-tileArrayForTileGroup6=(h29v13 h30v13)
-tileArrayStringForTileGroup6="1057,1093"
-
 # List of all big region ids.
 ########################################################################################
-regionConfFilePath=${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv
 
 # Use awk to filter and extract, and pipe the output to mapfile
 # mapfile -t reads the input line by line and stores it in the array
@@ -210,35 +237,18 @@ for bigRegionId in "${allBigRegionIds[@]}"; do
 done
 regionIdsPerBigRegion[0]=0
 
-: '
-# obsolete.
-declare -A regionIdsPerBigRegion
-regionIdsPerBigRegion[0]=0
-regionIdsPerBigRegion[1]=255,291,326,327,362,363,365,398,399,400,433,434,469,470
-regionIdsPerBigRegion[2]=796,797,832,833,834,868,869,870,905,906,941,942
-regionIdsPerBigRegion[3]=616,652,688
-regionIdsPerBigRegion[4]=369,370,406,407,408,444,445,481,482,443,518
-regionIdsPerBigRegion[5]=292,293,328,329,364
-regionIdsPerBigRegion[6]=397,401,435,436,437,471,472,505,506,507,508
-regionIdsPerBigRegion[7]=1057,1093
-'
-
-# Defined in toolStart.sh.
-# workingDirectory=$(pwd) 
-# defaultIFS=$' \t\n'
-
 # Region names for tiles and big regions.
 declare -A allRegionNames
-eval $(printf "$(cat ${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allRegionNames[" $19 "]=" $1 ";\n" }')
+eval $(printf "$(cat $regionConfFilePath | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allRegionNames[" $19 "]=" $1 ";\n" }')")
 # Probably a simpler way than accumulate the greps...                              @todo
 
 # First month of waterYear for tiles and big regions.
 declare -A allFirstMonthOfWaterYear
-eval $(printf "$(cat ${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv)" | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allFirstMonthOfWaterYear[" $19 "]=" $39 ";\n" }')
+eval $(printf "$(cat $regionConfFilePath | grep -E "v3.1|v3.2" | grep -v Comment | grep -v comment | awk -F, '{ printf sep "allFirstMonthOfWaterYear[" $19 "]=" $39 ";\n" }')")
 
 # Big regions for tiles.
 declare -A bigRegionForTile
-eval $(printf "$(cat ${workingDirectory}conf/configuration_of_regions${thisEnvironment}.csv)" | grep modisTile | grep -E "v3.1|v3.2" | awk -F, '{ printf sep "bigRegionForTile[" $19 "]=" $20 ";\n" }')
+eval $(printf "$(cat $regionConfFilePath)" | grep modisTile | grep -E "v3.1|v3.2" | awk -F, '{ printf sep "bigRegionForTile[" $19 "]=" $20 ";\n" }')
 # Not clean way to do it, since configuration files can change columns. And eval is
 # dirty...
 
