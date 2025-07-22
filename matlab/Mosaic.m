@@ -1078,4 +1078,9 @@ classdef Mosaic
                           obj.region, dateRange(i));
                 if isfile(mosaicFilename)
                     Dt = dateRange(i);
-                 
+                    break;
+                end
+              end
+        end
+    end
+end
