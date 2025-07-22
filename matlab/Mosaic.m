@@ -309,10 +309,8 @@ classdef Mosaic
                 fprintf('%s: Got list of files mosaic for %s\n', mfilename(), ...
                     char(monthDatetime, 'yyyy-MM-dd'));
                 % Map projection information
-                mstructFile = fullfile(espEnv.mappingDir, ...
-                           'Sinusoidal_projection_structure.mat');
-                mstructData = matfile(mstructFile);
-                mosaicData.mstruct = mstructData.mstruct;
+                obj.region.espEnv.modisData.setModisSensorConfForSTC();
+                mosaicData.mstruct = obj.region.espEnv.modisData.mstruct;
 
                 % 2.2b. Extract gap viewable_snow_fraction to get initial
                 % viewable_snow_fraction_status for 2000-2022 data v2023.0 -> v2023.0e.
@@ -1080,9 +1078,4 @@ classdef Mosaic
                           obj.region, dateRange(i));
                 if isfile(mosaicFilename)
                     Dt = dateRange(i);
-                    break;
-                end
-              end
-        end
-    end
-end
+                 

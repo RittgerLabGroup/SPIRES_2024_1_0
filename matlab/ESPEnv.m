@@ -32,7 +32,6 @@ classdef ESPEnv < handle
             % WaterYearDate, filePath = cell(char), lastDateInFile = array(datetime),
             % newWaterYearDate = WaterYearDate, metaData = struct()).
             % NB: exclude files wich dont exist.
-        mappingDir     % directory with MODIS tiles projection information   @deprecated
         modisData % MODISData Object.
         myConf         % struct(filePath = Table, filter = Table, region = Table,
             % regionlink = Table, variable = Table). Pointing to tables
@@ -88,8 +87,13 @@ classdef ESPEnv < handle
             version = 'configuration_of_versions.csv', ...
             versionregion = 'configuration_of_versionsregions.csv', ...
             versionvariable = 'configuration_of_versionsvariables.csv');
+        modisSensorConfigurationFileNames = struct( ...
+            cstruct = 'MOD09GA_cstruct.mat', ...
+            mstruct = 'Sinusoidal_projection_structure.mat');
+            % cstruct: MOD09GA fields/units for STC.
+            % mstruct: Sinusoidal map projection for STC.
         defaultHostName = 'CURCScratchAlpine';
-        espEnvironmentVars = {'espArchiveDir', 'espProjectDir', 'espScratchDir', ...
+        espEnvironmentVars = {'espArchiveDir', 'espScratchDir', ...
             'thisEspProjectDir', 'thisEnvironment'};
             % List of the variables which MUST be defined at the OS environment level.
         % defaultPublicOutputPath = 'xxx/esp_public/';
@@ -156,6 +160,8 @@ classdef ESPEnv < handle
                 % Variables defined in env/ or home/ configuration files or in slurm
                 % bash submissionLine.
                 % getenv() returns a character vector.
+            % Get all environment variables as a dictionary
+
             if isempty(thisEspProjectDir) || isempty(thisEnvironment)
                 errorStruct.identifier = ...
                     'getESPConfFilePath:InvalidEnvironmentVariable';
@@ -165,7 +171,7 @@ classdef ESPEnv < handle
                 error(errorStruct);
             end
             fileNameList = 'configurationFilenames';
-            if isfield(confLabel, ESPEnv.additionalConfigurationFilenames)
+            if ismember(confLabel, fieldnames(ESPEnv.additionalConfigurationFilenames))
                 fileNameList = 'additionalConfigurationFilenames';
             end
             confFilePath = fullfile(getenv('thisEspProjectDir'), 'conf', ...
@@ -520,10 +526,6 @@ classdef ESPEnv < handle
 
             obj.myConfigurationOfVariables = obj.configurationOfVariables();
                 % @deprecated. replaced by obj.myConf.variable.
-
-            obj.mappingDir = fullfile(thisFilepath, 'mapping');
-            %obj.colormapDir = fullfile(thisFilepath, 'colormaps');            @obsolete
-            %obj.extentDir = fullfile(thisFilepath, 'StudyExtents');           @obsolete
 
             % 3. Configuration of data directories.
             %---------------------------------------------------------------------------

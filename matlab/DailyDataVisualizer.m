@@ -49,7 +49,7 @@ classdef DailyDataVisualizer
 %}
 
   properties (Constant)
-    colormapDir = fullfile(getenv('espProjectDir'), 'tbx', 'colormaps'); % to put ancillary elsewhere @todo
+    colormapDir = fullfile(getenv('thisEspProjectDir'), 'conf'); % to put ancillary elsewhere @todo
     maximalReflectanceValueForRGB = 100  % used to adjust for contrast.
       % Reflectance > 160 are highly reflective material due to a few restrictive
       % reasons included strikelights.
