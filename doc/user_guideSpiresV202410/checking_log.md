@@ -63,6 +63,20 @@ Jobs done: 3/5.
 ```
 Which here indicates that for the step mod09gaI, 3 step jobs have been achieved and 2 jobs are still in execution.
 
+### Cancel jobs during execution.
+
+If something goes wrong during the execution and there's for instance an infinite sequences of resubmissions, the user can take advantage of the following procedure to cancel the jobs in a clean way.
+
+First cancel the main monitoring job running the script `runSubmitter.sh`, using the slurm command `scancel`. This will prevent the automatic resubmission of jobs.
+
+Then, list the jobs to be cancelled. For each of them, create an empty file (with command touch) in the user's `$espScratchDir` (defined in `.bashrc`), folder `espJobs`. Each file should have a filename in the format `${slurmJobId}_scancel.txt`, where `${slurmJobId}` is the job id, for instance `${espScratchDir}espJobs/19938144_1093_scancel.txt` for the job `19938144_1093`. 
+
+Once done, the matlab central Data Manager class (`espEnv`) will check if this file exist and if yes will trigger an error that will cancel the job.
+
+Some jobs do not use directly matlab, steps `mod09ga` and `daGeoBig` [at the date of 2025-07-21]. You can cancel these jobs using the slurm command `scancel`.
+
+Last, if you don't have any running job and still see with the command/alias `squeue` some jobs blocked by a dependency, you can execute the alias `scancelDepN` to cancel them all (alias defined in `.bashrc`).
+
 ### After execution.
 
 Once the monitoring job has successfully achieved the full sequential series of steps (for the near-real-time pipeline) or the group of jobs associated with a specific step (for historic runs), the log file displays:

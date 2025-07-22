@@ -250,6 +250,8 @@ No other option or argument is available for this submission script. That implie
 
 (2) Some jobs associated with specific steps can occasionally be killed because their necessary execution time is longer than the expected time (wall-time) or they can run into an out-of-memory error. It's possible to edit the wall-time of a step by editing, in the script `bash/configurationSpiresV202410.sh`, the variables `pipeLineTimes1` (time in hours) and `pipeLineMems1`, respectively. **Important**: increasing memory often requires increasing the number of cpus.
 
+A method to cleanly cancel (=kill) jobs is described [here](checking_log.md#cancel-jobs-during-execution).
+
 ## Appendices
 
 ### Steps and scriptId
