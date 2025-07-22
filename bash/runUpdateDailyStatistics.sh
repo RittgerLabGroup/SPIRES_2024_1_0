@@ -112,6 +112,8 @@ fi
 
 source bash/toolsMatlab.sh
 
+: '
+@obsolete.
 # Scratch shuffle.
 ########################################################################################
 # Do the scratch shuffle on complete set of input daily Mosaics (to scratch for speed)
@@ -123,6 +125,7 @@ if [ $inputFromArchive ]; then
   done
   echo "${PROGNAME}: Done with shuffle TO scratch..."
 fi
+'
 
 # Matlab.
 ########################################################################################
