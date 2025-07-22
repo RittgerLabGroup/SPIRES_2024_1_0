@@ -77,6 +77,8 @@ Referring to the [code methodological approach](#diversity-of-code-files), the s
 - **runStep** are the remaining scripts starting by `run`, for example, `bash/runGetMod09gaFiles.sh`. The list of runStep scripts is given in `bash/configurationSpiresV202410.sh`. Scripts specific to SPIReS v2024.1.0 are in `bashSpiresV202410`.
 - **tool** are the scripts starting with `tools`, for example, `bash/toolsStart.sh`.
 
+To get a list of all the options and arguments of a script, for instance `runESPNetCDF.sh`, either run `bash/runESPNetCDF.sh -h` or directly read `bash/configurationForHelp.sh`.
+
 #### conf/.
 
 Contains .csv configuration files that are loaded as tables with the `ESPEnv.m` and `Regions.m` scripts. Allows the advanced user to configure the file patterns, the step parameters (called here filters), the versions, the region parameters, the land subdivisions, the variables, etc.
