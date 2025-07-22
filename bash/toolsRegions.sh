@@ -2,6 +2,29 @@
 #
 # Initialize region parameters. SIER_345.
 
+########################################################################################
+# Error function, if toolsStart.sh not called before toolsRegions.sh.
+########################################################################################
+
+if [[ $(type -t error_exit) != function ]]; then
+  error_exit() {
+    # Use for fatal program error
+    # Argument:
+    #   $1: optional string containing descriptive error message
+    #   if no error message, prints "Unknown Error"
+    # Stop the stopwatch and report elapsed time
+    printf "end:ERROR" "${1:-"Unknown Error"}"
+
+    if [ -v SLURM_ARRAY_TASK_ID ]; then
+      exit 1
+    fi # Exit only if we in slurm execution context.
+  }
+fi
+
+########################################################################################
+# Configuration.
+########################################################################################
+
 # NB: ${thisEnvironment} should be defined. In classic operations, it is done in
 # toolsStart.sh.
 if [[ -z $fileSeparator ]]; then 
@@ -19,10 +42,20 @@ if [ ! -f $regionConfFilePath ]; then
   regionConfFilePath=${workingDirectory}conf/configuration_of_regions.csv
     # default file.
 fi
-[ ! -f regionConfFilePath ] || error_exit "Exit=1, matlab=no, inexisting ${regionConfFilePath}."
+echo "Region conf path: $regionConfFilePath";
+[ -f $regionConfFilePath ] || error_exit "Exit=1, matlab=no, inexisting ${regionConfFilePath}."
   # when toolsRegions.sh launched standalone, $thisEnvironment is unset, otherwise set
   # by toolsStart.sh.
 
+landSubdivisionConfFilePath=${workingDirectory}conf/configuration_of_landsubdivisions${thisEnvironment}.csv
+if [ ! -f $landSubdivisionConfFilePath ]; then
+  landSubdivisionConfFilePath=${workingDirectory}conf/configuration_of_landsubdivisions.csv
+    # default file.
+fi
+echo "Landsubdivision conf path: $landSubdivisionConfFilePath";
+[ -f $landSubdivisionConfFilePath ] || error_exit "Exit=1, matlab=no, inexisting ${landSubdivisionConfFilePath}."
+  # when toolsRegions.sh launched standalone, $thisEnvironment is unset, otherwise set
+  # by toolsStart.sh.
 
 ########################################################################################
 # Functions.
@@ -272,15 +305,15 @@ done
 
 # Land subdivisions per big region
 
-# eval $(printf "$(cat ${workingDirectory}conf/configuration_of_landsubdivisions.csv)" | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }'  | grep -v "=;" | tail -n +3)
+# eval $(printf "$(cat ${landSubdivisionConfFilePath})" | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }'  | grep -v "=;" | tail -n +3)
 
-subdivisionsByRegionString=$(cat ${workingDirectory}conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "" $8 ":" $2 ":" $12 ";\n" }' | grep -E "^[^:].*" | grep -E "\:[^0];" | tail -n +3)
+subdivisionsByRegionString=$(cat ${landSubdivisionConfFilePath} | awk -F, '{ printf sep "" $8 ":" $2 ":" $12 ";\n" }' | grep -E "^[^:].*" | grep -E "\:[^0];" | tail -n +3)
 
 declare -A countOfSubdivisionsPerBigRegion
 for bigRegionId in {1..10}; do
   countOfSubdivisionsPerBigRegion[${bigRegionId}]=$(printf "${subdivisionsByRegionString}" | grep -E "^"${bigRegionId}"\:" | wc -l)
 done
 
-#cat ${workingDirectory}conf/configuration_of_landsubdivisions.csv | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }' | grep -v "=;" | tail -n +3
+#cat ${landSubdivisionConfFilePath} | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }' | grep -v "=;" | tail -n +3
 
 
