@@ -8,6 +8,8 @@ We advise to read the [Preamble of the NRT pipeline doc](run_nrt_pipeline.md#pre
 
 The historicals step process is a production chain which goal is to generate and deliver output historical data for previous time, usually a previous water year, for a set of big regions. For SPIReS v2024.1.0, there's only one big region: `westernUS`.
 
+Note that *historical* in *historical steps* is a label for the use of this chain to generate a full set of data covering the historical record. It's not to be confused with the *NRT* and *historical* labels for the input data (e.g. MOD09GA data files), which are determined by the providers of remote sensing products. The historical production chain ingest most of the time historical input data, but also, if they are not availabel, can ingest NRT input data.
+
 To carry out this objective, we use the same [code architecture](code_organization.md) and scripts (with a different configuration) as the [NRT pipeline](run_nrt_pipeline.md#preamble-and-vocabulary). However, contrary to the NRT pipeline, here, the workload is not divided sequentially, and each step is executed individually.
 
 ## Data spaces and file synchronization.
