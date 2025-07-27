@@ -6,6 +6,8 @@ The algorithm produces daily raster images of snow cover and snow surface proper
 
 For this purpose, the code first downloads the MOD09GA files for the western US region (modis tiles h08v04, h08v05, h09v04, h09v05, h10v04). Then, it carried out the different steps of the SPIReS algorithm v2024.1.0. The output files consist of netcdf files with values for snow variables per modis tile and day, and statistic files used by the [snow-today website](https://nsidc.org/snow-today/snow-viewer).
 
+A brief description of the evolutions implemented for SPIReS v2024.1.0 compared to the [original SPIReS code](https://github.com/edwardbair/SPIRES) (Bair et al., 2021) is available (here)[evolution_vs_previous_version.md].
+
 # Installation and code organization.
 
 [Install and requirements](doc/user_guideSpiresV202410/install.md)
