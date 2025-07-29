@@ -4,10 +4,10 @@
 export TZ=America/Denver
 
 # Absolute path of root directory of the project code, to edit to your configuration.
-export thisEspProjectDir=${projectDir}RLG/SPIRES_2024_1_0/
+export thisEspProjectDir=${projectDir}/SPIRES_2024_1_0/
     # $projectDir defined in .bashrc.
 export matlabPathForESPToolbox=${thisEspProjectDir}matlab/
-export matlabPathForThisProject=${thisEspProjectDir}matlabSpiresV202401/
+export matlabPathForThisProject=${thisEspProjectDir}matlabSpiresV202410/
 
 # ESP external matlab package paths
 export matlabPathForInpaintNans=${thisEspProjectDir}external/Inpaint_nans
