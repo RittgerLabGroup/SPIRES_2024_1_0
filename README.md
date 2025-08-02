@@ -1,5 +1,8 @@
 # Introduction.
 
+Users are kindly requested to cite this code, distributed under Creative Commons BY 4.0., as:
+Rittger, K., Lenard, S. J., Palomaki, R. T., Bair, E. H. & Dozier, J. (2025). Near Real-Time MODIS/Terra L3 Global Daily 500m SIN Grid Snow Cover, Snow Albedo, and Snow Surface Properties. (SPIRES_NRT, Version 1). [Data Set]. Boulder, Colorado USA. National Snow and Ice Data Center. https://doi.org/10.7265/hs6b-zg21.
+
 This code generates snow properties by applying the SPIReS algorithm v2024.1.0, derived from the [original SPIReS code](https://github.com/edwardbair/SPIRES) (Bair et al., 2021) to the MOD09GA product (Vermotte and Wolfe, 2021).
 
 The algorithm produces daily raster images of snow cover and snow surface properties. The algorithm unmix Snow cover, grain size and dust concentration from the daily reflectance of the MOD09GA Terra Collection 6 v061 (Vermote and Wolfe, 2021) using this adapted version of the SPIReS algorithm (Bair et al., 2021) that we named SPIReS v2024.1.0, with a removal of clouds and data errors. Then the data are temporally interpolated to fill the cloudy days, and the snow cover duration is calculated from the start of the water year (October 1st). Deltavis, radiative forcing, and albedos are calculated using an adaptation of the ParBal algorithm (Bair et al., 2018), that we included in SPIReS v2024.1.0.
@@ -60,14 +63,17 @@ with [output netcdf specifities](doc/user_guideSpiresV202410/output_netcdf.md)
    provide a link to the license, and indicate if changes were made. You may do so in
    any reasonable manner, but not in any way that suggests the licensor endorses you or
    your use. https://creativecommons.org/licenses/by/4.0/.
- - Citation: TO DETERMINE.
+ - Citation: Rittger, K., Lenard, S. J., Palomaki, R. T., Bair, E. H. & Dozier, J. (2025). Near Real-Time MODIS/Terra L3 Global Daily 500m SIN Grid Snow Cover, Snow Albedo, and Snow Surface Properties. (SPIRES_NRT, Version 1). [Data Set]. Boulder, Colorado USA. National Snow and Ice Data Center. https://doi.org/10.7265/hs6b-zg21.
    https://nsidc.org/snow-today.
  - Principal Investigator: Karl Rittger
 
- THIS SCRIPT
- -----------
- - Contributors: Sebastien Lenard (SLE)
- - Emails: sebastien.lenard@gmail.com
- - Creation date: 2025-04-29 by SLE
- - Last update: 2025-07-03 by SLE
+ - Code contributors (alphabetic order):
+  - Edward Bair https://github.com/edwardbair
+  - Jeff Dozier https://github.com/DozierJeff
+  - Karl Rittger https://github.com/RittgerLabGroup,
+  - Ken Mankoff https://github.com/mankoff
+  - Mary Jo Brodzik https://github.com/mjbrodzik
+  - Ross Palomaki https://github.com/rpalomaki
+  - Sebastien Lenard https://github.com/sebastien-lenard 
+  - Timbo Stillinger https://github.com/Timbo-Stillinger
 ----------------------------------------------------------------------------------------
