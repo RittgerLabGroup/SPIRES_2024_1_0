@@ -275,30 +275,19 @@ A method to cleanly cancel (=kill) jobs is described [[file:checking_log.md#canc
 :END:
 Here are the NRT- and historic-generation steps for SPIReS v2024.1.0:
 
-| ​#    | scriptId   | description                                                                          | NRT   | historical   | period for NRT   | period for historicals   |
-|------+------------+--------------------------------------------------------------------------------------+-------+--------------+------------------+--------------------------|
-| 1    | mod09gaI   | Download mod09ga.                                                                    | x     | x            | bimester         | trimester                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 2    | spiFillC   | Generate intermediary gap files from mod09ga input.                                  | x     | x            | bimester         | trimester                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 3    | spiSmooC   | Generate gap-filled data files (without false positives) + temporal interpolation.   | x     | x            | waterYear        | waterYear                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 4    | moSpires   | Generate daily .mat files (dubbed mosaics).                                          | x     | x            | waterYear        | waterYear                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 5    | scdInCub   | Calculate snow cover days in daily .mat files.                                       | x     | x            | waterYear        | waterYear                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 6    | daNetCDF   | Generate output NetCDF files.                                                        | x     | x            | waterYear        | waterYear                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 7    | daMosBig   | Generate output big mosaic .mat files.                                               | x     | x            | waterYear        | waterYear                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 8    | daGeoBig   | Generate NRT geotiffs for website.                                                   | x     |              | 1 day            |                          |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 9    | daStatis   | Generate .csv daily statistic files.                                                 | x     | x            | waterYear        | waterYear                |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 10   | ftpExpor   | Rsync NRT data from scratch to archive.                                              | x     |              | 2 years          |                          |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
-| 11   | webExpSn   | Generate and export NRT data to website.                                             | x     |              | waterYear        |                          |
-| ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
+| Step | scriptId | description                                                                    | NRT | historical | period for NRT | period for historicals |
+|------+----------+--------------------------------------------------------------------------------+-----+------------+----------------+------------------------|
+|    1 | mod09gaI | Download mod09ga.                                                              | x   | x          | bimester       | trimester              |
+|    2 | spiFillC | Generate intermediary gap files from mod09ga input.                            | x   | x          | bimester       | trimester              |
+|    3 | spiSmooC | Generate gap-filled data files (w/o false positives) + temporal interpolation. | x   | x          | waterYear      | waterYear              |
+|    4 | moSpires | Generate daily .mat files (dubbed mosaics).                                    | x   | x          | waterYear      | waterYear              |
+|    5 | scdInCub | Calculate snow cover days in daily .mat files.                                 | x   | x          | waterYear      | waterYear              |
+|    6 | daNetCDF | Generate output NetCDF files.                                                  | x   | x          | waterYear      | waterYear              |
+|    7 | daMosBig | Generate output big mosaic .mat files.                                         | x   | x          | waterYear      | waterYear              |
+|    8 | daGeoBig | Generate NRT geotiffs for website.                                             | x   |            | 1 day          |                        |
+|    9 | daStatis | Generate .csv daily statistic files.                                           | x   | x          | waterYear      | waterYear              |
+|   10 | ftpExpor | Rsync NRT data from scratch to archive.                                        | x   |            | 2 years        |                        |
+|   11 | webExpSn | Generate and export NRT data to website.                                       | x   |            | waterYear      |                        |
 
 where:
 + NRT checked indicates if the NRT sequence includes the step,
@@ -314,25 +303,15 @@ Here are a few examples of objects:
 | objectId   | objectName                    | type                    | configuration file   |
 |------------+-------------------------------+-------------------------+----------------------|
 | 5          | westernUS                     | bigRegion               | regions              |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 292        | h08v04                        | tile                    | regions              |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 293        | h08v05                        | tile                    | regions              |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 328        | h09v04                        | tile                    | regions              |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 329        | h09v05                        | tile                    | regions              |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 364        | h10v04                        | type                    | configuration file   |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 26000      | westernUS                     | subdivision groupadm0   | subdivisions         |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 11726      | Colorado                      | subdivision adm1        | subdivisions         |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 12513      | Upper Colorado HUC14          | subdivision huc2        | subdivisions         |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 | 12778      | Colorado Headwaters HUC1401   | subdivision huc4        | subdivisions         |
-| ---------- | ----------------------------- | ----------------------- | -------------------- |
 
 Full list is in the regions file =conf/configuration_of_regionsSpiresV202410.csv= and the subdivisions file =conf/configuration_of_landsubdivisionsSpiresV202410.csv=.
 
@@ -342,40 +321,32 @@ Full list is in the regions file =conf/configuration_of_regionsSpiresV202410.csv
 :END:
 Here are the input and output dataLabels used for each step of the pipeline:
 
-| ​#    | scriptId   | inputDataLabel                 | outputDataLabel                |
+|    ​# | scriptId   | inputDataLabel                 | outputDataLabel                |
 |------+------------+--------------------------------+--------------------------------|
-| 1    | mod09gaI   |                                | mod09ga                        |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 2    | spiFillC   | mod09ga                        | modisspiresfill                |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 3    | spiSmooC   | modisspiresfill                | modisspiressmoothbycell        |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 4    | moSpires   | modisspiressmoothbycell        | VariablesMatlab                |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 5    | scdInCub   | VariablesMatlab                | VariablesMatlab                |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 6    | daNetCDF   | VariablesMatlab                | outputnetcdf                   |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 7    | daMosBig   | VariablesMatlab                | VariablesMatlab                |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 8    | daGeoBig   | VariablesMatlab                | VariablesGeotiff               |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 9    | daStatis   | VariablesMatlab                | SubdivisionStatsDailyCsv       |
+|    1 | mod09gaI   |                                | mod09ga                        |
+|    2 | spiFillC   | mod09ga                        | modisspiresfill                |
+|    3 | spiSmooC   | modisspiresfill                | modisspiressmoothbycell        |
+|    4 | moSpires   | modisspiressmoothbycell        | VariablesMatlab                |
+|    5 | scdInCub   | VariablesMatlab                | VariablesMatlab                |
+|    6 | daNetCDF   | VariablesMatlab                | outputnetcdf                   |
+|    7 | daMosBig   | VariablesMatlab                | VariablesMatlab                |
+|    8 | daGeoBig   | VariablesMatlab                | VariablesGeotiff               |
+|------+------------+--------------------------------+--------------------------------|
+|    9 | daStatis   | VariablesMatlab                | SubdivisionStatsDailyCsv       |
 |      |            |                                | SubdivisionStatsAggregCsv      |
 |      |            |                                | SubdivisionStatsWebJson        |
 |      |            |                                | SubdivisionStatsWebCsvv20231   |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 10   | ftpExpor   |                                | modisspiresfill                |
+|------+------------+--------------------------------+--------------------------------|
+|   10 | ftpExpor   |                                | modisspiresfill                |
 |      |            |                                | VariablesMatlab                |
 |      |            |                                | outputnetcdf                   |
 |      |            |                                | VariablesGeotiff               |
 |      |            |                                | SubdivisionStatsWebCsvv20231   |
 |      |            |                                | SubdivisionStatsAggregCsv      |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
-| 11   | webExpSn   | VariablesGeotiff               |                                |
+|------+------------+--------------------------------+--------------------------------|
+|   11 | webExpSn   | VariablesGeotiff               |                                |
 |      |            | SubdivisionStatsWebJson        |                                |
 |      |            | SubdivisionStatsWebCsvv20231   |                                |
-| ---- | ---------- | ------------------------------ | ------------------------------ |
 
 *** Data spaces
 :PROPERTIES:
@@ -383,25 +354,17 @@ Here are the input and output dataLabels used for each step of the pipeline:
 :END:
 The data spaces are:
 
-| name                  | category   | environment variable                           | configuration file                                                                                                                                      | comment   |
-|-----------------------+------------+------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+-----------|
-| =myHome=              | home       | ~/.bashrc                                      |                                                                                                                                                         |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| =projectDir=          | code       | ~/.bashrc                                      |                                                                                                                                                         |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| =thisEspProjectDir=   | code       | env/.matlabEnvironmentVariablesSpiresV202410   | other projects, such as external matlab packages are also defined in this file                                                                          |           |
-| =espLogDir=           | code       | ~/.bashrc                                      | centralized location of logs.                                                                                                                           |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| =espScratchDir=       | scratch    | ~/.bashrc                                      | variable =$slurmAlternativeScratchDir1= points to the same space, was added to handle directory links that matlab can sometimes not handle correctly.   |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| =espArchiveDirEsp=    | archive    | ~/.bashrc                                      | legacy archive                                                                                                                                          |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| =espArchiveDir=       | archive    | ~/.bashrc                                      | default archive in code.                                                                                                                                |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| =espArchiveDirNrt=    | archive    | ~/.bashrc                                      | archive for historic data                                                                                                                               |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| =espArchiveDirOps=    | archive    | ~/.bashrc                                      | archive for NRT data                                                                                                                                    |           |
-| --------------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| name                | category | environment variable                         | configuration file                                                             |
+|---------------------+----------+----------------------------------------------+--------------------------------------------------------------------------------|
+| =myHome=            | home     | ~/.bashrc                                    |                                                                                |
+| =projectDir=        | code     | ~/.bashrc                                    |                                                                                |
+| =thisEspProjectDir= | code     | env/.matlabEnvironmentVariablesSpiresV202410 | other projects, such as external matlab packages are also defined in this file |
+| =espLogDir=         | code     | ~/.bashrc                                    | centralized location of logs.                                                  |
+| =espScratchDir=     | scratch  | ~/.bashrc                                    | Same as =$slurmAlternativeScratchDir1=. Added for matlab bug.                  |
+| =espArchiveDirEsp=  | archive  | ~/.bashrc                                    | legacy archive                                                                 |
+| =espArchiveDir=     | archive  | ~/.bashrc                                    | default archive in code.                                                       |
+| =espArchiveDirNrt=  | archive  | ~/.bashrc                                    | archive for historic data                                                      |
+| =espArchiveDirOps=  | archive  | ~/.bashrc                                    | archive for NRT data                                                           |
 
 *** runRsync
 :PROPERTIES:
@@ -450,25 +413,25 @@ In addition to all this, note that a specific alias =rsync= is defined in =.bash
 :END:
 The current (2025-07-07) directories where the files are located are defined in =conf/configuration_of_filepathsSpiresV202410.csv= and are:
 
-| dataLabel                 | directoryPath                                                                            | comment                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|---------------------------+------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| mod09ga                   | modis/input/mod09ga.061/v006/{objectName}/{thisYear}/                                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---                       | ---                                                                                      | ---                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| modisspiresfill           | modis/intermediary/spiresfill_{versionLabel}/v006/{objectName}/{thisYear}/               |                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---                       | ---                                                                                      | ---                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| modisspiressmoothbycell   | modis/intermediary/spiressmooth_{versionLabel}/v006/{objectName}/                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---                       | ---                                                                                      | ---                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| VariablesMatlab           | modis/variables/scagdrfs_mat_{versionLabel}/v006/{objectName}/{thisYear}/                | on =$espArchiveDirOps=: output/mod09ga.061/spires/\({versionLabel}/mat/ |                                                                                                                                                                                                                                                                                                                                                                        |
-|                           |                                                                                          | |---|---|---|                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|                           |                                                                                          | | outputnetcdf | output/{inputProduct}/{inputProductVersion}/{algorithm}/{versionLabel}/netcdf/{objectName}/{thisYear}/ | on `\)espArchiveDirOps=: output/mod09ga.061/spires/${versionLabel}/netcdf/{objectName}/{thisYear}/ | |---|---|---| | VariablesGeotiff | modis/variables/scagdrfs_geotiff_{versionLabel}/v006/{objectName}/EPSG_3857/LZW/{thisYear}/ | on=\(espArchiveDirOps`: output/mod09ga.061/spires/\){versionLabel}/tif_EPSG3857/ |
-| ---                       | ---                                                                                      | ---                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| SubdivisionStatsDailyCsv  | modis/subdivisionstats/scagdrfs_dailycsv_{versionLabel}/v006/{objectId_1000}/{thisYear}/ |                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---                       | ---                                                                                      | ---                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| SubdivisionStatsAggregCsv | modis/subdivisionstats/scagdrfs_aggregcsv_{versionLabel}/v006/{objectId_1000}            | on =$espArchiveDirOps=: output/mod09ga.061/spires/\({versionLabel}/aggregcsv/ |                                                                                                                                                                                                                                                                                                                                                                  |
-|                           |                                                                                          | |---|---|---|                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|                           |                                                                                          | | SubdivisionStatsWebJson | modis/subdivisionstats/scagdrfs_webjson_{versionLabel}/v006/{objectId_1000}/{objectId}/{thisYear} | |                                                                                                                                                                                                                                                                                                                |
-|                           |                                                                                          | |---|---|---|                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|                           |                                                                                          | | SubdivisionStatsWebCsvv20231 | modis/regional_stats/scagdrfs_csv_{versionLabel}/v006/{sourceRegionName}/WY{thisYear}/ | on `\)espArchiveDirOps`: output/mod09ga.061/spires/${versionLabel}/csv/                                                                                                                                                                                                                                                |
-| ---                       | ---                                                                                      | ---                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| dataLabel                    | directoryPath                                                                                          | comment                                                                                           |
+|------------------------------|--------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| mod09ga                      | modis/input/mod09ga.061/v006/{objectName}/{thisYear}/                                                  |                                                                                                   |
+| modisspiresfill              | modis/intermediary/spiresfill_{versionLabel}/v006/{objectName}/{thisYear}/                             |                                                                                                   |
+| modisspiressmoothbycell      | modis/intermediary/spiressmooth_{versionLabel}/v006/{objectName}/                                      |                                                                                                   |
+| VariablesMatlab              | modis/variables/scagdrfs_mat_{versionLabel}/v006/{objectName}/{thisYear}/                              | on `$espArchiveDirOps`: output/mod09ga.061/spires/${versionLabel}/mat/                            |
+| outputnetcdf                 | output/{inputProduct}/{inputProductVersion}/{algorithm}/{versionLabel}/netcdf/{objectName}/{thisYear}/ | on `$espArchiveDirOps`: output/mod09ga.061/spires/${versionLabel}/netcdf/{objectName}/{thisYear}/ |
+| VariablesGeotiff             | modis/variables/scagdrfs_geotiff_{versionLabel}/v006/{objectName}/EPSG_3857/LZW/{thisYear}/            | on `$espArchiveDirOps`: output/mod09ga.061/spires/${versionLabel}/tif_EPSG3857/                   |
+| SubdivisionStatsDailyCsv     | modis/subdivisionstats/scagdrfs_dailycsv_{versionLabel}/v006/{objectId_1000}/{thisYear}/               |                                                                                                   |
+| SubdivisionStatsAggregCsv    | modis/subdivisionstats/scagdrfs_aggregcsv_{versionLabel}/v006/{objectId_1000}                          | on `$espArchiveDirOps`: output/mod09ga.061/spires/${versionLabel}/aggregcsv/                      |
+| SubdivisionStatsWebJson      | modis/subdivisionstats/scagdrfs_webjson_{versionLabel}/v006/{objectId_1000}/{objectId}/{thisYear}      |                                                                                                   |
+| SubdivisionStatsWebCsvv20231 | modis/regional_stats/scagdrfs_csv_{versionLabel}/v006/{sourceRegionName}/WY{thisYear}/                 | on `$espArchiveDirOps`: output/mod09ga.061/spires/${versionLabel}/csv/                            |
 
-where: - {algorithm} = spires - {inputProduct} = mod09ga - {inputProductVersion} = 061 - {objectId_1000} = 26, if objectId = 26014 (the objectIds are configured in =conf/configuration_of_landsubdivisionsSpiresV202410.csv=) - {objectName} = h08v04 or westernUS - {sourceRegionName} = westernUS - {thisYear} = 2025 - {versionLabel} = v2024.0d or v2024.1.0
+where:
++ {algorithm} = spires
++ {inputProduct} = mod09ga
++ {inputProductVersion} = 061
++ {objectId_1000} = 26, if objectId = 26014 (the objectIds are configured in `conf/configuration_of_landsubdivisionsSpiresV202410.csv`)
++ {objectName} = h08v04 or westernUS
++ {sourceRegionName} = westernUS
++ {thisYear} = 2025
++ {versionLabel} = v2024.0d or v2024.1.0
