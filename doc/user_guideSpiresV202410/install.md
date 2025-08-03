@@ -31,7 +31,7 @@ Some pieces of advice for new users, who are kindly invited to refer to the rest
 
 **Data spaces**. Different data spaces and file systems for distinct purposes: home, projects, scratch, and archive. [For CU Boulder](https://curc.readthedocs.io/en/latest/compute/filesystems.html).
 
-**File transfer**. Different ways to transfer files. In this project, we favored the command `rsync` (details [here](run_nrt_pipeline.md#runrsync)), `wget`, and `sftp` transfer using or not using Filezilla. More information [for CU Boulder](https://curc.readthedocs.io/en/latest/compute/data-transfer.html).
+**File transfer**. Different ways to transfer files. In this project, we favored the command `rsync` (details [here](run_nrt_pipeline.org#runrsync)), `wget`, and `sftp` transfer using or not using Filezilla. More information [for CU Boulder](https://curc.readthedocs.io/en/latest/compute/data-transfer.html).
 
 **Interactive sessions** The user can use interactive sessions through an internet browser rather than using a terminal. [For CU Boulder](https://curc.readthedocs.io/en/latest/open_ondemand/configuring_apps.html).
 
@@ -165,7 +165,7 @@ WARNING: The files in `env/` and `home/` are the only ones that should be edited
 
 ### Generate a SSH key.
 
-This is currently required only for users running the [NRT pipeline](run_nrt_pipeline.md), which exports output data to the remote server of the web-app running the Snow-Today website.
+This is currently required only for users running the [NRT pipeline](run_nrt_pipeline.org), which exports output data to the remote server of the web-app running the Snow-Today website.
 
 If the user already has this file and that it is not protected with passphrase, the user can skip the creation part and goes to the "Append the key to the remote server".
 
@@ -267,13 +267,13 @@ If historicals, the user should also be part of the group of the PI user owning 
 
 For both cases, the user should add user `$level3User` to their group.
 
-**Archive space**. Archive space is only used for **permanent** storage. Details [here](run_nrt_pipeline.md#data-spaces-and-file-synchronization).
+**Archive space**. Archive space is only used for **permanent** storage. Details [here](run_nrt_pipeline.org#data-spaces-and-file-synchronization).
 
 A user can operate for near real time and/or for historicals.
 If near real time only, the user should ask the PI owner of the archive data spaces to request adding the user to `$espArchiveDirOps` (variable defined in *.bashrc*).
 If historicals, the user should ask the PI owner of the archive to request adding the user to `$espArchiveDirOps` + `espArchiveDirNrt` (currently the storage for historicals), both variables defined in *.bashrc*.
 
-**Scratch space**. Scratch space is used for **intermediary** or **temporary** storage, variable `$espScratchDir` in *.bashrc*. Files there are automatically erased [after a certain time](run_nrt_pipeline.md#data-spaces-and-file-synchronization).
+**Scratch space**. Scratch space is used for **intermediary** or **temporary** storage, variable `$espScratchDir` in *.bashrc*. Files there are automatically erased [after a certain time](run_nrt_pipeline.org#data-spaces-and-file-synchronization).
 
 The user should create the following folders, having the group of the user `$level3User`, and with rights rwxrwsr-x:
 - `espJobs`
@@ -318,7 +318,7 @@ For SPIReS v2024.1.0, we set the list of the relative paths to ancillary data fi
 
 where:
 - `${regionName}` is the name of the region or tile associated with the ancillary data file, for instance, h08v04, if the ancillary data is different for each region.
-A definition and list of steps of the data nrt and historic production chains is [here](run_nrt_pipeline.md#preamble-and-vocabulary) and [here](run_nrt_pipeline.md#steps-and-scriptid).
+A definition and list of steps of the data nrt and historic production chains is [here](run_nrt_pipeline.org#preamble-and-vocabulary) and [here](run_nrt_pipeline.md#steps-and-scriptid).
 
 For SPIReS v2024.1.0, all these files were calculated by Ned Bair and downloaded following indications in the original [SPIReS repository](https://github.com/edwardbair/SPIRES?tab=readme-ov-file) from [this source](https://snow.ucsb.edu/products/SPIRES/MODIS/Inputs/MODIS/), [this source](https://snow.ucsb.edu/products/SPIRES/MODIS/Sierra/ExampleData/) and [this source] by Timbo Stillinger (https://github.com/edwardbair/SPIRES/blob/master/MccM/).
 

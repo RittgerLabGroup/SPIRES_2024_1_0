@@ -18,7 +18,7 @@ with [output netcdf specifities](doc/user_guideSpiresV202410/output_netcdf.md)
 
 # Run in historics or near real time.
 
-[SPIReS v2024.1.0 Algorithm near-real time (NRT) run](doc/user_guideSpiresV202410/run_nrt_pipeline.md)
+[SPIReS v2024.1.0 Algorithm near-real time (NRT) run](doc/user_guideSpiresV202410/run_nrt_pipeline.org)
 
 [SPIReS v2024.1.0 Algorithm historic step (HIST) run](doc/user_guideSpiresV202410/run_historic_step.md)
 

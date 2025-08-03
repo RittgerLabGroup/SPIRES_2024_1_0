@@ -1,41 +1,41 @@
 # Historicals job submission
 
-This page presents the submission of the update of historical snow property data from the collection of input products to the generation of output products for users (netcdf data files) and for the [daily near real time (NRT) update](run_nrt_pipeline.md) to the snow-today website (dailycsv statistic files for plots).
+This page presents the submission of the update of historical snow property data from the collection of input products to the generation of output products for users (netcdf data files) and for the [daily near real time (NRT) update](run_nrt_pipeline.org) to the snow-today website (dailycsv statistic files for plots).
 
 ## Preamble and vocabulary.
 
-We advise to read the [Preamble of the NRT pipeline doc](run_nrt_pipeline.md#preamble-and-vocabulary) and more generally the NRT documentation in that page. We also advise to recheck the install and requirements [here](install.md), particularly about the environment variables.
+We advise to read the [Preamble of the NRT pipeline doc](run_nrt_pipeline.org#preamble-and-vocabulary) and more generally the NRT documentation in that page. We also advise to recheck the install and requirements [here](install.md), particularly about the environment variables.
 
 The historicals step process is a production chain which goal is to generate and deliver output historical data for previous time, usually a previous water year, for a set of big regions. For SPIReS v2024.1.0, there's only one big region: `westernUS`.
 
 Note that *historical* in *historical steps* is a label for the use of this chain to generate a full set of data covering the historical record. It's not to be confused with the *NRT* and *historical* labels for the input data (e.g. MOD09GA data files), which are determined by the providers of remote sensing products. The historical production chain ingest most of the time historical input data, but also, if they are not availabel, can ingest NRT input data.
 
-To carry out this objective, we use the same [code architecture](code_organization.md) and scripts (with a different configuration) as the [NRT pipeline](run_nrt_pipeline.md#preamble-and-vocabulary). However, contrary to the NRT pipeline, here, the workload is not divided sequentially, and each step is executed individually.
+To carry out this objective, we use the same [code architecture](code_organization.md) and scripts (with a different configuration) as the [NRT pipeline](run_nrt_pipeline.org#preamble-and-vocabulary). However, contrary to the NRT pipeline, here, the workload is not divided sequentially, and each step is executed individually.
 
 ## Data spaces and file synchronization.
 
-The file spaces are similar to what is described in the [NRT pipeline](run_nrt_pipeline.md#data-spaces-and-file-synchronization). However, as explained in [file synchronization](run_nrt_pipeline.md#data-spaces-and-file-synchronization), synchronization of output files should be done manually.
+The file spaces are similar to what is described in the [NRT pipeline](run_nrt_pipeline.org#data-spaces-and-file-synchronization). However, as explained in [file synchronization](run_nrt_pipeline.md#data-spaces-and-file-synchronization), synchronization of output files should be done manually.
 
 ## Run as a beginner
 
 For a beginner user, we strongly advise to handle a waterYear after another waterYear for a big region, starting by the older waterYear of the record (2001 for MODIS in this project), and not trying to run everything simultaneously. Indeed, the production chain, for SPIReS v2024.1.0, can submit a *minimum* total of more than 280 jobs per year, which makes a minimum of 7,000 jobs for the full MODIS record for the 5 tiles of the big region westernUS in summer 2025. We say minimum, because the jobs can be resubmitted in case of failure.
 
-Beyond these numbers, thanks to the code implementation, the user will only have to supervise (actively) 14 jobs per waterYear, which carry out the monitoring task of all these jobs. As an additional remark, Slurm by default sends an email each time a job ends, more information/suggestions [here](run_nrt_pipeline.md#preamble-and-vocabulary).
+Beyond these numbers, thanks to the code implementation, the user will only have to supervise (actively) 14 jobs per waterYear, which carry out the monitoring task of all these jobs. As an additional remark, Slurm by default sends an email each time a job ends, more information/suggestions [here](run_nrt_pipeline.org#preamble-and-vocabulary).
 
-The entry script to launch submission is `bash/submitHistoric.sh`. This script submits a job to a Slurm cluster, with a submit line including the script `bash/runSubmitter.sh` (see [Run as a beginner for the NRT pipeline](run_nrt_pipeline.md#run_as_a_beginner) and [code interactions](code_organization.md#code_interactions_within_a_submission_to_slurm)). 
+The entry script to launch submission is `bash/submitHistoric.sh`. This script submits a job to a Slurm cluster, with a submit line including the script `bash/runSubmitter.sh` (see [Run as a beginner for the NRT pipeline](run_nrt_pipeline.org#run_as_a_beginner) and [code interactions](code_organization.md#code_interactions_within_a_submission_to_slurm)). 
 
-The historical jobs use the same scripts for each [step](run_nrt_pipeline.md#preamble-and-vocabulary) as for the [NRT jobs](run_nrt_pipeline.md). However, while the NRT pipeline has an automatized sequence of jobs from input to delivery of output data files, the user should follow a different procedure to run the historics:
+The historical jobs use the same scripts for each [step](run_nrt_pipeline.org#preamble-and-vocabulary) as for the [NRT jobs](run_nrt_pipeline.md). However, while the NRT pipeline has an automatized sequence of jobs from input to delivery of output data files, the user should follow a different procedure to run the historics:
 
 1. The user submits each step at a time, according to instructions below,
 2. The user monitors the execution of the step, using [checking log](checking_log.md),
 3. Once the step has been achieved correctly and generated the data files, the user can submit the next step.
-4. Once all steps have been carried out, the user might check some of the output files and, in case of doubt, their content, and then [synchronize to archive](run_nrt_pipeline.md#data-spaces-and-file-synchronization)
+4. Once all steps have been carried out, the user might check some of the output files and, in case of doubt, their content, and then [synchronize to archive](run_nrt_pipeline.org#data-spaces-and-file-synchronization)
 
 In the following, we only present the instructions for point 1., since the other points are documented elsewhere as indicated.
 
 ### Global view of submission (point 1.).
 
-To run a specific step ([list of steps](run_nrt_pipeline.md#steps-and-scriptid)) as asked for in 1., the user first connects to a login node. After `cd` to the root of this project (**IMPORTANT**), the user executes a command such as
+To run a specific step ([list of steps](run_nrt_pipeline.org#steps-and-scriptid)) as asked for in 1., the user first connects to a login node. After `cd` to the root of this project (**IMPORTANT**), the user executes a command such as
 ```bash
 bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment -f $endYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
 ```
@@ -56,7 +56,7 @@ The user notes the job id of the `runSubmitter.sh`, here `20164305` and can foll
 - with the help of [Slurm](https://slurm.schedmd.com/documentation.html) commands `squeue`, `sacct`, `scontrol`,
 - and with the help of the [logs](checking_log.md).
 
-All input files are downloaded to the [user's scratch](run_nrt_pipeline.md#data-spaces-and-file-synchronization) and intermediary and output files are generated in that data space. After the last checks at the end of the process, and except for the remote sensing input files (publicly available), the user can synchronize the files [back to the archive](run_nrt_pipeline.md#runrsync).
+All input files are downloaded to the [user's scratch](run_nrt_pipeline.org#data-spaces-and-file-synchronization) and intermediary and output files are generated in that data space. After the last checks at the end of the process, and except for the remote sensing input files (publicly available), the user can synchronize the files [back to the archive](run_nrt_pipeline.md#runrsync).
 
 
 ### Detailed instructions for submission.**
@@ -106,7 +106,7 @@ Warning: As missing files were noticed in the past, we advise running these 2 se
 Note that for this step, the (historical) input files collected do not need to be synchronized back from the user's scratch to archive, since they are available from a public source.
 
 **More insight to know for job monitoring**
-For this step, the set of jobs submitted for (1) handles the full trimester. Contrastingly, the set of jobs for (2) has 3 subsets of jobs, each of them covering 1 trimester. The common period of run covered by each step and more information is detailed [here](run_nrt_pipeline.md#steps-and-scriptid). So there are a total of 4 subsets of jobs for 1 waterYear.
+For this step, the set of jobs submitted for (1) handles the full trimester. Contrastingly, the set of jobs for (2) has 3 subsets of jobs, each of them covering 1 trimester. The common period of run covered by each step and more information is detailed [here](run_nrt_pipeline.org#steps-and-scriptid). So there are a total of 4 subsets of jobs for 1 waterYear.
 
 At a lower level, the set of jobs submitted for (1) and (2) has as many jobs as the number of individual tiles form the big region. For `westernUS`, there are 5 individual MODIS tiles (as defined in `conf/configuration_of_regionsSpiresV202410.csv`).
 
@@ -221,9 +221,9 @@ optionForLagTimeBetweenSubmissionOfYears=
 bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
 ```
 
-We advise that the intermediary and output files of this production chain be synchronized back [from scratch to archive](run_nrt_pipeline.md#runrsync) only after a final check on the output files, which are for SPIReS v2024.1.0 the files produced at the `daNetCDF, daMosBig, daStatis` steps. [Locations of the files](run_nrt_pipeline.md#data-file-location).
+We advise that the intermediary and output files of this production chain be synchronized back [from scratch to archive](run_nrt_pipeline.org#runrsync) only after a final check on the output files, which are for SPIReS v2024.1.0 the files produced at the `daNetCDF, daMosBig, daStatis` steps. [Locations of the files](run_nrt_pipeline.org#data-file-location).
 
-As said in [Data spaces](run_nrt_pipeline.md#data-spaces), which includes a procedure, it's a good practice for users generating historical data to regularly check their available space and inodes and act if quotas are close being reached.
+As said in [Data spaces](run_nrt_pipeline.org#data-spaces), which includes a procedure, it's a good practice for users generating historical data to regularly check their available space and inodes and act if quotas are close being reached.
 
 
 ## More advanced uses

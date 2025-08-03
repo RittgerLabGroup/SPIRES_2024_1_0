@@ -4,7 +4,7 @@ This page gives information about the ouput NetCDF templates and the generation 
 
 ## Introduction
 
-Every day [the NRT pipeline](run_nrt_pipeline.md) updates the near real-time (NRT) snow today data and the NetCDFs of the ongoing water year. The generation of NetCDFs is done at the step `daNetcdf` ([list of steps](run_nrt_pipeline.md#steps-and-scriptid)) and uses Netcdf templates stored in `template/`. The NetCDFs are then automatically pushed on the operational archive and then (manually) pushed on OneDrive.
+Every day [the NRT pipeline](run_nrt_pipeline.org) updates the near real-time (NRT) snow today data and the NetCDFs of the ongoing water year. The generation of NetCDFs is done at the step `daNetcdf` ([list of steps](run_nrt_pipeline.org#steps-and-scriptid)) and uses Netcdf templates stored in `template/`. The NetCDFs are then automatically pushed on the operational archive and then (manually) pushed on OneDrive.
 
 The NetCDFs generated are Version 4, which uses the HDF5 storage format. They are not Version 4 Classic. They might therefore not be compatible with older software.
 

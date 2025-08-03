@@ -19,7 +19,7 @@ More info on [code organization](code_organization.md)
 
 ## Submission scripts.
 
-The submission scripts [run_nrt_pipeline](run_nrt_pipeline.md) and [run_historic_step](run_historic_step.md) display their info on the shell. If the submission to Slurm is successful, they'll display the jobIds of the monitoring job(s) they submitted to Slurm:
+The submission scripts [run_nrt_pipeline](run_nrt_pipeline.org) and [run_historic_step](run_historic_step.md) display their info on the shell. If the submission to Slurm is successful, they'll display the jobIds of the monitoring job(s) they submitted to Slurm:
 ```
 2024
 Submitted batch job 19647584
