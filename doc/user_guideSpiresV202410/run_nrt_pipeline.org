@@ -7,9 +7,9 @@ This page presents the submission of the daily update of near-real-time (NRT) sn
 [[#run-as-a-beginner][Procedure for a submission in production]].
 [[#run-for-testing][Procedure for a submission as a new user and/or for testing]].
 
-** Preamble and vocabulary.
+** Preamble and vocabulary
 :PROPERTIES:
-:CUSTOM_ID: preamble-and-vocabulary.
+:CUSTOM_ID: preamble-and-vocabulary
 :END:
 The NRT pipeline is a production chain which goal is to generate and deliver output data for a set of big regions. For SPIReS v2024.1.0, there's only one big region: =westernUS=.
 
@@ -53,9 +53,9 @@ Ancillary data are not considered as "data" in this project, but are necessary f
 
 *dataLabels*. Each step takes input data files and provides output data files. To manage the different types of files, we use the notion of dataLabel. Each dataLabel corresponds to a group of files generated for a specific step, a specific configuration, a specific object, and a specific period of time, among others. [[#datalabels][List of dataLabels]]. These dataLabels point to a specific filepath string pattern, which encodes how the directory and filename are determined. [[#data-file-location][List of file locations]].
 
-** Data spaces and file synchronization.
+** Data spaces and file synchronization
 :PROPERTIES:
-:CUSTOM_ID: data-spaces-and-file-synchronization.
+:CUSTOM_ID: data-spaces-and-file-synchronization
 :END:
 *File spaces* are organized in categories: - home: mostly for the bash environment files, including =.bashrc=. - code: code, including scripts and small-size configuration files, and logs. - scratch: I/O operations during Slurm execution are optimized there. But space is limited and files are automatically erased after some time ([[https://curc.readthedocs.io/en/latest/compute/filesystems.html#scratch-filesystems][for CURC officially 90 days]]). - archive: permanent storage space. Spaces for historical data are for data that are not updated once they are archived (except if there is an error), while space for NRT data is for data updated frequently.
 
@@ -83,9 +83,9 @@ For both cases, the synchronization only updates files when the source is more r
 
 For all other cases, such as [[#run-for-testing][testing runs]] or [[file:run_historic_step.org][runs of historics]], automatic rsync are considered too risky and the user needs to synchronize the files using the [[#runrsync][procedure described here]].
 
-** Run as a beginner.
+** Run as a beginner
 :PROPERTIES:
-:CUSTOM_ID: run-as-a-beginner.
+:CUSTOM_ID: run-as-a-beginner
 :END:
 The entry script to launch submission is =bash/submitNrt.sh=. This script submits a job to a Slurm cluster, with a submit line including the script =bash/runSubmitter.sh=. When Slurm starts the job, =runSubmitter.sh= monitors the submission to Slurm of a sequence of secondary, operational jobs to carry out the generation of data and achieve the full run ([[file:code_organization.md#Code-interactions-within-a-submission-to-slurm][code interactions]]).
 
