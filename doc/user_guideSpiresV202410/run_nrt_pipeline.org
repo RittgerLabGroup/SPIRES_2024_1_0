@@ -153,17 +153,22 @@ With that command, the update of the production archive is neutralized (no rsync
 :PROPERTIES:
 :CUSTOM_ID: options-and-argument-for-submitnrt
 :END:
-We already saw that =submitNrt.sh= has 2 obligatory "options": - =-E thisEnvironment=: String, obligatory. E.g. SpiresV202410, Dev. Gives the environment version, to distinguish between different versions of the algorithm used to calculate snow properties. - =-Z pipelineId=: Int, obligatory. E.g. 1. Should refer to a pipelineId defined in =configurationSpiresV202410.sh=.
+We already saw that =submitNrt.sh= has 2 obligatory "options":
++ =-E thisEnvironment=: String, obligatory. E.g. SpiresV202410, Dev. Gives the environment version, to distinguish between different versions of the algorithm used to calculate snow properties.
++ =-Z pipelineId=: Int, obligatory. E.g. 1. Should refer to a pipelineId defined in =configurationSpiresV202410.sh=.
 
 Except for advanced use, the user does not have to change the values for these options. Here =-E SpiresV202410= indicates the code to take first any configuration that was updated specifically for this project. =-Z 1= indicates the code to take the pipeline configuration of pipeline =1= configured in =bash/configurationSpiresV202410=, which is the pipeline using SPIReS v2024.1.0 for the region westernUS.
 
-For testing use, two other options are also used: - =-y archivePath=: String, optional. Default =$espArchiveDirOps= defined in =.bashrc=. Directory path of the archive from which are collected the most up-to-date data of previous days to the scratch of the user, and to which output data are rsync from this scratch. - =-W espWebExportConfId=: Int, optional. Configuration id of the target of the web export server. 0: Prod (default), 1: Integration, 2: QA. So
+For testing use, two other options are also used:
++ =-y archivePath=: String, optional. Default =$espArchiveDirOps= defined in =.bashrc=. Directory path of the archive from which are collected the most up-to-date data of previous days to the scratch of the user, and to which output data are rsync from this scratch.
++ =-W espWebExportConfId=: Int, optional. Configuration id of the target of the web export server. 0: Prod (default), 1: Integration, 2: QA. So
 
 So then, for testing we set =-W 1 -y ${espScratchDir}=, which means that the code will export the data to the integration website and will rsync the data from the user's scratch to the user's scratch, in short it will not do any rsync.
 
 Other optional options are available for various scenarios.
 
-Scenario 1: Imagine the pipeline run broke, and you need to resubmit it. If a part of the steps was correctly executed, you can resubmit the pipeline starting at a step farther in the pipeline than the first step (default). This is done by adding an argument: - =scriptId=: String, optional. Default: First script of the pipeline. Code of the script to start the pipeline with. Should have values in =$pipeLineScriptIds${pipelineId}= defined in =configurationSpiresV202410.sh=.
+Scenario 1: Imagine the pipeline run broke, and you need to resubmit it. If a part of the steps was correctly executed, you can resubmit the pipeline starting at a step farther in the pipeline than the first step (default). This is done by adding an argument:
++ =scriptId=: String, optional. Default: First script of the pipeline. Code of the script to start the pipeline with. Should have values in =$pipeLineScriptIds${pipelineId}= defined in =configurationSpiresV202410.sh=.
 
 For instance, to start at the generation of statistics step:
 
@@ -173,12 +178,14 @@ pipelineId=1
 bash/submitNrt.sh -E $thisEnvironment -Z $pipelineId daStatis
 #+end_src
 
-Scenario 2: If you want only to run one step and not the full pipeline, you can use: - =-U thisStepOnly=: Int, optional. Default: 0, all steps after the script =scriptId= will be executed. 1: only the given step will be executed (=break the pipeline after the step).
+Scenario 2: If you want only to run one step and not the full pipeline, you can use:
++ =-U thisStepOnly=: Int, optional. Default: 0, all steps after the script =scriptId= will be executed. 1: only the given step will be executed (=break the pipeline after the step).
 
-Scenario 3: If you want to lower or increase the Slurm wall-time of the pipeline: - =-T controlTime=: String format 00:00:00, optional. Wall-time of the =runSubmitter.sh= execution, beyond which the monitoring of the pipeline will be stopped. By default, time indicated in =configurationSpiresV202410.sh= for the pipeline, =$pipeLineControlTime1= for =$pipelineId= = 1.
+Scenario 3: If you want to lower or increase the Slurm wall-time of the pipeline:
++ =-T controlTime=: String format 00:00:00, optional. Wall-time of the =runSubmitter.sh= execution, beyond which the monitoring of the pipeline will be stopped. By default, time indicated in =configurationSpiresV202410.sh= for the pipeline, =$pipeLineControlTime1= for =$pipelineId= = 1.
 
-Scenario 4: you want to automatize the launch of the script, for instance using a cron: - =-v verbosity=: Int, optional. Default: 0, all logs, including prompts. 10: all logs,
-but no prompt, the script will execute until the end without waiting for the user's input.
+Scenario 4: you want to automatize the launch of the script, for instance using a cron:
++ =-v verbosity=: Int, optional. Default: 0, all logs, including prompts. 10: all logs, but no prompt, the script will execute until the end without waiting for the user's input.
 
 ** What the script does.
 :PROPERTIES:
@@ -215,13 +222,14 @@ After the user's reply "y", =runSubmitter.sh= job is submitted. Once started, it
 :PROPERTIES:
 :CUSTOM_ID: requirements
 :END:
-- The submission should be done on a login node that can submit jobs to a Slurm cluster (and not directly from a node of the cluster).
 
-- The submission script *must* be executed once the user is at the root of the project.
++ The submission should be done on a login node that can submit jobs to a Slurm cluster (and not directly from a node of the cluster).
 
-- The user needs to have environment variable and alias definition files stored in their home directory: =~/.bashrc=, =~/.netrc=, =env/.matlabEnvironmentVariablesSpiresV202410=.
++ The submission script *must* be executed once the user is at the root of the project.
 
-- For production (= data that have the potential to be published), the log directory should be unique among all users and users should have r/w access to it, see [[file:install.md#Initialize-the-environment-file-bashrc][installation]]
++ The user needs to have environment variable and alias definition files stored in their home directory: =~/.bashrc=, =~/.netrc=, =env/.matlabEnvironmentVariablesSpiresV202410=.
+
++ For production (= data that have the potential to be published), the log directory should be unique among all users and users should have r/w access to it, see [[file:install.md#Initialize-the-environment-file-bashrc][installation]]
 
 ** Previous data generation requirements
 :PROPERTIES:
@@ -229,11 +237,11 @@ After the user's reply "y", =runSubmitter.sh= job is submitted. Once started, it
 :END:
 The pipeline has some expectations over the input and intermediary data available.
 
-- For a water year N (=westernUS=), the =spiFillC= data *must* have been generated starting Sept, N - 1 until date of today - 2 months. For instance, if the date of today = 03/15/2025, the data must have been generated from 09/01/2024 to 01/31/2025.
++ For a water year N (=westernUS=), the =spiFillC= data *must* have been generated starting Sept, N - 1 until date of today - 2 months. For instance, if the date of today = 03/15/2025, the data must have been generated from 09/01/2024 to 01/31/2025.
 
-- The =dailycsv= statistic files of previous years *must* have been generated, for a correct display on the snow-today website.
++ The =dailycsv= statistic files of previous years *must* have been generated, for a correct display on the snow-today website.
 
-- The output =NetCDF= and =dailycsv= files are generated for the full ongoing water year, from 10/1 until the date of today - 1. The geotiffs for the web-app are only generated for the last day.
++ The output =NetCDF= and =dailycsv= files are generated for the full ongoing water year, from 10/1 until the date of today - 1. The geotiffs for the web-app are only generated for the last day.
 
 ** Location of input, intermediary, and output data.
 :PROPERTIES:
@@ -292,7 +300,10 @@ Here are the NRT- and historic-generation steps for SPIReS v2024.1.0:
 | 11   | webExpSn   | Generate and export NRT data to website.                                             | x     |              | waterYear        |                          |
 | ---- | ---------- | ------------------------------------------------------------------------------------ | ----- | ------------ | ---------------- | ------------------------ |
 
-where: - NRT checked indicates if the NRT sequence includes the step, - historical checked indicates if this step should be carry out in the generation of historicals, - the generation period indicates the period over which a single job should be run, each period starting on the 1st day of the month; for NRT, the period is cut to the day before today, except if the job is run after 7:00 pm Denver US time (currently hard-coded because the availability of NRT Modis tiles of the day is most of the time not available before that time).
+where:
++ NRT checked indicates if the NRT sequence includes the step,
++ historical checked indicates if this step should be carry out in the generation of historicals,
++ the generation period indicates the period over which a single job should be run, each period starting on the 1st day of the month; for NRT, the period is cut to the day before today, except if the job is run after 7:00 pm Denver US time (currently hard-coded because the availability of NRT Modis tiles of the day is most of the time not available before that time).
 
 *** Objects, examples.
 :PROPERTIES:
@@ -419,9 +430,15 @@ label=v2024.0d
 bash/submitRSync.sh -B 5 -e 2024 -f 2025 -x $espScratchDir -y $espArchiveDir modis/variables/scagdrfs_mat_${label}/v006/
 #+end_src
 
-where options are: - -B bigRegionId: int, obligatory. Identifying the big region (e.g. 5 for westernUS). Only one big region per run. - -e startYear: int, optional. Smallest year of run, e.g. 2024. If not given, startYear = endYear. - -f endYear: int, obligatory. Highest year of run, of year of run, e.g. 2025. - -x: sourcePath: string, obligatory. Source data space base path. - -y: targetPath: string, obligatory. Target data space base path.
+where options are:
++ =-B bigRegionId=: int, obligatory. Identifying the big region (e.g. 5 for westernUS). Only one big region per run.
++ =-e startYear=: int, optional. Smallest year of run, e.g. 2024. If not given, startYear = endYear.
++ =-f endYear=: int, obligatory. Highest year of run, of year of run, e.g. 2025.
++ =-x: sourcePath=: string, obligatory. Source data space base path.
++ =-y: targetPath=: string, obligatory. Target data space base path.
 
-and argument is - thisFolder: String, obligatory. E.g. 'modis/variables/scagdrfs_mat_v2024.0d/v006/'.
+and argument is
++ =thisFolder=: String, obligatory. E.g. =modis/variables/scagdrfs_mat_v2024.0d/v006/=.
 
 The script asks for confirmation, the user enters 'y' and the jobs are submitted.
 
