@@ -59,7 +59,7 @@ Ancillary data are not considered as "data" in this project, but are necessary f
 :END:
 *File spaces* are organized in categories: - home: mostly for the bash environment files, including =.bashrc=. - code: code, including scripts and small-size configuration files, and logs. - scratch: I/O operations during Slurm execution are optimized there. But space is limited and files are automatically erased after some time ([[https://curc.readthedocs.io/en/latest/compute/filesystems.html#scratch-filesystems][for CURC officially 90 days]]). - archive: permanent storage space. Spaces for historical data are for data that are not updated once they are archived (except if there is an error), while space for NRT data is for data updated frequently.
 
-A good practice for a user is to regularly check the storage space used in the user's scratch space and the authorized quota. This is particularly *IMPORTANT* for the users who [[file:run_historic_step.md][generate historical data]], which can represent a considerable amount of files.
+A good practice for a user is to regularly check the storage space used in the user's scratch space and the authorized quota. This is particularly *IMPORTANT* for the users who [[file:run_historic_step.org][generate historical data]], which can represent a considerable amount of files.
 
 For CU Boulder, this is done by the command =curc-quota= executed on a login node, see [[https://curc.readthedocs.io/en/latest/compute/filesystems.html#monitoring-disk-usage][here]]. Similarly, the user should check the inodes used in the user's scratch space. Each file or directory has an associated inode in a Linux system. While archive space has a lot of margin for the quota of inodes, the scratch space has a limited quota. For CU Boulder, this is done by the command =curc-quota -i=.
 
@@ -81,7 +81,7 @@ For both cases, the synchronization only updates files when the source is more r
 
 *Synchronization in other cases*
 
-For all other cases, such as [[#run-for-testing][testing runs]] or [[file:run_historic_step.md][runs of historics]], automatic rsync are considered too risky and the user needs to synchronize the files using the [[#runrsync][procedure described here]].
+For all other cases, such as [[#run-for-testing][testing runs]] or [[file:run_historic_step.org][runs of historics]], automatic rsync are considered too risky and the user needs to synchronize the files using the [[#runrsync][procedure described here]].
 
 ** Run as a beginner.
 :PROPERTIES:
@@ -89,7 +89,7 @@ For all other cases, such as [[#run-for-testing][testing runs]] or [[file:run_hi
 :END:
 The entry script to launch submission is =bash/submitNrt.sh=. This script submits a job to a Slurm cluster, with a submit line including the script =bash/runSubmitter.sh=. When Slurm starts the job, =runSubmitter.sh= monitors the submission to Slurm of a sequence of secondary, operational jobs to carry out the generation of data and achieve the full run ([[file:code_organization.md#Code-interactions-within-a-submission-to-slurm][code interactions]]).
 
-The near real-time jobs use the same scripts for each step as for the [[file:run_historic_step.md][historic jobs]], with different parameters and in an automatized sequential way, which is not the case for the historics, which are run each step individually.
+The near real-time jobs use the same scripts for each step as for the [[file:run_historic_step.org][historic jobs]], with different parameters and in an automatized sequential way, which is not the case for the historics, which are run each step individually.
 
 To run the full pipeline in */production/*, the user first connects to a login node. After =cd= to the root of this project, the user executes:
 
