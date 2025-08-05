@@ -23,9 +23,9 @@ Each step will generate data for a set of objects, referenced by **objectId** or
 
 For each object to handle, the process launches as many parallel jobs as the number of objects given to the step. This corresponds to 1 job per object, except (1) for the step *daStatis*, for which it combines several objects in the same job, and (2) for the step *spiSmooC* (in SPIReS v2024.1.0), for which it divides the interpolation task into 36 jobs. If the pipeline handles the big region covering 5 tiles, this generates the submission of 5x36=180 parallel jobs, and more if job failure occurs. 
 
-**WaterYearDate**. Each step runs over a [specific period of time](#steps-and-scriptid). To control that period of time, we designed the concept of WaterYearDate. This class allows the code to cover a period knowing (1) the last date of the period, and (2) the month window before this date. For instance, if I want to cover the ongoing WaterYear for the Western US and if today is 2025/07/10, the WaterYearDate will be set to the date of 2025/07/09, with a window of 12 months. The code automatically cuts the period at the start of the waterYear, and the WaterYearDate will cover only the period from 10/01/2024 to 2025/07/09, that is, 10 months, with the last month cut after the 10th day.
+**WaterYearDate**. Each step runs over a [specific period of time](#steps-and-scriptid). To control that period of time, we designed the concept of WaterYearDate. This class allows the code to cover a period knowing (1) the last date of the period, and (2) the month window before this date. For instance, if I want to cover the ongoing WaterYear for the Western US and if today is 2025-07-10, the WaterYearDate will be set to the date of 2025-07-09, with a window of 12 months. The code automatically cuts the period at the start of the waterYear, and the WaterYearDate will cover only the period from 2024-10-01 to 2025-07-09, that is, 10 months, with the last month cut after the 10th day.
 
-**WaterYear**. A water year is the period over which users tend to study the hydrology of snowy watersheds. The concept is designed to be certain that the peak of snow cover and snowmelt is not at the start or the end of the period. For SPIReS v2024.1.0, the water year N is coded to start 10/01/(N-1) and end 30/09/N, for instance, 10/01/2024 to 09/30/2025 for water year 2025.
+**WaterYear**. A water year is the period over which users tend to study the hydrology of snowy watersheds. The concept is designed to be certain that the peak of snow cover and snowmelt is not at the start or the end of the period. For SPIReS v2024.1.0, the water year N is coded to start (N-1)-10-01 and end N-09-30, for instance, 2024-10-01 to 2025-09-30 for water year 2025.
 
 
 **Data, input data, intermediary data, output data, ancillary data**. In the scope of this project, data are discrete spatio-temporal information, either extracted from remote sensors, or calculated with the input of the data from remote sensors. Data can be temporal sequences of rasters for a specific region of the Earth, but also spatio-temporal statistics determined from these rasters, as displayed in the [snow-today website](https://nsidc.org/snow-today/snow-viewer).
@@ -230,7 +230,7 @@ After the user's reply "y", `runSubmitter.sh` job is submitted. Once started, it
 
 The pipeline has some expectations over the input and intermediary data available.
 
-- For a water year N (`westernUS`), the `spiFillC` data **must** have been generated starting Sept, N - 1 until date of today - 2 months. For instance, if the date of today = 03/15/2025, the data must have been generated from 09/01/2024 to 01/31/2025.
+- For a water year N (`westernUS`), the `spiFillC` data **must** have been generated starting Sept, N - 1 until date of today - 2 months. For instance, if the date of today = 2025-03-15, the data must have been generated from 2024-09-01 to 2025-01-31.
 
 - The `dailycsv` statistic files of previous years **must** have been generated, for a correct display on the snow-today website.
 
@@ -238,7 +238,7 @@ The pipeline has some expectations over the input and intermediary data availabl
 
 ## Location of input, intermediary, and output data.
 
-Filepaths are determined in a central way by a dedicated DataManager class, `ESPEnv`. `ESPEnv` also handles I/O operations. Each type of file has a specific label, `dataLabel`. The associated file path pattern is configured in `conf/configuration_of_filepathsSpiresV202410.csv`. And the DataManager transforms this pattern into an actual filepath by replacing the variables contained in the pattern by their value. This notably includes the region or tile, the date, the year, or the wateryear. For instance, respectively `h08v04`, `20250625` for the date `06-25-2025`, `2025`, `WY2025` for waterYear 2025.
+Filepaths are determined in a central way by a dedicated DataManager class, `ESPEnv`. `ESPEnv` also handles I/O operations. Each type of file has a specific label, `dataLabel`. The associated file path pattern is configured in `conf/configuration_of_filepathsSpiresV202410.csv`. And the DataManager transforms this pattern into an actual filepath by replacing the variables contained in the pattern by their value. This notably includes the region or tile, the date, the year, or the wateryear. For instance, respectively `h08v04`, `20250625` for the date `2025-06-25`, `2025`, `WY2025` for waterYear 2025.
 
 For SPIReS v2024.1.0, three steps, `spiFillC`, `spiSmooC`, and `ftpExport` are not handled by `ESPEnv` and the files are hard-coded in the scripts.
 
