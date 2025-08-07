@@ -206,7 +206,7 @@ for thisDate in $theseDates; do
   # Beware because sometimes in the page there are tiles of the day before too!
   #                                                                                @todo
 
-  histDirectoryUrl="https://e4ftl01.cr.usgs.gov/MOLT/MOD09GA.061/$(date -d @"$thisDate" +%Y.%m.%d)/"
+  histDirectoryUrl="https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/MOD09GA.061/$(date -d @"$thisDate" +%Y.%m.%d)/"
   modificationDate=$(date -r /${scratchPath}/modis/input/mod09ga/v006/histUrlList/2024/index_2024085.html +%s)
 
   printf "\nChecking .lock file ${histUrlListDirectoryPath}${histUrlListFileName}.lock and waiting unlock...\n"
@@ -335,7 +335,7 @@ for thisDate in $theseDates; do
           # use .netrc for domain login pwd
       else
          printf "wget -c -t 20 --random-wait --no-proxy --progress=dot:giga --server-response -P ${thisDirectoryPath} ${thisFileUrl}...\n"
-         wgetReturn="A"$(wget -c -t 20 --random-wait --no-proxy --progress=dot:giga --server-response -P ${thisDirectoryPath} ${thisFileUrl} --header "Authorization: Bearer ${nrtDownloadToken}" 2>&1)
+         wgetReturn="A"$(wget -c -t 20 --random-wait --no-proxy --progress=dot:giga --server-response -P ${thisDirectoryPath} ${thisFileUrl} 2>&1)
          # For nrt, need special additional header (doesn't work for historics)
       fi
 
