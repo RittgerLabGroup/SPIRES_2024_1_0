@@ -120,6 +120,7 @@ EOM
 ########################################################################################
 slurmNames=(${slurmName1} ${slurmName2})
 slurmAccounts=(${slurmAccount1} ${slurmAccount2})
+slurmPartitions=(${slurmPartition1} ${slurmPartition2})
 slurmQoss=(${slurmQos1} ${slurmQos2})
 slurmLogDirs=(${espLogDir} ${espLogDir})
   # all these variables are defined in ~.bashrc.
@@ -171,15 +172,15 @@ if [[ -z $thisEnvironment ]]; then
   printf "ERROR: -E thisEnvironment is obligatory (Line ${LINENO}).\n"
   exit 1
 fi
-printf "-E thisEnvironment: ${thisEnvironment}"
-set -x
+printf "%s\n" "-E thisEnvironment: ${thisEnvironment}"
+
 source bash/configuration${thisEnvironment}.sh # include source env/.matlabEnvironmentVariables${thisEnvironment^}
 source bash/toolsRegions.sh
 source bash/toolsWaterYearDate.sh
 
 source bash/configurationForHistorics${thisEnvironment}.sh
   # Step specific parameters for slurm historics.
-set +x
+
 
 # Determine step-specific variables with option -s scriptId.
 ########################################################################################
@@ -198,7 +199,6 @@ sbatchScript=${scriptIdFilePathAssociations[${scriptId}]};
 submitScriptIdJobName=${submitScriptIdJobNames[${scriptIdIdx}]}${bigRegionId};
 scriptIdJobName=${scriptIdJobNames[${scriptIdIdx}]}${bigRegionId};
 
-scriptLabel=${scriptLabels[${scriptIdIdx}]};
 scriptRegionType=${scriptRegionTypes[${scriptIdIdx}]};
 scriptSequence=${scriptSequences[${scriptIdIdx}]};
 scriptSequenceMultiplierToIndice=${scriptSequenceMultiplierToIndices[${scriptIdIdx}]};
@@ -279,7 +279,7 @@ fi
 ########################################################################################
 printf "Determine period (years, conf of months, waterYearDate) options...\n"
 
-$allowedConfOfMonthIds=0,10,11,20,21,30,31,41,51,120,121,130,131
+allowedConfOfMonthIds=0,10,11,20,21,30,31,41,51,120,121,130,131
 if [[ -z $confOfMonthId || $allowedConfOfMonthIds != *"$confOfMonthId"* ]]; then
   printf "ERROR: -C confOfMonthId ${confOfMonthId} is obligatory and should be in the list of allowed values (submitHistoric.sh -h for details) (Line ${LINENO}).\n"
   exit 1
@@ -288,7 +288,7 @@ if [[ $confOfMonthId -ne 0 && ( $endYear != "20"* || ${#endYear} -ne 4 ) ]]; the
   printf "ERROR: -e endYear is obligatory and should be between 2000 and 2099 when -C confOfMonthId ${confOfMonthId} is not 0 (submitHistoric.sh -h for details) (Line ${LINENO}).\n"
   exit 1
 fi
-if [[ $confOfMonthId -eq 0 && ! is_water_year_date_in_the_past "$waterYearDateString" ]]; then 
+if [[ $confOfMonthId -eq 0 && $(is_water_year_date_in_the_past "$waterYearDateString") -ne 1 ]]; then 
   printf "ERROR: -D waterYearDate ${waterYearDate} is obligatory and should be the right format YYYY-MM-DD-MonthWindow, with a date no later than yesterday when -C confOfMonthId = 0 (submitHistoric.sh -h for details) (Line ${LINENO}).\n"
   exit 1
 fi
@@ -313,10 +313,10 @@ fi
 # Options -L, -O inputLabel and outputLabel, -c filterConfId.
 ########################################################################################
 if [[ -z $inputLabel ]]; then
-  inputLabel=${scriptLabels[${scriptIdIdx}]};
+  inputLabel=${scriptInputLabels[${scriptIdIdx}]};
 fi
 if [[ -z $outputLabel && ${scriptIdIdx} -lt $((${#authorizedScriptIds[@]} - 1)) ]]; then
-  outputLabel=${scriptLabels[$((${scriptIdIdx} + 1))]};
+  outputLabel=${scriptOutputLabels[${scriptIdIdx}]};
 elif [[ -z $outputLabel ]]; then
   outputLabel=$inputLabel
 fi
@@ -373,6 +373,10 @@ shift $(($OPTIND - 1))
 ########################################################################################
 printf "Initialize submission...\n"
 ml slurm/${slurmNames[${slurmCluster}]}; slurmAccount=${slurmAccounts[${slurmCluster}]};
+slurmPartition=${slurmPartitions[${slurmCluster}]};
+if [ ! -z $slurmPartition ]; then
+  slurmPartition="--partition=${slurmPartition}"
+fi
 slurmLogDir=${slurmLogDirs[${slurmCluster}]};
 slurmQos=${slurmQoss[${slurmCluster}]};
 
@@ -396,6 +400,10 @@ scratchPath= ${scratchPath}
 archivePath= ${archivePath}
 thisSubmitScriptIdJobName= ${submitScriptIdJobName} + year 2 last digits
 thisScriptIdJobName= ${scriptIdJobName} + year 2 last digits
+slurmCluster= ${slurmNames[${slurmCluster}]}
+slurmAccount= ${slurmAccount}
+slurmPartition= ${slurmPartition}
+slurmQOS= ${slurmQOS}
 slurmLogDir= ${slurmLogDir}
 sbatchExcludeNodes= $sbatchExcludeNodes
 lagTimeBetweenSubmissionOfYears= ${lagTimeBetweenSubmissionOfYears}
@@ -435,7 +443,7 @@ for year in ${years[@]}; do
     thisSubmitLine=to
     read -r -d '' thisSubmitLine << EOM
 sbatch ${scriptExcludeNodes} \
---account=${slurmAccount} --qos=${slurmQos} -o ${slurmOutputPath} \
+--account=${slurmAccount} ${slurmPartition} --qos=${slurmQos} -o ${slurmOutputPath} \
 --job-name=${thisScriptIdJobName} --cpus-per-task=1 --ntasks-per-node=${sbatchNTasksPerNode} \
 --mem=${sbatchMem} --time=${sbatchTime} --array=${objectId} ${sbatchScript} \
 -A ${versionOfAncillary} -c ${filterConfId} -D ${waterYearDate} \
@@ -445,9 +453,9 @@ sbatch ${scriptExcludeNodes} \
 -w ${parallelWorkersNb}
 EOM
 
-    sbatch ${scriptExcludeNodes} --account=${slurmAccount} --qos=${slurmQos} \
+    sbatch ${scriptExcludeNodes} --account=${slurmAccount} ${slurmPartition} --qos=${slurmQos} \
 -o ${slurmLogDir}%x_%a_%A.out --job-name=${thisSubmitScriptIdJobName} --ntasks-per-node=1 \
---mem=1G --time=${controlTime} --array=1 ${sharedScriptRelativeDirectoryPath}runSubmitter.sh "${thisSubmitLine}"
+--mem=1G --time=${controlTime} --array=1 bash/runSubmitter.sh "${thisSubmitLine}"
   done;
   if [[ -z lagTimeBetweenSubmissionOfYears ]]; then
     sleep ${lagTimeBetweenSubmissionOfYears}
