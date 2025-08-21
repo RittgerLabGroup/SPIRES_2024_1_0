@@ -258,15 +258,15 @@ mapfile -t allBigRegionIds < <(awk -F',' '$2 == "bigRegion" && $19 != "" {print 
 # String list of tile object ids associated to all big region ids.
 ########################################################################################
 declare -A regionIdsPerBigRegion
-for bigRegionId in "${allBigRegionIds[@]}"; do
-  # Use awk to filter column 20 by the current bigRegionId,
+for thisBigRegionId in "${allBigRegionIds[@]}"; do
+  # Use awk to filter column 20 by the current thisBigRegionId,
   # extract column 19 values, and join them with commas
   # -F',' sets the field delimiter to comma
-  # -v search_id="$bigRegionId" passes the shell variable to awk
+  # -v search_id="$thisBigRegionId" passes the shell variable to awk
   # '$20 == search_id' filters rows where column 20 equals the search_id
   # '{print $19}' prints the value of column 19
   # The output of awk (newline-separated values) is piped to paste -sd',' to join with commas
-  regionIdsPerBigRegion["$bigRegionId"]=$(awk -F',' -v search_id="$bigRegionId" '$20 == search_id {print $19}' "$regionConfFilePath" | paste -sd',')
+  regionIdsPerBigRegion["$thisBigRegionId"]=$(awk -F',' -v search_id="$thisBigRegionId" '$20 == search_id {print $19}' "$regionConfFilePath" | paste -sd',')
 done
 regionIdsPerBigRegion[0]=0
 
@@ -310,8 +310,8 @@ done
 subdivisionsByRegionString=$(cat ${landSubdivisionConfFilePath} | awk -F, '{ printf sep "" $8 ":" $2 ":" $12 ";\n" }' | grep -E "^[^:].*" | grep -E "\:[^0];" | tail -n +3)
 
 declare -A countOfSubdivisionsPerBigRegion
-for bigRegionId in {1..10}; do
-  countOfSubdivisionsPerBigRegion[${bigRegionId}]=$(printf "${subdivisionsByRegionString}" | grep -E "^"${bigRegionId}"\:" | wc -l)
+for thisBigRegionId in {1..10}; do
+  countOfSubdivisionsPerBigRegion[${thisBigRegionId}]=$(printf "${subdivisionsByRegionString}" | grep -E "^"${thisBigRegionId}"\:" | wc -l)
 done
 
 #cat ${landSubdivisionConfFilePath} | awk -F, '{ printf sep "bigRegionForSubdivision[" $2 "]=" $8 ";\n" }' | grep -v "=;" | tail -n +3
