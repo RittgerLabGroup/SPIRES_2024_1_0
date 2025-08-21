@@ -37,7 +37,12 @@ is_valid_water_year_date(){
   # ------
   # - isValidWaterYearDate: Int, 1 if valid, 0 if invalid.
   thisWaterYearDateString="$1"
-  [[ is_valid_date "${waterYearDateString:0:-2}" && "${waterYearDateString: -2}" =~ ^[0-9]+$ ]] && "${waterYearDateString: -2}" -ge 0 && "${waterYearDateString: -2}" -le 12 ]] && echo 1 || echo 0
+  waterYearDateArray=(${waterYearDateString//-/ })
+  thisYear=${waterYearDateArray[0]}
+  thisMonth=${waterYearDateArray[1]}
+  thisDay=${waterYearDateArray[2]}
+  monthWindow=${waterYearDateArray[3]}
+  [[ $(is_valid_date "${thisYear}-${thisMonth}-${thisDay}") -eq 1 && "${monthWindow}" =~ ^[0-9]+$ && "${monthWindow}" -ge 0 && "${monthWindow}" -le 12 ]] && echo 1 || echo 0
 }
 
 is_water_year_date_in_the_past(){
@@ -51,5 +56,9 @@ is_water_year_date_in_the_past(){
   # ------
   # - isWaterYearDateInThePast: Int, 1 if in the past, 0 if today or in the future.
   thisWaterYearDateString="$1"
-  [[ is_valid_water_year_date "${waterYearDateString}" && "${waterYearDateString:0:-2}" -lt $(date +%Y%m%d) ]] && echo 1 || echo 0
+  waterYearDateArray=(${waterYearDateString//-/ })
+  thisYear=${waterYearDateArray[0]}
+  thisMonth=${waterYearDateArray[1]}
+  thisDay=${waterYearDateArray[2]}
+  [[ $(is_valid_water_year_date "${thisWaterYearDateString}") -eq 1 && ! "${thisYear}-${thisMonth}-${thisDay}" > $(date +%Y%m%d) ]] && echo 1 || echo 0
 }
