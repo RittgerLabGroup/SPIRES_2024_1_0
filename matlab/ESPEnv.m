@@ -3016,8 +3016,11 @@ classdef ESPEnv < handle
             % last edit date.
             %---------------------------------------------------------------------------
             tmpFiles = struct2table(dir(filePath));
-            tmpFiles = sortrows(tmpFiles(tmpFiles.isdir == 0, :), 'datenum', ...
+            tmpFiles = sortrows(tmpFiles(tmpFiles.isdir == 0, :), 'name', ...
                 'descend');
+                % Name should include DAAC timestamp generation. Initially filter was
+                % 'datenum', but create some issues when NRT file is retrieved after
+                % historical/science file.
              
             if ~isempty(tmpFiles)
                 filePath = table2cell(rowfun(@(x, y) fullfile(x, y), tmpFiles, ...
