@@ -45,30 +45,30 @@ while getopts ${thisGepOptsString} opt; do
 done
 
 # Check thisEnvironment value.
-[[ -z $thisEnvironment || $valuesForThisEnvironment = *"$thisEnvironment"* ]] || error_exit "Exit=1, matlab=no, unauthorized thisEnvironment=${thisEnvironment}."
+[[ -z $thisEnvironment || $valuesForThisEnvironment = *"$thisEnvironment"* ]] || echo "Exit=1, matlab=no, unauthorized thisEnvironment=${thisEnvironment}."
 
 # Loading configuration and parameters.
 if [[ -z $thisEnvironment ]]; then
   thisEnvironment=SpiresV202410;
     # By default we set the environment to the one in production for Snow-Today NRT.
   thatFilePath=bash/configuration.sh
-  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || echo "Exit=1, matlab=no, inexisting ${thatFilePath}."
 else
   thatFilePath=bash/configuration${thisEnvironment}.sh
     # also include the specific env/.matlabEnvironmentVariablesV.
-  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || echo "Exit=1, matlab=no, inexisting ${thatFilePath}."
 fi
 if [[ -z "$matlabPathForThisProject" ]]; then
   matlabPathForThisProject=${thisEspProjectDir}matlab${thisEnvironment}/
   thatFilePath=matlabPathForThisProject
-  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || echo "Exit=1, matlab=no, inexisting ${thatFilePath}."
 fi
 
 export thisEnvironment="$thisEnvironment";
   # For matlab.
 
 thatFilePath=bash/toolsJobs.sh
-  [ -f "$thatFilePath" ] && source "$thatFilePath" || error_exit "Exit=1, matlab=no, inexisting ${thatFilePath}."
+  [ -f "$thatFilePath" ] && source "$thatFilePath" || echo "Exit=1, matlab=no, inexisting ${thatFilePath}."
 # We also source bash/toolsRegions.sh below.
 
 ########################################################################################
