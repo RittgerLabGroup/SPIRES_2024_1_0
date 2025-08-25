@@ -7,7 +7,7 @@
 # defaultBigRegionId=5
 defaultControlTime=23:59:00
 defaultInputProductAndVersion="mod09ga.061"
-authorizedScriptIds=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daStatis)
+authorizedScriptIds=(mod09ga mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daStatis)
 : '
   - mod09gaI: Download mod09ga.
   - spiFillC: Generate intermediary gap files from mod09ga input using SPIReS spectral
