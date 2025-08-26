@@ -121,7 +121,7 @@ function downloadTileFromDaacURLToLocal() {
     localDirectoryPath=$3
 
     if [ ! -d "$localDirectoryPath" ]; then
-        mkdir -p "$thisDirlocalDirectoryPathectoryPath"
+        mkdir -p "$localDirectoryPath"
     fi
     # Loop through each filename matching the pattern
     curl -b ~/.urs_cookies -L -n "$remoteDirectoryUrl" | \
