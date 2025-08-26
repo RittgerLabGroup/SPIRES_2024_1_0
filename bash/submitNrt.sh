@@ -101,6 +101,7 @@ shift $(($OPTIND - 1))
 
 # External configuration setting.
 ########################################################################################
+export thisEnvironment=${thisEnvironment}
 printf "Load bash/configuration${thisEnvironment}.sh...\n"
 source bash/configuration${thisEnvironment}.sh # include source env/.matlabEnvironmentVariables${thisEnvironment^}
 printf "Load bash/toolsRegions.sh...\n"
@@ -185,13 +186,13 @@ exclude="";
 ########################################################################################
 
 indexInScriptConfigurations=$(echo ${pipeLineScriptIds[@]/${scriptId}//} | cut -d/ -f1 | wc -w | tr -d ' ')
-stepId=$((( $indexInScriptConfigurations + 1)))
-inputLabel=${pipeLineLabels[${indexInScriptConfigurations}]}
-outputLabel=$inputLabel
-indexOfPreLastScript=$((( ${#pipeLineScriptIds[@]} - 1 )))
-if [[ $indexInScriptConfigurations -lt $indexOfPreLastScript && $scriptId != mod09gaI ]]; then
-  outputLabel=${pipeLineLabels[ (( $indexInScriptConfigurations + 1 )) ]}
+
+if [ ${indexInScriptConfigurations} -gt 0 ]; then
+  inputLabel=${pipeLineLabels[$(( ${indexInScriptConfigurations} - 1 ))]}
+else
+  inputLabel=${pipeLineLabels[${indexInScriptConfigurations}]}
 fi
+outputLabel=${pipeLineLabels[${indexInScriptConfigurations}]}
 
 scriptPath=${scriptIdFilePathAssociations[${scriptId}]}
 scriptRegionType=${pipeLineRegionTypes[${indexInScriptConfigurations}]}
