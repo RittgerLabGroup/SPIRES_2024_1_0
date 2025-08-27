@@ -128,7 +128,7 @@ thisEnvironment=SpiresV202410
 optionForEndYear="-f 2023"
 scriptId=spiFillC
 optionForLagTimeBetweenSubmissionOfYears=
-bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears=
+bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
 ```
 
 And 30 minutes later:
