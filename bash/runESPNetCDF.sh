@@ -1,55 +1,10 @@
 #!/bin/bash
 #
-# generate the NetCDF from the mosaic tile .mat files for a tile and a waterYearDate.
+# generate the output NetCDFs from  for a tile and a waterYearDate.
+# Read bash/configurationForHelp.sh for all options and arguments.
 #
-# For 1 tile 1 year, runs in 2-6 mins on 2 cores - 8G
-#
-# Arguments:
-#
-#SBATCH --job-name netcd
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=2
-#SBATCH --time 00:15:00
-#SBATCH --mail-type END,FAIL,INVALID_DEPEND,TIME_LIMIT,REQUEUE,STAGE_OUT
-#SBATCH --array=2023
-#   List of years of the waterYeardates until which we want the generation done.
-#   E.g. if we want generation for oct to dec 2019, should be 2019.
-#       if we want generation for oct to sept 2020, should be 2020.
-
-# Functions.
-#---------------------------------------------------------------------------------------
-usage() {
-    echo "" 1>&2
-    echo "Usage: ${PROGNAME} [-A LABEL_ANCILLARY] [-h] [-L LABEL] " 1>&2
-    echo "  [-O outputLabel] [-x scratchPath] REGIONNAME MONTH DAY MONTHWINDOW" 1>&2
-    echo "  Job array to update REGIONNAME daily variable files for a set of water years" 1>&2
-    echo "Options: "  1>&2
-    echo "  -A LABEL_ANCILLARY: string with version of ancillary data" 1>&2
-    echo "     e.g. for operational processing, use -A v3.1 for westernUS " 1>&2
-    echo "     or -A v3.2 for USAlaska" 1>&2
-    echo "  -h: display help message and exit" 1>&2
-    echo "  -L LABEL: string with version label for directories" 1>&2
-    echo "     e.g. for operational processing, use -L v2023.x" 1>&2
-    echo "  -O outputLabel: string with version label for output files" 1>&2
-    echo "     If -O not precised, LABEL is used for both input and output files" 1>&2
-    echo "  -x scratchPath: string indicating where is the scratch, where are " 1>&2
-    echo "     temporarily input and ouput files, and permanently the logs. " 1>&2
-    echo "Arguments: " 1>&2
-    echo "  REGIONNAME : regionName " 1>&2
-    echo "  MONTH : Month of waterYearDate (stop date month). E.g. 9" 1>&2
-    echo "  DAY : Day of waterYearDate (stop date day). E.g. 30" 1>&2
-    echo "  MONTHWINDOW : Period of calculation in months. E.g 12" 1>&2
-    echo "Output: " 1>&2
-    echo "  Output location is controlled in Matlab scripts and -L LABEL" 1>&2
-    echo "Notes: " 1>&2
-    echo "  Scripts stdout/stderr are written to user's scratch " 1>&2
-    echo "  where directory /scratch/alpine/$USER/slurm_out/ " 1>&2
-    echo "  is assumed to exist" 1>&2
-    echo "  When calling with sbatch, set --job-name=upMos" 1>&2
-    echo "  When calling with sbatch, set --array=yStart-yStop" 1>&2
-    echo "  Run this script on the tiles before" 1>&2
-    echo "    running it on big Regions (such as westernUS)." 1>&2
-}
+#SBATCH --export=NONE
+#SBATCH --mail-type=FAIL,INVALID_DEPEND,TIME_LIMIT,REQUEUE,ARRAY_TASKS
 
 export SLURM_EXPORT_ENV=ALL
 

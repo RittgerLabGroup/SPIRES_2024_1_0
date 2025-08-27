@@ -4,7 +4,6 @@
 #
 # Read bash/configurationForHelp.sh for all options and arguments.
 #
-#SBATCH --constraint=spsc
 #SBATCH --export=NONE
 #SBATCH --mail-type=FAIL,INVALID_DEPEND,TIME_LIMIT,REQUEUE,ARRAY_TASKS
 
