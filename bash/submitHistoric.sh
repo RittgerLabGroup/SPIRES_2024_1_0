@@ -403,7 +403,7 @@ thisScriptIdJobName= ${scriptIdJobName} + year 2 last digits
 slurmCluster= ${slurmNames[${slurmCluster}]}
 slurmAccount= ${slurmAccount}
 slurmPartition= ${slurmPartition}
-slurmQOS= ${slurmQos}
+slurmQos= ${slurmQos}
 slurmLogDir= ${slurmLogDir}
 sbatchExcludeNodes= $sbatchExcludeNodes
 lagTimeBetweenSubmissionOfYears= ${lagTimeBetweenSubmissionOfYears}
@@ -448,7 +448,7 @@ sbatch ${scriptExcludeNodes} \
 --mem=${sbatchMem} --time=${sbatchTime} --array=${objectId} ${sbatchScript} \
 -A ${versionOfAncillary} -c ${filterConfId} -D ${waterYearDate} \
 -E ${thisEnvironment} -L ${inputLabel} \
--M 0 -O ${outputLabel} -p ${inputProductAndVersion} -Q ${countOfCells} \
+-M ${thisMode} -O ${outputLabel} -p ${inputProductAndVersion} -Q ${countOfCells} \
 -x ${scratchPath} -y ${archivePath} \
 -w ${parallelWorkersNb}
 EOM
