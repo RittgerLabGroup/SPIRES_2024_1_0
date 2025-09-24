@@ -24,7 +24,7 @@ authorizedScriptIds=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMos
 submitScriptIdJobNames=(sMod sSFi sSSm sMoS sScd sNet sMoB sSta)
 scriptIdJobNames=(mod0 sFil sSmo moSp scdI netC moBi stat)
 scriptInputLabels=(v061 v061 v2024.0d v2024.0d v2024.0d v2024.1.0 v2024.0d v2024.0d)
-scriptOutputLabels=(v061 v2024.0d v2024.0d v2024.0d v2024.1.0 v2024.0d v2024.0d v2024.0d)
+scriptOutputLabels=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
 scriptModes=(0 0 0 0 0 0 0 1)
 scriptRegionTypes=(0 0 0 0 0 0 1 1)
   # 0: tile, 1: big region, 10: all regions.
