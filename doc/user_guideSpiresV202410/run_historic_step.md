@@ -154,7 +154,7 @@ confOfMonthId=0
 optionForWaterYearDateString="-D 2024-09-30-12"
 thisEnvironment=SpiresV202410
 optionForEndYear=""
-scriptId=spiFillC
+scriptId=spiSmooC
 optionForLagTimeBetweenSubmissionOfYears=
 bash/submitHistoric.sh -B $bigRegionId -C $confOfMonthId $optionForWaterYearDateString -E $thisEnvironment $optionForEndYear -s $scriptId $optionForLagTimeBetweenSubmissionOfYears
 ```
