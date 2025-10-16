@@ -34,6 +34,6 @@ scriptParallelWorkersNbs=(0 18 10 10 0 2 6 0)
 
 # sbatch parameters
 sbatchNTasksPerNodes=(1 18 10 10 5 2 6 1)
-sbatchMems=(1G 140G 30G 40G 30G 5G 30G 8G)
+sbatchMems=(1G 140G 30G 40G 40G 5G 30G 8G)
 sbatchTimes=(02:00:00 04:00:00 02:30:00 00:30:00 00:20:00 00:30:00 00:40:00 04:00:00)
 # for: 3-months 3-months 12-months(wateryear) 12-months(wateryear) 12-months(wateryear) 12-months(wateryear) 12-months(wateryear) 12-months(wateryear)
