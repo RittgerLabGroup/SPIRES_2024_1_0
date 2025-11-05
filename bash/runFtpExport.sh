@@ -52,7 +52,7 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
   sourceBasePaths=(
   modis/intermediary/spiresfill_${inputLabel}/v006/ 
   modis/variables/scagdrfs_mat_${inputLabel}/v006/ 
-  output/mod09ga.061/spires/${outputLabel}/netcdf/ 
+  output/mod09ga.061/spires/${thisOutputLabe}/netcdf/ 
   modis/variables/scagdrfs_geotiff_${inputLabel}/v006/ 
   modis/regional_stats/scagdrfs_csv_${inputLabel}/v006/ 
   modis/subdivisionstats/scagdrfs_aggregcsv_${inputLabel}/v006/
@@ -67,8 +67,8 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
   targetBasePaths=(
   modis/intermediary/spiresfill_${inputLabel}/v006/ 
   output/mod09ga.061/spires/${thisOutputLabel}/mat/ 
-  output/mod09ga.061/spires/${outputLabel}/netcdf/ 
-  output/mod09ga.061/spires/${outputLabel}/tif_EPSG3857/ 
+  output/mod09ga.061/spires/${thisOutputLabel}/netcdf/ 
+  output/mod09ga.061/spires/${thisOutputLabel}/tif_EPSG3857/ 
   output/mod09ga.061/spires/${outputLabel}/csv/ 
   output/mod09ga.061/spires/${outputLabel}/aggregcsv/
   )
