@@ -70,7 +70,7 @@ with [output netcdf specifities](doc/user_guideSpiresV202410/output_netcdf.md)
  - Code contributors (alphabetic order):
   - Edward Bair https://github.com/edwardbair
   - Jeff Dozier https://github.com/DozierJeff
-  - Karl Rittger https://github.com/RittgerLabGroup,
+  - Karl Rittger https://github.com/krittger and https://github.com/RittgerLabGroup,
   - Ken Mankoff https://github.com/mankoff
   - Mary Jo Brodzik https://github.com/mjbrodzik
   - Ross Palomaki https://github.com/rpalomaki
