@@ -69,14 +69,15 @@ if [[ $inputLabel == 'v2024.0d' ]]; then
   output/mod09ga.061/spires/${thisOutputLabel}/mat/ 
   output/mod09ga.061/spires/${thisOutputLabel}/netcdf/ 
   output/mod09ga.061/spires/${thisOutputLabel}/tif_EPSG3857/ 
-  output/mod09ga.061/spires/${outputLabel}/csv/ 
-  output/mod09ga.061/spires/${outputLabel}/aggregcsv/
+  output/mod09ga.061/spires/${thisOutputLabel}/csv/ 
+  output/mod09ga.061/spires/${thisOutputLabel}/aggregcsv/
   )
   isAll=(
   0
   0
   0
   0
+  1
   1
   )
 else
