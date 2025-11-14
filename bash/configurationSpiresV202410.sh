@@ -21,6 +21,7 @@ scriptIdFilePathAssociations[daGeoBig]="./bash/runUpdateGeotiffBigRegion.sh"
 scriptIdFilePathAssociations[daStatis]="./bash/runUpdateDailyStatistics.sh"
 scriptIdFilePathAssociations[webExpSn]="./bash/runWebExportSnowToday.sh"
 scriptIdFilePathAssociations[ftpExpor]="./bash/runFtpExport.sh"
+scriptIdFilePathAssociations[rSynchro]="./bash/runRsync.sh"
 
 ########################################################################################
 # Versions of ancillary data.
