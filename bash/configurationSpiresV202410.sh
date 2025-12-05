@@ -1,3 +1,4 @@
+
 #!/bin/bash
 #
 # Initialize all configuration parameters, including versions of files.
@@ -84,7 +85,7 @@ pipeLineVersionOfAncillary1=v3.1
 pipeLineInputProductAndVersion1=mod09ga.061
 pipeLineControlScriptId1=stnr2410
 pipeLineControlTime1=11:30:00
-pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daGeoBig daStatis ftpExpor webExpSn)
+pipeLineScriptIds1=(mod09gaI spiFillC spiSmooC moSpires scdInCub daNetCDF daMosBig daGeoBig daStatis ftpExpor)
 pipeLineLabels1=(v061 v2024.0d v2024.0d v2024.0d v2024.0d v2024.1.0 v2024.0d v2024.0d v2024.0d v2024.0d v2024.0d)
 pipeLineRegionTypes1=(0 0 0 0 0 0 1 1 1 1 10)
   # 0: tile, 1: big region, 10: all regions.
