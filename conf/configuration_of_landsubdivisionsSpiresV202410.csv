@@ -737,7 +737,7 @@ Rota Island-Tinian Island-Saipan Island,13403,huc6,HUC220201,,,,,,,,0,0,,,,,,,,,
 Guam,13404,huc6,HUC220100,,,,,,,,0,0,,,,,,,,,Guam,13404,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,
-Western United States,26000,groupadm0,USWest,westernUS,1,westernUS,5,0,0.98,1,2,1,EPSG:3857,,,,,,,,westernUS,26000,,v2024.0d,
+Western United States,26000,groupadm0,USWest,westernUS,1,westernUS,5,0,0.98,1,2,1,EPSG:3857,,,,,,,,westernUS,26000,,v2024.0d,v2024.0d
 ,,,,,,,,,,,,,,,,,,,,,,,,,
 "Beware, 30001 and above ids are reserved for landsat pathrows.",,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,
